@@ -930,9 +930,15 @@ export default function MapScreen() {
         </>
       )}
 
-      {/* Non-map Tabs Placeholder Screen overlays */}
+      {/* Non-map Tabs Overlay Screens */}
       {activeTab !== "kart" && (
-        <View style={flattenStyle([styles.placeholderContainer, { backgroundColor: isDark ? "#030712" : "#F9FAFB" }])}>
+        <View 
+          style={flattenStyle([
+            styles.placeholderContainer, 
+            // Only show background for non-feed tabs
+            activeTab !== "feed" ? { backgroundColor: isDark ? "#030712" : "#F9FAFB" } : null
+          ])}
+        >
           {activeTab === "feed" ? (
             <View style={{ flex: 1, width: '100%' }}>
               <PeakFeed />
@@ -1455,7 +1461,7 @@ const styles = StyleSheet.create({
   },
   placeholderContainer: {
     position: "absolute",
-    top: Platform.OS === "ios" ? 105 : 95,
+    top: Platform.OS === "ios" ? 115 : 105,
     bottom: 0,
     left: 0,
     right: 0,
