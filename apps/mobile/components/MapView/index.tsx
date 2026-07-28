@@ -44,7 +44,12 @@ import Constants from "expo-constants";
 
 const isMapboxAvailable = (() => {
   if (Platform.OS === "web") return false;
-  return !!UIManager.getViewManagerConfig?.("RNMBXMapView");
+  try {
+    // Checks if the native Mapbox view manager is actually compiled into the app
+    return !!UIManager.getViewManagerConfig?.("RNMBXMapView");
+  } catch (e) {
+    return false;
+  }
 })();
 
 let Mapbox: any = null;
@@ -93,6 +98,19 @@ export default function MapScreen() {
   
   // Map settings
   const [mapType, setMapType] = useState<"standard" | "satellite" | "terrain" | "norgeskart" | "satellite2">("satellite");
+
+  const isMapboxLayer = mapType === "standard" || mapType === "satellite" || mapType === "satellite2" || mapType === "terrain";
+
+  const mapboxStyleURL = React.useMemo(() => {
+    switch(mapType) {
+      case "standard": return "mapbox://styles/mapbox/streets-v12";
+      case "satellite": return "mapbox://styles/mapbox/satellite-streets-v12";
+      case "satellite2": return "mapbox://styles/mapbox/satellite-v9";
+      case "terrain": return "mapbox://styles/mapbox/outdoors-v12";
+      default: return "mapbox://styles/mapbox/streets-v12";
+    }
+  }, [mapType]);
+
   const [is3DEnabled, setIs3DEnabled] = useState(true);
   const [showLayerMenu, setShowLayerMenu] = useState(false);
 
@@ -146,6 +164,8 @@ export default function MapScreen() {
   useEffect(() => {
     loadPeaks();
   }, []);
+
+  const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken || process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN;
 
   const themeClasses = {
     text: isDark ? "text-typography-50" : "text-typography-950",
@@ -290,10 +310,22 @@ export default function MapScreen() {
 
   return (
     <View style={styles.container}>
-      {isMapboxAvailable && (mapType === "terrain" || mapType === "satellite2") ? (
+      {/* Warning banner if Terrain is selected but native Mapbox is missing */}
+      {mapType === "terrain" && !isMapboxAvailable && (
+        <View style={styles.mapboxWarningBanner}>
+          <HStack style={{ alignItems: "center", gap: 8 }}>
+            <Info size={16} color="#D97706" />
+            <Text style={styles.mapboxWarningText}>
+              3D Terreng krever en ny development build (eas build). Viser satellitt-fallback.
+            </Text>
+          </HStack>
+        </View>
+      )}
+
+      {isMapboxAvailable && isMapboxLayer ? (
         <MapboxMapView
           style={styles.map}
-          styleURL={mapType === "satellite2" ? "mapbox://styles/mapbox/satellite-v9" : "mapbox://styles/mapbox/outdoors-v12"}
+          styleURL={mapboxStyleURL}
           maxPitch={85}
           pitchEnabled={true}
           rotateEnabled={true}
@@ -370,10 +402,14 @@ export default function MapScreen() {
             maxPitch: 90,
           } as any)}
         >
-          {mapType === "satellite2" && (
+          {(mapType === "standard" || mapType === "satellite" || mapType === "satellite2") && mapboxToken && (
             <UrlTile
-              key="mapbox-satellite-tile"
-              urlTemplate="https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}.png?access_token={accessToken}"
+              key={`mapbox-fallback-${mapType}`}
+              urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/${
+                mapType === "standard" ? "streets-v12" : 
+                mapType === "satellite" ? "satellite-streets-v12" : 
+                "satellite-v9"
+              }/tiles/256/{z}/{x}/{y}@2x?access_token=${mapboxToken}`}
               tileSize={256}
               maximumZ={19}
               zIndex={98}
@@ -412,18 +448,6 @@ export default function MapScreen() {
             </Marker>
           ))}
         </MapView>
-      )}
-
-      {/* Mapbox Warning Banner when terrain is selected in non-supported builds */}
-      {mapType === "terrain" && !isMapboxAvailable && (
-        <View style={styles.mapboxWarningBanner}>
-          <HStack style={{ alignItems: "center", gap: 8 }}>
-            <Info size={16} color="#D97706" />
-            <Text style={styles.mapboxWarningText}>
-              3D Terreng krever en utviklingsbygg. Viser satellitt-fallback.
-            </Text>
-          </HStack>
-        </View>
       )}
 
       {/* Top Tabs Overlay */}
