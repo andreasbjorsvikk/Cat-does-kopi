@@ -61,6 +61,9 @@ import {
 } from "@/services/peakCheckinService";
 import { PeakFeed } from "../PeakFeed";
 import { ChildCheckinSheet } from "../ChildCheckinSheet";
+import { PeaksList } from "../PeaksList";
+import { fetchBoundary } from "@/services/boundaryService";
+import KOMMUNER_DATA from "@/data/kommuner.json";
 
 let Mapbox: any = null;
 let MapboxMapView: any = null;
@@ -94,6 +97,22 @@ const TABS = [
   { id: "ar", label: "AR", icon: Sparkles },
 ] as const;
 
+const FYLKE_PALETTE = [
+  { fill: "hsla(152,65%,40%,0.30)", outline: "hsla(152,65%,35%,0.75)" },
+  { fill: "hsla(210,70%,50%,0.25)", outline: "hsla(210,70%,45%,0.65)" },
+  { fill: "hsla(330,65%,45%,0.28)", outline: "hsla(330,65%,40%,0.70)" },
+  { fill: "hsla(24,80%,45%,0.32)", outline: "hsla(24,80%,40%,0.75)" },
+  { fill: "hsla(275,60%,45%,0.30)", outline: "hsla(275,60%,40%,0.72)" },
+  { fill: "hsla(185,75%,35%,0.28)", outline: "hsla(185,75%,30%,0.68)" },
+  { fill: "hsla(45,85%,40%,0.30)", outline: "hsla(45,85%,35%,0.75)" },
+  { fill: "hsla(80,60%,40%,0.32)", outline: "hsla(80,60%,35%,0.78)" },
+];
+
+const KOMMUNE_PALETTE = FYLKE_PALETTE.map(p => ({
+  ...p,
+  fill: p.fill.replace("0.30)", "0.32)").replace("0.25)", "0.32)").replace("0.28)", "0.32)").replace("0.32)", "0.35)")
+}));
+
 export default function MapScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
@@ -119,6 +138,89 @@ export default function MapScreen() {
   
   // Map settings
   const [mapType, setMapType] = useState<"satellite" | "terrain" | "norgeskart" | "satellite2">("satellite");
+  const [areaStatsMode, setAreaStatsMode] = useState<'off' | 'kommune' | 'fylke'>('off');
+  const [areaBoundaries, setAreaBoundaries] = useState<Record<string, any>>({});
+  const [currentZoom, setCurrentZoom] = useState(12);
+
+  const areaStats = React.useMemo(() => {
+    if (areaStatsMode === 'off') return [];
+
+    const statsMap: Record<string, { 
+      name: string, 
+      total: number, 
+      checked: number, 
+      sumLat: number, 
+      sumLng: number,
+      id: string 
+    }> = {};
+
+    peaks.forEach(peak => {
+      const areaName = areaStatsMode === 'fylke' ? peak.county : peak.municipality;
+      if (!areaName || areaName === "Ukjent") return;
+
+      if (!statsMap[areaName]) {
+        let areaId = "";
+        if (areaStatsMode === 'fylke') {
+          const matchingKommune = (KOMMUNER_DATA as any[]).find(k => k.fylke === areaName);
+          areaId = matchingKommune?.fylkesnummer || "";
+        } else {
+          const matchingKommune = (KOMMUNER_DATA as any[]).find(k => k.name === areaName);
+          areaId = matchingKommune?.id || "";
+        }
+
+        if (!areaId) return;
+
+        statsMap[areaName] = {
+          name: areaName,
+          total: 0,
+          checked: 0,
+          sumLat: 0,
+          sumLng: 0,
+          id: areaId
+        };
+      }
+
+      statsMap[areaName].total++;
+      if (checkedPeakIds.has(peak.id)) {
+        statsMap[areaName].checked++;
+      }
+      statsMap[areaName].sumLat += peak.latitude;
+      statsMap[areaName].sumLng += peak.longitude;
+    });
+
+    return Object.values(statsMap).map((stat, index) => ({
+      ...stat,
+      avgLat: stat.sumLat / stat.total,
+      avgLng: stat.sumLng / stat.total,
+      percent: Math.round((stat.checked / stat.total) * 100),
+      paletteIndex: index % 8
+    }));
+  }, [peaks, checkedPeakIds, areaStatsMode]);
+
+  useEffect(() => {
+    if (areaStatsMode === 'off') return;
+
+    const loadBoundaries = async () => {
+      const newBoundaries: Record<string, any> = { ...areaBoundaries };
+      let changed = false;
+
+      for (const stat of areaStats) {
+        if (!newBoundaries[stat.id]) {
+          const data = await fetchBoundary(areaStatsMode, stat.id);
+          if (data) {
+            newBoundaries[stat.id] = data;
+            changed = true;
+          }
+        }
+      }
+
+      if (changed) {
+        setAreaBoundaries(newBoundaries);
+      }
+    };
+
+    loadBoundaries();
+  }, [areaStats, areaStatsMode]);
 
   const isMapboxLayer = mapType === "satellite" || mapType === "satellite2" || mapType === "terrain" || mapType === "norgeskart";
 
@@ -584,8 +686,18 @@ export default function MapScreen() {
     }
   };
 
+  const handleMapboxCameraChanged = (state: any) => {
+    if (state?.properties?.zoom) {
+      setCurrentZoom(state.properties.zoom);
+    }
+  };
+
   const handleRegionChangeComplete = async (currentRegion: any, details: any) => {
     setRegion(currentRegion);
+
+    // Approximate zoom from latitudeDelta
+    const zoom = Math.log2(360 / currentRegion.latitudeDelta);
+    setCurrentZoom(zoom);
 
     if (!mapRef.current || isAdjustingCamera.current) return;
 
@@ -642,7 +754,69 @@ export default function MapScreen() {
           attributionEnabled={false}
           onLongPress={handleMapboxLongPress}
           onDidFinishLoadingStyle={handleDidFinishLoadingStyle}
+          onCameraChanged={handleMapboxCameraChanged}
         >
+          {areaStatsMode !== 'off' && areaStats.map((stat) => {
+            const boundary = areaBoundaries[stat.id];
+            if (!boundary) return null;
+
+            const palette = areaStatsMode === 'fylke' ? FYLKE_PALETTE : KOMMUNE_PALETTE;
+            const colors = palette[stat.paletteIndex];
+
+            // Zoom-based label visibility
+            const minZoom = areaStatsMode === 'fylke' ? 5 : 7;
+            const isLabelVisible = currentZoom >= minZoom;
+            
+            // Scaling factor for label
+            const scale = Math.max(0.6, Math.min(1.2, (currentZoom - minZoom + 2) / 4));
+
+            return (
+              <React.Fragment key={`${areaStatsMode}-${stat.id}`}>
+                <Mapbox.ShapeSource id={`source-${stat.id}`} shape={boundary}>
+                  <Mapbox.FillLayer
+                    id={`fill-${stat.id}`}
+                    style={{
+                      fillColor: colors.fill,
+                      fillAntialias: true,
+                    }}
+                  />
+                  <Mapbox.LineLayer
+                    id={`outline-${stat.id}`}
+                    style={{
+                      lineColor: colors.outline,
+                      lineWidth: 3,
+                    }}
+                  />
+                </Mapbox.ShapeSource>
+
+                {isLabelVisible && (
+                  <MapboxMarkerView
+                    id={`label-${stat.id}`}
+                    coordinate={[stat.avgLng, stat.avgLat]}
+                  >
+                    <View style={flattenStyle([
+                      styles.areaLabelContainer,
+                      { transform: [{ scale }] }
+                    ])}>
+                      <Text style={styles.areaLabelName}>{stat.name}</Text>
+                      <HStack style={{ gap: 4, alignItems: 'center' }}>
+                        <Text style={styles.areaLabelStats}>
+                          {stat.checked} / {stat.total} topper
+                        </Text>
+                        <Text style={flattenStyle([
+                          styles.areaLabelPercent,
+                          stat.percent >= 50 ? { color: '#10B981' } : null
+                        ])}>
+                          {stat.percent}%
+                        </Text>
+                      </HStack>
+                    </View>
+                  </MapboxMarkerView>
+                )}
+              </React.Fragment>
+            );
+          })}
+
           {isStyleLoaded && (
             <>
               <Mapbox.UserLocation
@@ -936,44 +1110,69 @@ export default function MapScreen() {
               styles.layerMenu,
               { backgroundColor: isDark ? "rgba(17, 24, 39, 0.95)" : "rgba(255, 255, 255, 0.95)" }
             ])}>
-              {(["satellite", "satellite2", "terrain", "norgeskart"] as const).map((type) => {
-                const isActive = mapType === type;
-                let label = "Standard";
-                switch(type) {
-                  case "satellite":
-                    label = "Satellitt";
-                    break;
-                  case "satellite2":
-                    label = "Satellitt 2";
-                    break;
-                  case "terrain":
-                    label = "Terreng";
-                    break;
-                  case "norgeskart":
-                    label = "Norgeskart";
-                    break;
-                }
-                return (
-                  <TouchableOpacity
-                    key={type}
-                    onPress={() => {
-                      setMapType(type);
-                      setShowLayerMenu(false);
-                    }}
-                    style={flattenStyle([
-                      styles.layerOption,
-                      isActive ? { backgroundColor: "#10B981" } : null,
-                    ])}
-                  >
-                    <Text style={flattenStyle([
-                      styles.layerOptionText,
-                      { color: isActive ? "#FFFFFF" : (isDark ? "#E5E7EB" : "#1F2937") }
-                    ])}>
-                      {label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+              <VStack style={{ gap: 12, padding: 8 }}>
+                <VStack style={{ gap: 6 }}>
+                  <Text style={flattenStyle([styles.layerMenuSectionTitle, { color: isDark ? "#9CA3AF" : "#6B7280" }])}>Karttype</Text>
+                  <HStack style={{ gap: 6 }}>
+                    {(["satellite", "satellite2", "terrain", "norgeskart"] as const).map((type) => {
+                      const isActive = mapType === type;
+                      let label = "Standard";
+                      if (type === "satellite") label = "Satellitt";
+                      if (type === "satellite2") label = "Satellitt 2";
+                      if (type === "terrain") label = "Terreng";
+                      if (type === "norgeskart") label = "Norgeskart";
+                      
+                      return (
+                        <TouchableOpacity
+                          key={type}
+                          onPress={() => setMapType(type)}
+                          style={flattenStyle([
+                            styles.layerOption,
+                            isActive ? { backgroundColor: "#10B981" } : { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)" },
+                          ])}
+                        >
+                          <Text style={flattenStyle([
+                            styles.layerOptionText,
+                            { color: isActive ? "#FFFFFF" : (isDark ? "#E5E7EB" : "#1F2937") }
+                          ])}>
+                            {label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </HStack>
+                </VStack>
+
+                <VStack style={{ gap: 6 }}>
+                  <Text style={flattenStyle([styles.layerMenuSectionTitle, { color: isDark ? "#9CA3AF" : "#6B7280" }])}>Områdestatistikk</Text>
+                  <HStack style={{ gap: 6 }}>
+                    {(['off', 'kommune', 'fylke'] as const).map((mode) => {
+                      const isActive = areaStatsMode === mode;
+                      let label = "Av";
+                      if (mode === 'kommune') label = "Kommune";
+                      if (mode === 'fylke') label = "Fylke";
+                      
+                      return (
+                        <TouchableOpacity
+                          key={mode}
+                          onPress={() => setAreaStatsMode(mode)}
+                          style={flattenStyle([
+                            styles.layerOption,
+                            isActive ? { backgroundColor: "#10B981" } : { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)" },
+                          ])}
+                        >
+                          <Text style={flattenStyle([
+                            styles.layerOptionText,
+                            { color: isActive ? "#FFFFFF" : (isDark ? "#E5E7EB" : "#1F2937") }
+                          ])}>
+                            {label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </HStack>
+                </VStack>
+              </VStack>
             </View>
           )}
         </>
@@ -992,23 +1191,21 @@ export default function MapScreen() {
             <View style={{ flex: 1, width: '100%' }}>
               <PeakFeed />
             </View>
+          ) : activeTab === "topper" ? (
+            <View style={{ flex: 1, width: '100%' }}>
+              <PeaksList
+                peaks={peaks}
+                checkins={userCheckins}
+                userLocation={userLocation}
+                onSelectPeak={(peak) => {
+                  setSelectedPeak(peak);
+                  setActiveTab("kart");
+                }}
+                loading={loading}
+              />
+            </View>
           ) : (
             <VStack style={styles.placeholderContent} className="items-center justify-center p-6 text-center">
-            {activeTab === "topper" && (
-              <>
-                <Mountain size={48} color="#10B981" />
-                <Heading className={`text-xl font-bold mt-4 ${themeClasses.text}`}>Toppliste</Heading>
-                <Text className={`text-sm text-center mt-2 ${themeClasses.textMuted}`} style={{ paddingBottom: 16 }}>
-                  Utforsk alle fjelltoppene registrert i systemet. Søk, sorter og filtrer etter høyde eller fylke.
-                </Text>
-                <TouchableOpacity 
-                  style={styles.placeholderBtn} 
-                  onPress={() => setActiveTab("kart")}
-                >
-                  <Text style={styles.placeholderBtnText}>Tilbake til kartet</Text>
-                </TouchableOpacity>
-              </>
-            )}
             {activeTab === "lederliste" && (
               <>
                 <Trophy size={48} color="#10B981" />
@@ -1440,23 +1637,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "bold",
   },
-  layerMenu: {
-    position: "absolute",
-    top: Platform.OS === "ios" ? 172 : 162,
-    right: 64,
-    zIndex: 40,
-    borderRadius: 12,
-    padding: 4,
-    flexDirection: "row",
-    gap: 4,
-    borderWidth: 1,
-    borderColor: "rgba(128, 128, 128, 0.15)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 5,
-  },
   layerOption: {
     paddingVertical: 6,
     paddingHorizontal: 10,
@@ -1560,6 +1740,54 @@ const styles = StyleSheet.create({
   checkinBtnContent: { alignItems: "center", justifyContent: "center" },
   checkinBtnText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
   checkinBtnDisabled: { backgroundColor: "#9CA3AF" },
+  layerMenu: {
+    position: "absolute",
+    top: Platform.OS === "ios" ? 172 : 162,
+    right: 12,
+    left: 12,
+    zIndex: 40,
+    borderRadius: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 10,
+    borderWidth: 1,
+    borderColor: "rgba(128, 128, 128, 0.15)",
+  },
+  layerMenuSectionTitle: {
+    fontSize: 10,
+    fontWeight: "bold",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  areaLabelContainer: {
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+    minWidth: 100,
+  },
+  areaLabelName: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "bold",
+    marginBottom: 2,
+  },
+  areaLabelStats: {
+    color: "#E5E7EB",
+    fontSize: 10,
+    fontWeight: "500",
+  },
+  areaLabelPercent: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
   statCard: {
     flex: 1,
     padding: 10,
