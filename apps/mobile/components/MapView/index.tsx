@@ -647,13 +647,14 @@ export default function MapScreen() {
               <Mapbox.UserLocation 
                 animated={true} 
                 androidRenderMode="gps" 
-                renderMode="native" 
+                renderMode="normal" 
+                showsUserHeadingIndicator={true}
               />
               <Mapbox.Atmosphere
                 style={{
-                  range: [0, 20],
-                  horizonBlend: 0.05,
-                  fogColor: 'rgba(135, 206, 235, 0.5)', // Subtle blue
+                  range: [0, 30],
+                  horizonBlend: 0.02,
+                  fogColor: 'rgba(135, 206, 235, 0.2)', // More transparent
                   highColor: 'rgba(30, 144, 255, 0.5)',
                   spaceColor: 'rgba(0, 0, 0, 1)',
                   starIntensity: 0.1,
