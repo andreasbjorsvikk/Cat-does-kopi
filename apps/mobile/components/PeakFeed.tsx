@@ -439,18 +439,8 @@ export function PeakFeed() {
 
   return (
     <View style={styles.container}>
-      <View style={{ paddingHorizontal: 16, paddingTop: 8, height: 50 }}>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false} 
-          contentContainerStyle={{ 
-            gap: 8, 
-            paddingBottom: 8, 
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexGrow: 1
-          }}
-        >
+      <View style={{ paddingHorizontal: 16, paddingTop: 0, height: 40 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, alignItems: 'center', justifyContent: 'center', flexGrow: 1 }}>
           {filters.map((filter) => {
             const isActive = activeFilter === filter.key;
             return (
@@ -492,16 +482,6 @@ export function PeakFeed() {
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={['#10B981']} />
         }
         contentContainerStyle={styles.listContent}
-        ListHeaderComponent={
-          <View style={styles.headerContainer}>
-            <Heading size="md" className="text-typography-900 font-bold">
-              Turfellesskap
-            </Heading>
-            <Text size="sm" className="text-typography-500 mt-1">
-              Se hvem som har vært på topptur nylig
-            </Text>
-          </View>
-        }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Compass size={48} color={isDark ? '#4B5563' : '#9CA3AF'} />
