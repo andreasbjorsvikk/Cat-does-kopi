@@ -642,6 +642,25 @@ export default function MapScreen() {
           onLongPress={handleMapboxLongPress}
           onDidFinishLoadingStyle={handleDidFinishLoadingStyle}
         >
+          {isStyleLoaded && (
+            <>
+              <Mapbox.UserLocation 
+                animated={true} 
+                androidRenderMode="gps" 
+                renderMode="native" 
+              />
+              <Mapbox.Atmosphere
+                style={{
+                  range: [0, 20],
+                  horizonBlend: 0.05,
+                  fogColor: 'rgba(135, 206, 235, 0.5)', // Subtle blue
+                  highColor: 'rgba(30, 144, 255, 0.5)',
+                  spaceColor: 'rgba(0, 0, 0, 1)',
+                  starIntensity: 0.1,
+                }}
+              />
+            </>
+          )}
           {is3DEnabled && isStyleLoaded && (
             <>
               <Mapbox.RasterDemSource
@@ -742,6 +761,8 @@ export default function MapScreen() {
           showsBuildings={false}
           showsCompass={true}
           showsScale={true}
+          showsUserLocation={true}
+          followsUserLocation={false}
           onLongPress={handleMapLongPress}
           onMapReady={handleMapReady}
           onRegionChangeComplete={handleRegionChangeComplete}
