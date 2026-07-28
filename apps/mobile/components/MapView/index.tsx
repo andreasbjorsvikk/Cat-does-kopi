@@ -8,7 +8,8 @@ import {
   Image,
   Platform,
   ScrollView,
-  UIManager
+  UIManager,
+  Alert
 } from "react-native";
 import MapView, { Marker, UrlTile } from "react-native-maps";
 import { Heading } from "@/components/ui/heading";
@@ -25,7 +26,9 @@ import {
   Rss,
   Trophy,
   Sparkles,
-  Info
+  Info,
+  Pencil,
+  Trash2
 } from "lucide-react-native";
 import { fetchPeaks, Peak } from "@/services/peakDbService";
 import useColorScheme from "@/hooks/useColorScheme";
@@ -41,6 +44,20 @@ import {
 import { Input, InputField } from "@/components/ui/input";
 import { Button, ButtonText } from "@/components/ui/button";
 import Constants from "expo-constants";
+import * as Location from "expo-location";
+import * as ImagePicker from "expo-image-picker";
+import { useAuth } from "@/hooks/useAuth";
+import { 
+  getUserCheckins, 
+  checkinPeak, 
+  getDistanceMeters, 
+  PeakCheckin,
+  deleteCheckin,
+  updateCheckinImage,
+  uploadCheckinImage
+} from "@/services/peakCheckinService";
+import { PeakFeed } from "../PeakFeed";
+import { ChildCheckinSheet } from "../ChildCheckinSheet";
 
 let Mapbox: any = null;
 let MapboxMapView: any = null;
@@ -77,6 +94,7 @@ const TABS = [
 export default function MapScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
+  const { user, profile } = useAuth();
 
   const mapRef = useRef<MapView | null>(null);
   const mapboxMapRef = useRef<any>(null);
@@ -86,6 +104,12 @@ export default function MapScreen() {
   const [peaks, setPeaks] = useState<Peak[]>([]);
   const [selectedPeak, setSelectedPeak] = useState<Peak | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [checkedPeakIds, setCheckedPeakIds] = useState<Set<string>>(new Set());
+  const [userCheckins, setUserCheckins] = useState<PeakCheckin[]>([]);
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showChildCheckinSheet, setShowChildCheckinSheet] = useState(false);
+  const [checkinLoading, setCheckinLoading] = useState(false);
 
   // Top Tabs State
   const [activeTab, setActiveTab] = useState<"kart" | "topper" | "feed" | "lederliste" | "ar">("kart");
@@ -164,6 +188,90 @@ export default function MapScreen() {
     loadPeaks();
   }, []);
 
+  const loadUserCheckins = async () => {
+    if (!user) return;
+    try {
+      const data = await getUserCheckins(user.id);
+      setUserCheckins(data);
+      const checkedIds = new Set(data.map((c) => c.peak_id));
+      setCheckedPeakIds(checkedIds);
+    } catch (err) {
+      console.error("Error fetching user checkins:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      loadUserCheckins();
+    } else {
+      setUserCheckins([]);
+      setCheckedPeakIds(new Set());
+    }
+  }, [user]);
+
+  useEffect(() => {
+    let isMounted = true;
+    let subscription: { remove: () => void } | null = null;
+
+    const fetchLocation = async () => {
+      try {
+        if (Platform.OS === "web") {
+          if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+              (pos) => {
+                if (isMounted) {
+                  setUserLocation({
+                    latitude: pos.coords.latitude,
+                    longitude: pos.coords.longitude,
+                  });
+                }
+              },
+              (err) => console.warn("Web geolocation error", err)
+            );
+          }
+        } else {
+          let { status } = await Location.requestForegroundPermissionsAsync();
+          if (status === "granted") {
+            let loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+            if (loc?.coords && isMounted) {
+              setUserLocation({
+                latitude: loc.coords.latitude,
+                longitude: loc.coords.longitude,
+              });
+            }
+            
+            subscription = await Location.watchPositionAsync(
+              {
+                accuracy: Location.Accuracy.Balanced,
+                timeInterval: 10000,
+                distanceInterval: 10,
+              },
+              (newLoc) => {
+                if (newLoc?.coords && isMounted) {
+                  setUserLocation({
+                    latitude: newLoc.coords.latitude,
+                    longitude: newLoc.coords.longitude,
+                  });
+                }
+              }
+            );
+          }
+        }
+      } catch (err) {
+        console.warn("Location permission or fetch error", err);
+      }
+    };
+
+    fetchLocation();
+
+    return () => {
+      isMounted = false;
+      if (subscription) {
+        subscription.remove();
+      }
+    };
+  }, []);
+
   useEffect(() => {
     setIsStyleLoaded(false);
   }, [mapboxStyleURL]);
@@ -197,6 +305,181 @@ export default function MapScreen() {
 
   const handlePeakSelect = (peak: Peak) => {
     setSelectedPeak(peak);
+  };
+
+  const distanceToPeak = React.useMemo(() => {
+    if (!selectedPeak || !userLocation) return null;
+    return getDistanceMeters(
+      userLocation.latitude,
+      userLocation.longitude,
+      selectedPeak.latitude,
+      selectedPeak.longitude
+    );
+  }, [selectedPeak, userLocation]);
+
+  const formattedDistance = React.useMemo(() => {
+    if (distanceToPeak === null) return "Avstand ukjent";
+    if (distanceToPeak < 1000) {
+      const value = distanceToPeak.toFixed(1).replace(".", ",");
+      return `${value} m unna`;
+    }
+    const value = (distanceToPeak / 1000).toFixed(1).replace(".", ",");
+    return `${value} km unna`;
+  }, [distanceToPeak]);
+
+  const selectedPeakCheckins = React.useMemo(() => {
+    if (!selectedPeak) return [];
+    return userCheckins
+      .filter((c) => c.peak_id === selectedPeak.id)
+      .sort((a, b) => new Date(b.checked_in_at).getTime() - new Date(a.checked_in_at).getTime());
+  }, [selectedPeak, userCheckins]);
+
+  const lastCheckinDateStr = React.useMemo(() => {
+    if (selectedPeakCheckins.length === 0) return null;
+    const lastDate = new Date(selectedPeakCheckins[0].checked_in_at);
+    return lastDate.toLocaleDateString("no-NO", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  }, [selectedPeakCheckins]);
+
+  const canCheckin = distanceToPeak !== null && distanceToPeak < 100;
+
+  const handleCheckinPress = () => {
+    setShowChildCheckinSheet(true);
+  };
+
+  const confirmCheckin = async () => {
+    if (!user || !selectedPeak) return;
+    setCheckinLoading(true);
+    setShowConfirmModal(false);
+    try {
+      await checkinPeak(user.id, selectedPeak.id);
+      await loadUserCheckins();
+      Alert.alert("Innsjekk registrert!", `Gratulerer, du har sjekket inn på ${selectedPeak.name}!`);
+    } catch (err: any) {
+      console.error("Checkin failed:", err);
+      Alert.alert("Feil under innsjekk", err?.message || "Kunne ikke fullføre innsjekking.");
+    } finally {
+      setCheckinLoading(false);
+    }
+  };
+
+  const handleCheckinSuccess = (checkedInNames: string[], imageUrl: string | null) => {
+    if (!selectedPeak || !user) return;
+
+    // Optimistically update checkedPeakIds and userCheckins so indicators update instantly
+    setCheckedPeakIds(prev => {
+      const next = new Set(prev);
+      next.add(selectedPeak.id);
+      return next;
+    });
+
+    const timestamp = new Date().toISOString();
+    const optimisticCheckins: PeakCheckin[] = [
+      {
+        id: `optimistic-${Date.now()}`,
+        user_id: user.id,
+        peak_id: selectedPeak.id,
+        checked_in_at: timestamp,
+        verified: true,
+        activity_id: null,
+        image_url: imageUrl,
+      }
+    ];
+
+    setUserCheckins(prev => [...optimisticCheckins, ...prev]);
+
+    // Reload from server in background to sync actual database state
+    loadUserCheckins();
+  };
+
+  const handleDeleteCheckinPress = (checkinId: string) => {
+    Alert.alert(
+      "Slett innsjekk",
+      "Er du sikker på at du vil slette denne innsjekken? Dette kan ikke angres.",
+      [
+        { text: "Avbryt", style: "cancel" },
+        { 
+          text: "Slett", 
+          style: "destructive", 
+          onPress: async () => {
+            try {
+              await deleteCheckin(checkinId);
+              await loadUserCheckins();
+              Alert.alert("Slettet", "Innsjekken har blitt slettet.");
+            } catch (err: any) {
+              Alert.alert("Feil", err.message || "Kunne ikke slette innsjekk.");
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleEditImagePress = async (checkinId: string) => {
+    Alert.alert(
+      "Endre bilde",
+      "Velg hvordan du vil legge til et nytt bilde for denne innsjekken:",
+      [
+        { text: "Avbryt", style: "cancel" },
+        {
+          text: "Ta nytt bilde",
+          onPress: () => editImagePick(checkinId, 'camera')
+        },
+        {
+          text: "Velg fra galleri",
+          onPress: () => editImagePick(checkinId, 'library')
+        }
+      ]
+    );
+  };
+
+  const editImagePick = async (checkinId: string, source: 'camera' | 'library') => {
+    try {
+      let result;
+      if (source === 'camera') {
+        const perm = await ImagePicker.requestCameraPermissionsAsync();
+        if (!perm.granted) {
+          Alert.alert('Tilgang', 'Kamera-tilgang kreves for å ta bilde.');
+          return;
+        }
+        result = await ImagePicker.launchCameraAsync({
+          allowsEditing: true,
+          aspect: [4, 3],
+          quality: 0.8,
+        });
+      } else {
+        const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!perm.granted) {
+          Alert.alert('Tilgang', 'Bildegalleri-tilgang kreves for å velge bilde.');
+          return;
+        }
+        result = await ImagePicker.launchImageLibraryAsync({
+          allowsEditing: true,
+          aspect: [4, 3],
+          quality: 0.8,
+        });
+      }
+
+      if (!result.canceled && result.assets && result.assets.length > 0 && user) {
+        setCheckinLoading(true);
+        const localUri = result.assets[0].uri;
+        const uploadedUrl = await uploadCheckinImage(localUri, user.id);
+        if (uploadedUrl) {
+          await updateCheckinImage(checkinId, uploadedUrl);
+          await loadUserCheckins();
+          Alert.alert("Oppdatert", "Innsjekksbildet har blitt oppdatert!");
+        } else {
+          throw new Error("Kunne ikke laste opp bilde.");
+        }
+      }
+    } catch (err: any) {
+      Alert.alert("Feil", err.message || "Kunne ikke oppdatere bilde.");
+    } finally {
+      setCheckinLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -409,31 +692,37 @@ export default function MapScreen() {
               pitch: is3DEnabled ? 60 : 0,
             }}
           />
-          {peaks.map((peak) => (
-            <MapboxMarkerView
-              key={peak.id}
-              id={peak.id}
-              coordinate={[peak.longitude, peak.latitude]}
-            >
-              <TouchableOpacity 
-                onPress={() => handlePeakSelect(peak)}
-                style={styles.customMarkerContainer}
-                activeOpacity={0.8}
+          {peaks.map((peak) => {
+            const isChecked = checkedPeakIds.has(peak.id);
+            return (
+              <MapboxMarkerView
+                key={peak.id}
+                id={peak.id}
+                coordinate={[peak.longitude, peak.latitude]}
               >
-                <View style={styles.customMarkerCircle}>
-                  <Mountain size={14} color="#FFFFFF" />
-                </View>
-                <View style={styles.customMarkerPill}>
-                  <Text style={styles.customMarkerLabel} numberOfLines={1}>
-                    {peak.name}
-                  </Text>
-                  <Text style={styles.customMarkerSubLabel}>
-                    {peak.heightMoh} moh
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            </MapboxMarkerView>
-          ))}
+                <TouchableOpacity 
+                  onPress={() => handlePeakSelect(peak)}
+                  style={styles.customMarkerContainer}
+                  activeOpacity={0.8}
+                >
+                  <View style={flattenStyle([
+                    styles.customMarkerCircle,
+                    !isChecked ? { backgroundColor: "#FFFFFF", borderColor: "#10B981" } : null
+                  ])}>
+                    <Mountain size={14} color={isChecked ? "#FFFFFF" : "#10B981"} />
+                  </View>
+                  <View style={styles.customMarkerPill}>
+                    <Text style={styles.customMarkerLabel} numberOfLines={1}>
+                      {peak.name}
+                    </Text>
+                    <Text style={styles.customMarkerSubLabel}>
+                      {peak.heightMoh} moh
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </MapboxMarkerView>
+            );
+          })}
         </MapboxMapView>
       ) : (
         <MapView
@@ -465,27 +754,33 @@ export default function MapScreen() {
               shouldReplaceMapContent={Platform.OS === "ios"}
             />
           )}
-          {peaks.map((peak) => (
-            <Marker
-              key={peak.id}
-              coordinate={{ latitude: peak.latitude, longitude: peak.longitude }}
-              onPress={() => handlePeakSelect(peak)}
-            >
-              <View style={styles.customMarkerContainer}>
-                <View style={styles.customMarkerCircle}>
-                  <Mountain size={14} color="#FFFFFF" />
+          {peaks.map((peak) => {
+            const isChecked = checkedPeakIds.has(peak.id);
+            return (
+              <Marker
+                key={peak.id}
+                coordinate={{ latitude: peak.latitude, longitude: peak.longitude }}
+                onPress={() => handlePeakSelect(peak)}
+              >
+                <View style={styles.customMarkerContainer}>
+                  <View style={flattenStyle([
+                    styles.customMarkerCircle,
+                    !isChecked ? { backgroundColor: "#FFFFFF", borderColor: "#10B981" } : null
+                  ])}>
+                    <Mountain size={14} color={isChecked ? "#FFFFFF" : "#10B981"} />
+                  </View>
+                  <View style={styles.customMarkerPill}>
+                    <Text style={styles.customMarkerLabel} numberOfLines={1}>
+                      {peak.name}
+                    </Text>
+                    <Text style={styles.customMarkerSubLabel}>
+                      {peak.heightMoh} moh
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.customMarkerPill}>
-                  <Text style={styles.customMarkerLabel} numberOfLines={1}>
-                    {peak.name}
-                  </Text>
-                  <Text style={styles.customMarkerSubLabel}>
-                    {peak.heightMoh} moh
-                  </Text>
-                </View>
-              </View>
-            </Marker>
-          ))}
+              </Marker>
+            );
+          })}
         </MapView>
       )}
 
@@ -650,19 +945,9 @@ export default function MapScreen() {
               </>
             )}
             {activeTab === "feed" && (
-              <>
-                <Rss size={48} color="#10B981" />
-                <Heading className={`text-xl font-bold mt-4 ${themeClasses.text}`}>Aktivitetsfeed</Heading>
-                <Text className={`text-sm text-center mt-2 ${themeClasses.textMuted}`} style={{ paddingBottom: 16 }}>
-                  Se de siste innsjekkingene og bildene fra fellesskapet. Del dine egne turer og få inspirasjon.
-                </Text>
-                <TouchableOpacity 
-                  style={styles.placeholderBtn} 
-                  onPress={() => setActiveTab("kart")}
-                >
-                  <Text style={styles.placeholderBtnText}>Tilbake til kartet</Text>
-                </TouchableOpacity>
-              </>
+              <View style={{ flex: 1, marginTop: Platform.OS === "ios" ? 110 : 100, width: '100%' }}>
+                <PeakFeed />
+              </View>
             )}
             {activeTab === "lederliste" && (
               <>
@@ -700,28 +985,131 @@ export default function MapScreen() {
 
       {selectedPeak && activeTab === "kart" && (
         <View style={flattenStyle([styles.bottomSheet, { backgroundColor: isDark ? "#111827" : "#FFFFFF" }])}>
-          <HStack style={styles.sheetHeader}>
-            <VStack style={{ flex: 1 }}>
-              <Heading className={`text-xl font-bold ${themeClasses.text}`}>{selectedPeak.name}</Heading>
-              <Text className={`text-xs ${themeClasses.textMuted}`}>{selectedPeak.heightMoh} moh • {selectedPeak.municipality}, {selectedPeak.county}</Text>
-            </VStack>
-            <TouchableOpacity onPress={() => setSelectedPeak(null)} style={styles.closeBtn}>
-              <X size={20} color={isDark ? "#FFFFFF" : "#000000"} />
-            </TouchableOpacity>
-          </HStack>
-          <Image 
-            source={{ uri: selectedPeak.imageUrl || "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b" }} 
-            style={styles.sheetImage} 
-          />
-          <Text className={`text-sm mt-3 ${themeClasses.textMuted}`} style={{ paddingBottom: 16 }}>
-            {selectedPeak.description}
-          </Text>
-          <TouchableOpacity style={styles.checkinBtn} activeOpacity={0.8}>
-            <HStack style={styles.checkinBtnContent}>
-              <CheckCircle size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-              <Text style={styles.checkinBtnText}>Registrer innsjekk her</Text>
+          <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
+            <HStack style={styles.sheetHeader}>
+              <VStack style={{ flex: 1 }}>
+                <Heading className={`text-xl font-bold ${themeClasses.text}`}>{selectedPeak.name}</Heading>
+                <Text className={`text-xs ${themeClasses.textMuted}`}>{selectedPeak.heightMoh} moh • {selectedPeak.municipality}, {selectedPeak.county}</Text>
+              </VStack>
+              <TouchableOpacity onPress={() => setSelectedPeak(null)} style={styles.closeBtn}>
+                <X size={20} color={isDark ? "#FFFFFF" : "#000000"} />
+              </TouchableOpacity>
             </HStack>
-          </TouchableOpacity>
+            <Image 
+              source={{ uri: selectedPeak.imageUrl || "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b" }} 
+              style={styles.sheetImage} 
+            />
+            <Text className={`text-sm mt-3 ${themeClasses.textMuted}`} style={{ paddingBottom: 16 }}>
+              {selectedPeak.description}
+            </Text>
+
+            {/* Distance and history stats row */}
+            <HStack style={{ justifyContent: "space-between", marginBottom: 12 }}>
+              <View style={flattenStyle([
+                styles.statCard, 
+                { backgroundColor: isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.03)" }
+              ])}>
+                <Text style={styles.statLabel}>Avstand</Text>
+                <Text style={flattenStyle([
+                  styles.statValue, 
+                  { color: canCheckin ? "#10B981" : (isDark ? "#E5E7EB" : "#1F2937") }
+                ])}>
+                  {formattedDistance}
+                </Text>
+              </View>
+              <View style={flattenStyle([
+                styles.statCard, 
+                { backgroundColor: isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.03)" }
+              ])}>
+                <Text style={styles.statLabel}>Historikk</Text>
+                <Text style={flattenStyle([styles.statValue, { color: isDark ? "#E5E7EB" : "#1F2937" }])} numberOfLines={1} adjustsFontSizeToFit>
+                  {selectedPeakCheckins.length} {selectedPeakCheckins.length === 1 ? "innsjekk" : "innsjekkinger"}
+                </Text>
+              </View>
+            </HStack>
+            
+            {lastCheckinDateStr && (
+              <Text className={`text-xs ${themeClasses.textMuted}`} style={{ marginBottom: 16, textAlign: "right" }}>
+                Sist besøkt: {lastCheckinDateStr}
+              </Text>
+            )}
+
+            <TouchableOpacity 
+              style={flattenStyle([
+                styles.checkinBtn, 
+                !canCheckin ? styles.checkinBtnDisabled : null
+              ])} 
+              activeOpacity={0.8}
+              disabled={!canCheckin || checkinLoading}
+              onPress={handleCheckinPress}
+            >
+              <HStack style={styles.checkinBtnContent}>
+                <CheckCircle size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.checkinBtnText}>
+                  {checkinLoading 
+                    ? "Sjekker inn..." 
+                    : (canCheckin 
+                      ? "Registrer innsjekk her" 
+                      : "Du må være innenfor 100 meter for å sjekke inn"
+                    )
+                  }
+                </Text>
+              </HStack>
+            </TouchableOpacity>
+
+            {/* Recent check-ins list with edit/delete options */}
+            {selectedPeakCheckins.length > 0 && (
+              <View style={{ marginTop: 20 }}>
+                <Heading size="xs" className="text-typography-600 mb-2 uppercase tracking-wider font-semibold">
+                  Dine innsjekker på denne toppen
+                </Heading>
+                {selectedPeakCheckins.map((checkin) => {
+                  const isRecent = (Date.now() - new Date(checkin.checked_in_at).getTime()) < 24 * 60 * 60 * 1000;
+                  return (
+                    <View 
+                      key={checkin.id} 
+                      style={{ 
+                        flexDirection: 'row', 
+                        alignItems: 'center', 
+                        justifyContent: 'space-between', 
+                        paddingVertical: 10, 
+                        borderBottomWidth: 0.5, 
+                        borderColor: isDark ? '#374151' : '#E5E7EB' 
+                      }}
+                    >
+                      <VStack style={{ flex: 1, gap: 4 }}>
+                        <Text size="sm" className="text-typography-900 font-medium">
+                          {new Date(checkin.checked_in_at).toLocaleDateString("no-NO", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit"
+                          })}
+                        </Text>
+                        {checkin.image_url && (
+                          <Image 
+                            source={{ uri: checkin.image_url }} 
+                            style={{ width: 80, height: 60, borderRadius: 8, marginTop: 4 }} 
+                          />
+                        )}
+                      </VStack>
+                      {isRecent && (
+                        <HStack style={{ gap: 16 }}>
+                          <TouchableOpacity onPress={() => handleEditImagePress(checkin.id)} style={{ padding: 4 }}>
+                            <Pencil size={18} color="#10B981" />
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={() => handleDeleteCheckinPress(checkin.id)} style={{ padding: 4 }}>
+                            <Trash2 size={18} color="#EF4444" />
+                          </TouchableOpacity>
+                        </HStack>
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </ScrollView>
         </View>
       )}
 
@@ -838,6 +1226,62 @@ export default function MapScreen() {
           </ModalFooter>
         </ModalContent>
       </Modal>
+
+      {/* Checkin Confirmation Modal */}
+      <Modal
+        isOpen={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        useRNModal={Platform.OS !== "web"}
+      >
+        <ModalBackdrop />
+        <ModalContent className={isDark ? "bg-background-900 border-outline-800" : "bg-background-0 border-outline-100"}>
+          <ModalHeader>
+            <Heading size="md" className={isDark ? "text-typography-50" : "text-typography-950"}>
+              Bekreft innsjekk
+            </Heading>
+          </ModalHeader>
+          <ModalBody className="mt-3 mb-4">
+            <Text size="sm" className={isDark ? "text-typography-300" : "text-typography-700"}>
+              Vil du sjekke inn på {selectedPeak?.name}? Du må være innenfor 100 meter fra toppen for å sjekke inn.
+            </Text>
+          </ModalBody>
+          <ModalFooter>
+            <Button
+              variant="outline"
+              action="secondary"
+              onPress={() => setShowConfirmModal(false)}
+              size="sm"
+            >
+              <ButtonText className={isDark ? "text-typography-200" : "text-typography-700"}>
+                Avbryt
+              </ButtonText>
+            </Button>
+            <Button 
+              size="sm" 
+              onPress={confirmCheckin}
+              className="bg-emerald-500 data-[hover=true]:bg-emerald-600 data-[active=true]:bg-emerald-700 ml-2"
+            >
+              <ButtonText className="text-white">
+                Sjekk inn
+              </ButtonText>
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Child and parent unified checkin bottom sheet */}
+      {selectedPeak && (
+        <ChildCheckinSheet
+          isOpen={showChildCheckinSheet}
+          onClose={() => setShowChildCheckinSheet(false)}
+          peakId={selectedPeak.id}
+          peakName={selectedPeak.name}
+          userId={user?.id || ''}
+          username={profile?.username || user?.email?.split('@')[0] || 'Bruker'}
+          userAvatarUrl={profile?.avatarUrl || null}
+          onSuccess={handleCheckinSuccess}
+        />
+      )}
     </View>
   );
 }
@@ -1040,4 +1484,24 @@ const styles = StyleSheet.create({
   checkinBtn: { backgroundColor: "#10B981", height: 50, borderRadius: 14, justifyContent: "center", alignItems: "center" },
   checkinBtnContent: { alignItems: "center", justifyContent: "center" },
   checkinBtnText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
+  checkinBtnDisabled: { backgroundColor: "#9CA3AF" },
+  statCard: {
+    flex: 1,
+    padding: 10,
+    borderRadius: 12,
+    marginHorizontal: 4,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statLabel: {
+    fontSize: 10,
+    color: "#9CA3AF",
+    fontWeight: "600",
+    textTransform: "uppercase",
+    marginBottom: 2,
+  },
+  statValue: {
+    fontSize: 14,
+    fontWeight: "bold",
+  },
 });
