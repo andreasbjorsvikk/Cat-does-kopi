@@ -650,25 +650,12 @@ export default function MapScreen() {
                 androidRenderMode="gps"
                 renderMode="normal"
                 showsUserHeadingIndicator={true}
-              >
-                <View style={styles.userLocationPuckContainer}>
-                  <View style={styles.userLocationPuckBase}>
-                    <LinearGradient
-                      colors={["#60A5FA", "#2563EB", "#1E40AF"]}
-                      locations={[0, 0.5, 1]}
-                      style={styles.userLocationPuckInner}
-                    />
-                  </View>
-                </View>
-              </Mapbox.UserLocation>
+              />
               <Mapbox.Atmosphere
                 style={{
-                  range: [0, 40],
-                  horizonBlend: 0.01,
-                  color: 'rgba(135, 206, 235, 0.12)', // Middle ground
-                  highColor: 'rgba(30, 144, 255, 0.5)',
-                  spaceColor: 'rgba(0, 0, 0, 1)',
-                  starIntensity: 0.1,
+                  range: [0, 25],
+                  horizonBlend: 0.05,
+                  color: 'rgba(135, 206, 235, 0.5)',
                 }}
               />
             </>
@@ -1591,29 +1578,5 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 14,
     fontWeight: "bold",
-  },
-  userLocationPuckContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  userLocationPuckBase: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 8,
-  },
-  userLocationPuckInner: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.4)',
   },
 });
