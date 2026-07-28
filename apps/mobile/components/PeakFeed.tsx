@@ -439,8 +439,18 @@ export function PeakFeed() {
 
   return (
     <View style={styles.container}>
-      <View style={{ paddingHorizontal: 16, paddingTop: 16, height: 60 }}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 8, alignItems: 'center' }}>
+      <View style={{ paddingHorizontal: 16, paddingTop: 8, height: 50 }}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false} 
+          contentContainerStyle={{ 
+            gap: 8, 
+            paddingBottom: 8, 
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexGrow: 1
+          }}
+        >
           {filters.map((filter) => {
             const isActive = activeFilter === filter.key;
             return (
