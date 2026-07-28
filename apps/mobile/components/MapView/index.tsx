@@ -79,6 +79,7 @@ export default function MapScreen() {
   const isDark = colorScheme === "dark";
 
   const mapRef = useRef<MapView | null>(null);
+  const mapboxMapRef = useRef<any>(null);
   const mapboxCameraRef = useRef<any>(null);
 
   const [loading, setLoading] = useState(true);
@@ -105,7 +106,12 @@ export default function MapScreen() {
   }, [mapType]);
 
   const [is3DEnabled, setIs3DEnabled] = useState(true);
+  const [isStyleLoaded, setIsStyleLoaded] = useState(false);
   const [showLayerMenu, setShowLayerMenu] = useState(false);
+
+  const styleHasPeakLayers = React.useMemo(() => {
+    return mapboxStyleURL.includes("outdoors-v12");
+  }, [mapboxStyleURL]);
 
   // Resolve mapType to use flyover modes on iOS for maximum possible 3D/tilt
   const resolvedMapType = React.useMemo(() => {
@@ -134,10 +140,10 @@ export default function MapScreen() {
   const [newPeakMoh, setNewPeakMoh] = useState("");
 
   const [region, setRegion] = useState({
-    latitude: 61.2,
-    longitude: 8.5,
-    latitudeDelta: 3.5,
-    longitudeDelta: 3.5,
+    latitude: 61.63,
+    longitude: 8.31,
+    latitudeDelta: 0.1,
+    longitudeDelta: 0.1,
   });
 
   const loadPeaks = async () => {
@@ -157,6 +163,33 @@ export default function MapScreen() {
   useEffect(() => {
     loadPeaks();
   }, []);
+
+  useEffect(() => {
+    setIsStyleLoaded(false);
+  }, [mapboxStyleURL]);
+
+  useEffect(() => {
+    if (isStyleLoaded && is3DEnabled && mapboxMapRef.current) {
+      // Small timeout to allow terrain DEM tiles to load/render
+      const timer = setTimeout(async () => {
+        try {
+          if (mapboxMapRef.current) {
+            console.log("[Mapbox] Querying terrain elevation for Galdhøpiggen area [8.31, 61.63]...");
+            const elevation = await mapboxMapRef.current.queryTerrainElevation([8.31, 61.63]);
+            console.log(`[Mapbox] Query elevation result for Jotunheimen [8.31, 61.63]: ${elevation} meters`);
+            if (elevation && elevation > 0) {
+              console.log("[Mapbox] Verified: Terrain is working! Galdhøpiggen elevation is > 0.");
+            } else {
+              console.log("[Mapbox] Terrain query returned 0 or null. Terrain tiles may still be loading.");
+            }
+          }
+        } catch (err) {
+          console.warn("[Mapbox] Error querying terrain elevation:", err);
+        }
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [isStyleLoaded, is3DEnabled]);
 
   const mapboxToken = Constants.expoConfig?.extra?.mapboxAccessToken || process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN;
 
@@ -293,6 +326,38 @@ export default function MapScreen() {
     }
   };
 
+  const handleDidFinishLoadingStyle = async () => {
+    setIsStyleLoaded(true);
+    try {
+      console.log("[Mapbox] Style loaded successfully");
+      if (mapboxMapRef.current) {
+        const style = await mapboxMapRef.current.getStyle();
+        if (style && style.layers) {
+          const layerIds = style.layers.map((l: any) => l.id);
+          console.log("[Mapbox] All Layers in current style:", layerIds);
+
+          const expectedLayers = ["mountain_peak", "mountain_peak-label", "natural-point-label"];
+          expectedLayers.forEach((layerId) => {
+            const exists = layerIds.includes(layerId);
+            console.log(`[Mapbox] Layer '${layerId}' exists in style: ${exists}`);
+          });
+        } else {
+          console.log("[Mapbox] Could not retrieve layers from style. getStyle() returned:", style);
+        }
+      } else {
+        console.warn("[Mapbox] mapboxMapRef is null when style finished loading.");
+      }
+    } catch (err) {
+      console.error("[Mapbox] Error in onDidFinishLoadingStyle:", err);
+    }
+    
+    // Log the terrain configuration
+    console.log("[Mapbox] Terrain enabled:", is3DEnabled);
+    if (is3DEnabled) {
+      console.log("[Mapbox] Terrain config: sourceID='mapbox-dem', exaggeration=1.2");
+    }
+  };
+
   if (loading) {
     return (
       <View style={flattenStyle([styles.centered, isDark ? styles.bgDark : styles.bgLight])}>
@@ -305,6 +370,7 @@ export default function MapScreen() {
     <View style={styles.container}>
       {isMapboxAvailable && isMapboxLayer ? (
         <MapboxMapView
+          ref={mapboxMapRef}
           style={styles.map}
           styleURL={mapboxStyleURL}
           maxPitch={85}
@@ -313,19 +379,20 @@ export default function MapScreen() {
           logoEnabled={false}
           attributionEnabled={false}
           onLongPress={handleMapboxLongPress}
-          {...(is3DEnabled ? {
-            terrain: {
-              sourceID: "mapbox-dem",
-              exaggeration: 1.2
-            }
-          } : {})}
+          onDidFinishLoadingStyle={handleDidFinishLoadingStyle}
         >
-          {is3DEnabled && (
-            <Mapbox.RasterDemSource
-              id="mapbox-dem"
-              url="mapbox://mapbox.mapbox-terrain-dem-v1"
-              tileSize={512}
-            />
+          {is3DEnabled && isStyleLoaded && (
+            <>
+              <Mapbox.RasterDemSource
+                id="mapbox-dem"
+                url="mapbox://mapbox.mapbox-terrain-dem-v1"
+                tileSize={512}
+              />
+              <Mapbox.Terrain
+                sourceID="mapbox-dem"
+                exaggeration={1.2}
+              />
+            </>
           )}
           {mapType === "norgeskart" && (
             <Mapbox.RasterSource
@@ -340,29 +407,33 @@ export default function MapScreen() {
               />
             </Mapbox.RasterSource>
           )}
-         {/* Hide built-in Mapbox peak layers */}
-         <Mapbox.SymbolLayer
-           id="hide-mountain-peak"
-           existingId="mountain_peak"
-           style={{ visibility: "none" }}
-         />
-         <Mapbox.SymbolLayer
-           id="hide-mountain-peak-label"
-           existingId="mountain_peak-label"
-           style={{ visibility: "none" }}
-         />
-         <Mapbox.SymbolLayer
-           id="hide-natural-point-label"
-           existingId="natural-point-label"
-           style={{ visibility: "none" }}
-         />
+          {isStyleLoaded && styleHasPeakLayers && (
+            <>
+              {/* Hide built-in Mapbox peak layers */}
+              <Mapbox.SymbolLayer
+                id="mountain_peak"
+                existing={true}
+                style={{ visibility: "none" }}
+              />
+              <Mapbox.SymbolLayer
+                id="mountain_peak-label"
+                existing={true}
+                style={{ visibility: "none" }}
+              />
+              <Mapbox.SymbolLayer
+                id="natural-point-label"
+                existing={true}
+                style={{ visibility: "none" }}
+              />
+            </>
+          )}
           <MapboxCamera
             ref={mapboxCameraRef}
             defaultSettings={{
               centerCoordinate: selectedPeak 
                 ? [selectedPeak.longitude, selectedPeak.latitude] 
-                : [8.5, 61.2],
-              zoomLevel: selectedPeak ? 12 : 6,
+                : [8.31, 61.63],
+              zoomLevel: 12,
               pitch: is3DEnabled ? 60 : 0,
             }}
           />
