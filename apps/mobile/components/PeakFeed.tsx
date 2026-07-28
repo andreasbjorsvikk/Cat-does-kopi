@@ -396,7 +396,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   listContent: {
-    padding: 16,
+    paddingHorizontal: 8,
+    paddingVertical: 16,
     paddingBottom: 40,
   },
   headerContainer: {
@@ -411,7 +412,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     marginBottom: 16,
-    padding: 14,
+    paddingHorizontal: 8,
+    paddingVertical: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -464,7 +466,7 @@ const styles = StyleSheet.create({
   },
   feedImage: {
     width: '100%',
-    height: 220,
+    height: 180,
     borderRadius: 12,
     marginTop: 6,
   },
