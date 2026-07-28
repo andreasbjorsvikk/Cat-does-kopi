@@ -322,12 +322,12 @@ export function ChildCheckinSheet({
             <Button
               onPress={handleCheckin}
               disabled={submitting}
-              className="bg-emerald-500 data-[hover=true]:bg-emerald-600 data-[active=true]:bg-emerald-700 dark:bg-emerald-600 dark:data-[hover=true]:bg-emerald-700 dark:data-[active=true]:bg-emerald-800 w-full rounded-xl py-3"
+              className="bg-emerald-500 data-[hover=true]:bg-emerald-600 data-[active=true]:bg-emerald-700 dark:bg-emerald-600 dark:data-[hover=true]:bg-emerald-700 dark:data-[active=true]:bg-emerald-800 w-full rounded-xl py-4 h-14"
             >
               {submitting ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
-                <ButtonText className="text-white font-bold text-base">Registrer innsjekk</ButtonText>
+                <ButtonText className="text-white font-bold text-base">Sjekk inn</ButtonText>
               )}
             </Button>
           </View>

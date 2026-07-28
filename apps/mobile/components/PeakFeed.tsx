@@ -336,7 +336,8 @@ export function PeakFeed() {
                     borderRadius: 20,
                     borderWidth: 1,
                     borderColor: isActive ? '#10B981' : (isDark ? '#374151' : '#E5E7EB'),
-                    backgroundColor: isActive ? '#10B981' : 'transparent'
+                    backgroundColor: isActive ? '#10B981' : 'transparent',
+                    alignSelf: 'center',
                   }
                 ])}
               >

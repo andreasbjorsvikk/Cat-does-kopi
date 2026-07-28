@@ -990,7 +990,7 @@ export default function MapScreen() {
 
       {selectedPeak && activeTab === "kart" && (
         <View style={flattenStyle([styles.bottomSheet, { backgroundColor: isDark ? "#111827" : "#FFFFFF" }])}>
-          <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
+          <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
             <HStack style={styles.sheetHeader}>
               <VStack style={{ flex: 1 }}>
                 <Heading className={`text-xl font-bold ${themeClasses.text}`}>{selectedPeak.name}</Heading>
@@ -1000,13 +1000,6 @@ export default function MapScreen() {
                 <X size={20} color={isDark ? "#FFFFFF" : "#000000"} />
               </TouchableOpacity>
             </HStack>
-            <Image 
-              source={{ uri: selectedPeak.imageUrl || "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b" }} 
-              style={styles.sheetImage} 
-            />
-            <Text className={`text-sm mt-3 ${themeClasses.textMuted}`} style={{ paddingBottom: 16 }}>
-              {selectedPeak.description}
-            </Text>
 
             {/* Distance and history stats row */}
             <HStack style={{ justifyContent: "space-between", marginBottom: 12 }}>
@@ -1034,7 +1027,7 @@ export default function MapScreen() {
             </HStack>
             
             {lastCheckinDateStr && (
-              <Text className={`text-xs ${themeClasses.textMuted}`} style={{ marginBottom: 16, textAlign: "right" }}>
+              <Text className={`text-xs ${themeClasses.textMuted}`} style={{ marginBottom: 12, textAlign: "right" }}>
                 Sist besøkt: {lastCheckinDateStr}
               </Text>
             )}
@@ -1054,13 +1047,21 @@ export default function MapScreen() {
                   {checkinLoading 
                     ? "Sjekker inn..." 
                     : (canCheckin 
-                      ? "Registrer innsjekk her" 
+                      ? "Sjekk inn" 
                       : "Du må være innenfor 100 meter for å sjekke inn"
                     )
                   }
                 </Text>
               </HStack>
             </TouchableOpacity>
+
+            <Image 
+              source={{ uri: selectedPeak.imageUrl || "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b" }} 
+              style={flattenStyle([styles.sheetImage, { marginTop: 16 }])} 
+            />
+            <Text className={`text-sm mt-3 ${themeClasses.textMuted}`} style={{ paddingBottom: 16 }}>
+              {selectedPeak.description}
+            </Text>
 
             {/* Recent check-ins list with edit/delete options */}
             {selectedPeakCheckins.length > 0 && (
