@@ -28,7 +28,9 @@ import {
   Sparkles,
   Info,
   Pencil,
-  Trash2
+  Trash2,
+  Navigation,
+  Compass
 } from "lucide-react-native";
 import { fetchPeaks, Peak } from "@/services/peakDbService";
 import useColorScheme from "@/hooks/useColorScheme";
@@ -865,6 +867,47 @@ export default function MapScreen() {
               ])}
             >
               <Layers size={18} color={showLayerMenu ? "#10B981" : (isDark ? "#FFFFFF" : "#111827")} />
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              onPress={() => {
+                if (userLocation) {
+                  if (isMapboxAvailable && isMapboxLayer) {
+                    mapboxCameraRef.current?.setCamera({ 
+                      centerCoordinate: [userLocation.longitude, userLocation.latitude], 
+                      zoomLevel: 14, 
+                      animationDuration: 1000 
+                    });
+                  } else {
+                    mapRef.current?.animateCamera({ 
+                      center: { latitude: userLocation.latitude, longitude: userLocation.longitude }, 
+                      zoom: 14 
+                    });
+                  }
+                }
+              }} 
+              style={flattenStyle([
+                styles.controlButton, 
+                { backgroundColor: isDark ? "rgba(31, 41, 55, 0.9)" : "rgba(255, 255, 255, 0.9)" }
+              ])}
+            >
+              <Navigation size={18} color={isDark ? "#FFFFFF" : "#111827"} />
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              onPress={() => {
+                if (isMapboxAvailable && isMapboxLayer) {
+                  mapboxCameraRef.current?.setCamera({ heading: 0, animationDuration: 1000 });
+                } else {
+                  mapRef.current?.animateCamera({ heading: 0 });
+                }
+              }} 
+              style={flattenStyle([
+                styles.controlButton, 
+                { backgroundColor: isDark ? "rgba(31, 41, 55, 0.9)" : "rgba(255, 255, 255, 0.9)" }
+              ])}
+            >
+              <Compass size={18} color={isDark ? "#FFFFFF" : "#111827"} />
             </TouchableOpacity>
           </View>
 
