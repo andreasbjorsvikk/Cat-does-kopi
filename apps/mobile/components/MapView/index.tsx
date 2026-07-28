@@ -933,7 +933,12 @@ export default function MapScreen() {
       {/* Non-map Tabs Placeholder Screen overlays */}
       {activeTab !== "kart" && (
         <View style={flattenStyle([styles.placeholderContainer, { backgroundColor: isDark ? "#030712" : "#F9FAFB" }])}>
-          <VStack style={styles.placeholderContent} className="items-center justify-center p-6 text-center">
+          {activeTab === "feed" ? (
+            <View style={{ flex: 1, marginTop: Platform.OS === "ios" ? 110 : 100, width: '100%' }}>
+              <PeakFeed />
+            </View>
+          ) : (
+            <VStack style={styles.placeholderContent} className="items-center justify-center p-6 text-center">
             {activeTab === "topper" && (
               <>
                 <Mountain size={48} color="#10B981" />
@@ -948,11 +953,6 @@ export default function MapScreen() {
                   <Text style={styles.placeholderBtnText}>Tilbake til kartet</Text>
                 </TouchableOpacity>
               </>
-            )}
-            {activeTab === "feed" && (
-              <View style={{ flex: 1, marginTop: Platform.OS === "ios" ? 110 : 100, width: '100%' }}>
-                <PeakFeed />
-              </View>
             )}
             {activeTab === "lederliste" && (
               <>
@@ -984,7 +984,8 @@ export default function MapScreen() {
                 </TouchableOpacity>
               </>
             )}
-          </VStack>
+            </VStack>
+          )}
         </View>
       )}
 

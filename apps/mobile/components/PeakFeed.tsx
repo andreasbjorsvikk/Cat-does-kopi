@@ -15,7 +15,7 @@ import { Text } from '@/components/ui/text';
 import { Card } from '@/components/ui/card';
 import { HStack } from '@/components/ui/hstack';
 import { VStack } from '@/components/ui/vstack';
-import { MapPin, Calendar, Heart, Compass, Users, User } from 'lucide-react-native';
+import { MapPin, Calendar, Heart, Compass, Users, User, Mountain } from 'lucide-react-native';
 import useColorScheme from '@/hooks/useColorScheme';
 import { flattenStyle } from '@/utils/flatten-style';
 
@@ -38,10 +38,12 @@ export interface GroupedFeedItem {
   parentAvatarUrl: string | null;
   peakName: string;
   peakElevation: number;
+  peakMunicipality: string;
+  peakCounty: string;
   participants: Participant[];
 }
 
-type FeedFilter = 'alle' | 'venner' | 'mine' | 'global';
+type FeedFilter = 'alle' | 'venner' | 'mine';
 
 export function PeakFeed() {
   const isDark = useColorScheme() === 'dark';
@@ -113,7 +115,7 @@ export function PeakFeed() {
       // Query peaks
       const { data: peaks } = await supabase
         .from('peaks_db')
-        .select('id, name_no, elevation_moh')
+        .select('id, name_no, elevation_moh, municipality, county')
         .in('id', peakIds);
       const peakMap = new Map((peaks || []).map(p => [String(p.id), p as any]));
 
@@ -186,6 +188,8 @@ export function PeakFeed() {
           const peak = peakMap.get(String(checkin.peak_id));
           const peakName = peak?.name_no || 'Ukjent Topp';
           const peakElevation = peak?.elevation_moh || 0;
+          const peakMunicipality = peak?.municipality || '';
+          const peakCounty = peak?.county || '';
 
           const parentProfile = profileMap.get(parentUserId);
           const parentName = parentProfile?.username || 'Fjellvandrer';
@@ -201,6 +205,8 @@ export function PeakFeed() {
             parentAvatarUrl: checkin.user_id === parentUserId ? avatar_url : parentAvatarUrl,
             peakName,
             peakElevation,
+            peakMunicipality,
+            peakCounty,
             participants: []
           };
 
@@ -230,60 +236,93 @@ export function PeakFeed() {
     fetchFeed();
   };
 
-  const formatNorwegianDate = (dateString: string) => {
+  const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('no-NO', {
-      day: '2-digit',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffMins < 60) {
+      return `${diffMins} minutter siden`;
+    } else if (diffHours < 24) {
+      return `${diffHours} timer siden`;
+    } else if (diffDays === 1) {
+      return 'i går';
+    } else if (diffDays < 7) {
+      return `${diffDays} dager siden`;
+    } else {
+      return date.toLocaleDateString('no-NO', {
+        day: '2-digit',
+        month: 'short',
+      });
+    }
   };
 
   const renderFeedItem = ({ item }: { item: GroupedFeedItem }) => {
     const username = item.parentName;
     const avatarUrl = item.parentAvatarUrl;
     const peakName = item.peakName;
+    const elevation = item.peakElevation;
+    const location = `${item.peakMunicipality}${item.peakMunicipality && item.peakCounty ? ', ' : ''}${item.peakCounty}`;
 
     return (
       <Card style={flattenStyle([styles.card, { backgroundColor: isDark ? '#1F2937' : '#FFFFFF', borderColor: isDark ? '#374151' : '#E5E7EB' }])}>
-        <HStack style={styles.cardHeader}>
-          <View style={styles.avatarContainer}>
-            {avatarUrl ? (
-              <Image source={{ uri: avatarUrl }} style={styles.avatarImg} />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <User size={20} color={isDark ? '#9CA3AF' : '#4B5563'} />
-              </View>
-            )}
-          </View>
-          <VStack style={styles.headerInfo}>
-            <Text className="font-semibold text-typography-900">{username}</Text>
-            <HStack style={styles.metaRow}>
-              <Calendar size={12} color="#9CA3AF" />
-              <Text size="xs" className="text-typography-500 ml-1">
-                {formatNorwegianDate(item.checked_in_at)}
+        <VStack style={{ gap: 12 }}>
+          <HStack style={styles.cardHeader}>
+            <View style={styles.avatarContainer}>
+              {avatarUrl ? (
+                <Image source={{ uri: avatarUrl }} style={styles.avatarImg} />
+              ) : (
+                <View style={styles.avatarPlaceholder}>
+                  <User size={20} color={isDark ? '#9CA3AF' : '#4B5563'} />
+                </View>
+              )}
+            </View>
+            <VStack style={styles.headerInfo}>
+              <Text className="font-semibold text-typography-900">{username}</Text>
+              <Text size="xs" className="text-typography-500">
+                {formatTimeAgo(item.checked_in_at)}
               </Text>
-            </HStack>
-          </VStack>
-        </HStack>
-
-        <VStack style={styles.cardBody}>
-          <HStack style={styles.peakBadge}>
-            <MapPin size={14} color="#10B981" />
-            <Text size="sm" className="font-semibold text-emerald-500 ml-1">
-              Har sjekket inn på {peakName}
-            </Text>
+            </VStack>
           </HStack>
 
           {item.participants.length > 0 && (
-            <HStack style={{ marginBottom: 10, alignItems: 'center', gap: 6 }}>
-              <Users size={14} color={isDark ? '#9CA3AF' : '#4B5563'} />
-              <Text size="xs" className="text-typography-500 font-medium">
-                sammen med {item.participants.map(p => p.emoji ? `${p.emoji} ${p.name}` : p.name).join(', ')}
+            <VStack style={{ marginLeft: 12, marginTop: -4, gap: 4 }}>
+              {item.participants.map(participant => (
+                <HStack key={participant.id} style={{ alignItems: 'center', gap: 8 }}>
+                  <View style={styles.participantAvatarContainer}>
+                    {participant.avatar_url ? (
+                      <Image source={{ uri: participant.avatar_url }} style={styles.avatarImg} />
+                    ) : (
+                      <View style={styles.avatarPlaceholder}>
+                        <Text size="xs">{participant.emoji || '👶'}</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text size="xs" className="text-typography-500 font-medium">
+                    {participant.name} var med
+                  </Text>
+                </HStack>
+              ))}
+            </VStack>
+          )}
+
+          <VStack style={{ gap: 2 }}>
+            <Text size="xs" className="text-typography-500 font-medium">
+              Sjekket inn på
+            </Text>
+            <HStack style={{ alignItems: 'center', gap: 8 }}>
+              <Mountain size={18} color="#10B981" />
+              <Text size="lg" className="font-bold text-typography-900">
+                {peakName}
               </Text>
             </HStack>
-          )}
+            <Text size="xs" className="text-typography-500">
+              {elevation} moh • {location}
+            </Text>
+          </VStack>
 
           {item.image_url && (
             <Image source={{ uri: item.image_url }} style={styles.feedImage} />
@@ -315,8 +354,7 @@ export function PeakFeed() {
   const filters: { key: FeedFilter; label: string }[] = [
     { key: 'alle', label: 'Alle' },
     { key: 'venner', label: 'Venner' },
-    { key: 'mine', label: 'Mine' },
-    { key: 'global', label: 'Global' }
+    { key: 'mine', label: 'Mine' }
   ];
 
   return (
@@ -396,7 +434,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   listContent: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 12,
     paddingVertical: 16,
     paddingBottom: 40,
   },
@@ -412,7 +450,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     marginBottom: 16,
-    paddingHorizontal: 8,
+    paddingHorizontal: 16,
     paddingVertical: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -431,11 +469,18 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
   },
+  participantAvatarContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
   avatarImg: {
     width: '100%',
     height: '100%',
   },
   avatarPlaceholder: {
+    flex: 1,
     width: '100%',
     height: '100%',
     backgroundColor: '#E5E7EB',
