@@ -125,7 +125,8 @@ export const PeaksList = ({ peaks, checkins, userLocation, onSelectPeak, loading
           onSelectPeak(item);
         }}
         activeOpacity={0.7}
-        className="flex-row items-center p-4 bg-background-0 dark:bg-background-900 border-b border-outline-50 dark:border-outline-800"
+        className="flex-row items-center p-4 border-b border-outline-50 dark:border-outline-800"
+        style={{ backgroundColor: isDark ? "#030712" : "#FFFFFF" }}
       >
         <View className="relative">
           <LinearGradient
@@ -166,10 +167,18 @@ export const PeaksList = ({ peaks, checkins, userLocation, onSelectPeak, loading
 
   return (
     <View style={flattenStyle([styles.container, { backgroundColor: isDark ? "#030712" : "#F9FAFB" }])}>
-      <VStack className="bg-background-0 dark:bg-background-950 border-b border-outline-100 dark:border-outline-800 pt-2 shadow-sm z-10">
+      <VStack 
+        className="border-b border-outline-100 dark:border-outline-800 pt-2 shadow-sm z-10"
+        style={{ backgroundColor: isDark ? "#030712" : "#FFFFFF" }}
+      >
         {/* Search and Filter Trigger */}
         <HStack className="px-4 py-2" style={{ gap: 10 }}>
-          <Input variant="outline" size="md" className="flex-1 rounded-xl bg-background-50 dark:bg-background-800 border-none">
+          <Input 
+            variant="outline" 
+            size="md" 
+            className="flex-1 rounded-xl border-none"
+            style={{ backgroundColor: isDark ? "#1F2937" : "#F3F4F6" }}
+          >
             <InputSlot className="pl-3">
               <Search size={18} color={isDark ? "#9CA3AF" : "#6B7280"} />
             </InputSlot>
@@ -178,6 +187,7 @@ export const PeaksList = ({ peaks, checkins, userLocation, onSelectPeak, loading
               value={searchQuery}
               onChangeText={setSearchQuery}
               className={isDark ? "text-typography-50" : "text-typography-950"}
+              placeholderTextColor={isDark ? "#9CA3AF" : "#6B7280"}
             />
           </Input>
           
@@ -189,8 +199,9 @@ export const PeaksList = ({ peaks, checkins, userLocation, onSelectPeak, loading
             className={`w-11 h-11 items-center justify-center rounded-xl border ${
               hasActiveAdvancedFilters 
                 ? "bg-emerald-500 border-emerald-500" 
-                : "bg-background-50 dark:bg-background-900 border-outline-100 dark:border-outline-800"
+                : "border-outline-100 dark:border-outline-800"
             }`}
+            style={!hasActiveAdvancedFilters ? { backgroundColor: isDark ? "#1F2937" : "#F3F4F6" } : undefined}
           >
             <SlidersHorizontal 
               size={20} 
@@ -217,8 +228,9 @@ export const PeaksList = ({ peaks, checkins, userLocation, onSelectPeak, loading
                 className={`px-4 py-1.5 rounded-full border ${
                   isSelected 
                     ? "bg-emerald-500 border-emerald-500" 
-                    : "bg-background-50 dark:bg-background-900 border-outline-100 dark:border-outline-800"
+                    : "border-outline-100 dark:border-outline-800"
                 }`}
+                style={!isSelected ? { backgroundColor: isDark ? "#1F2937" : "#F3F4F6" } : undefined}
               >
                 <Text 
                   size="xs" 

@@ -100,12 +100,15 @@ export const PeaksFilterSheet = ({
   return (
     <Actionsheet isOpen={isOpen} onClose={onClose} useRNModal={Platform.OS !== "web"}>
       <ActionsheetBackdrop />
-      <ActionsheetContent className={isDark ? "bg-background-950" : "bg-background-0"}>
+      <ActionsheetContent className="bg-background-0 dark:bg-background-950">
         <ActionsheetDragIndicatorWrapper>
           <ActionsheetDragIndicator />
         </ActionsheetDragIndicatorWrapper>
         
-        <VStack className={`w-full px-4 pt-2 pb-8 ${isDark ? 'bg-background-950' : 'bg-background-0'}`} style={{ gap: 24 }}>
+        <VStack 
+          className="w-full px-4 pt-2 pb-8 bg-background-0 dark:bg-background-950" 
+          style={{ gap: 24 }}
+        >
           <HStack className="justify-between items-center">
             <Heading size="md" className={isDark ? "text-typography-50" : "text-typography-950"}>
               Filtrer topper
@@ -185,10 +188,9 @@ export const PeaksFilterSheet = ({
                       className={`px-4 py-2 rounded-full border ${
                         isSelected
                           ? "bg-emerald-500 border-emerald-500"
-                          : isDark
-                          ? "bg-background-800 border-outline-800"
-                          : "bg-background-50 border-outline-200"
+                          : isDark ? "border-outline-800" : "border-outline-200"
                       }`}
+                      style={!isSelected ? { backgroundColor: isDark ? "#1F2937" : "#F3F4F6" } : undefined}
                     >
                       <Text
                         size="xs"
@@ -225,7 +227,12 @@ export const PeaksFilterSheet = ({
                 </HStack>
               ) : (
                 <>
-                  <Input variant="outline" size="sm" className="rounded-xl bg-background-50 dark:bg-background-800 border-outline-200 dark:border-outline-800">
+                  <Input 
+                    variant="outline" 
+                    size="sm" 
+                    className="rounded-xl border-outline-200 dark:border-outline-800"
+                    style={{ backgroundColor: isDark ? "#1F2937" : "#F3F4F6" }}
+                  >
                     <InputSlot className="pl-3">
                       <Search size={16} color={isDark ? "#9CA3AF" : "#6B7280"} />
                     </InputSlot>
@@ -234,6 +241,7 @@ export const PeaksFilterSheet = ({
                       value={municipalitySearch}
                       onChangeText={setMunicipalitySearch}
                       className={isDark ? "text-typography-50" : "text-typography-950"}
+                      placeholderTextColor={isDark ? "#9CA3AF" : "#6B7280"}
                     />
                   </Input>
                   
@@ -250,10 +258,9 @@ export const PeaksFilterSheet = ({
                           setMunicipalitySearch("");
                         }}
                         className={`px-3 py-1.5 rounded-lg border ${
-                          isDark
-                            ? "bg-background-800 border-outline-800"
-                            : "bg-background-50 border-outline-100"
+                          isDark ? "border-outline-800" : "border-outline-100"
                         }`}
+                        style={{ backgroundColor: isDark ? "#1F2937" : "#F3F4F6" }}
                       >
                         <Text size="xs" className={isDark ? "text-typography-300" : "text-typography-600"}>
                           {municipality}
