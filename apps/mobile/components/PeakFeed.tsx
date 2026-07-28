@@ -454,7 +454,7 @@ export function PeakFeed() {
                     borderRadius: 20,
                     borderWidth: 1,
                     borderColor: isActive ? '#10B981' : (isDark ? '#374151' : '#E5E7EB'),
-                    backgroundColor: isActive ? '#10B981' : (isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.06)'),
+                    backgroundColor: isActive ? '#10B981' : (isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.15)'),
                     alignSelf: 'center',
                   }
                 ])}

@@ -115,13 +115,12 @@ export default function MapScreen() {
   const [activeTab, setActiveTab] = useState<"kart" | "topper" | "feed" | "lederliste" | "ar">("kart");
   
   // Map settings
-  const [mapType, setMapType] = useState<"standard" | "satellite" | "terrain" | "norgeskart" | "satellite2">("satellite");
+  const [mapType, setMapType] = useState<"satellite" | "terrain" | "norgeskart" | "satellite2">("satellite");
 
-  const isMapboxLayer = mapType === "standard" || mapType === "satellite" || mapType === "satellite2" || mapType === "terrain" || mapType === "norgeskart";
+  const isMapboxLayer = mapType === "satellite" || mapType === "satellite2" || mapType === "terrain" || mapType === "norgeskart";
 
   const mapboxStyleURL = React.useMemo(() => {
     switch(mapType) {
-      case "standard": return "mapbox://styles/mapbox/streets-v12";
       case "satellite": return "mapbox://styles/mapbox/satellite-streets-v12";
       case "satellite2": return "mapbox://styles/mapbox/satellite-v9";
       case "terrain": return "mapbox://styles/mapbox/outdoors-v12";
@@ -738,7 +737,7 @@ export default function MapScreen() {
           mapType={resolvedMapType}
           pitchEnabled={true}
           rotateEnabled={true}
-          showsBuildings={mapType === "standard"}
+          showsBuildings={false}
           showsCompass={true}
           showsScale={true}
           onLongPress={handleMapLongPress}
@@ -859,16 +858,6 @@ export default function MapScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity 
-              onPress={() => setShow3DInfoModal(true)} 
-              style={flattenStyle([
-                styles.controlButton, 
-                { backgroundColor: isDark ? "rgba(31, 41, 55, 0.9)" : "rgba(255, 255, 255, 0.9)" }
-              ])}
-            >
-              <Info size={18} color={isDark ? "#FFFFFF" : "#111827"} />
-            </TouchableOpacity>
-
-            <TouchableOpacity 
               onPress={() => setShowLayerMenu(!showLayerMenu)} 
               style={flattenStyle([
                 styles.controlButton, 
@@ -884,13 +873,10 @@ export default function MapScreen() {
               styles.layerMenu,
               { backgroundColor: isDark ? "rgba(17, 24, 39, 0.95)" : "rgba(255, 255, 255, 0.95)" }
             ])}>
-              {(["standard", "satellite", "satellite2", "terrain", "norgeskart"] as const).map((type) => {
+              {(["satellite", "satellite2", "terrain", "norgeskart"] as const).map((type) => {
                 const isActive = mapType === type;
                 let label = "Standard";
                 switch(type) {
-                  case "standard":
-                    label = "Standard";
-                    break;
                   case "satellite":
                     label = "Satellitt";
                     break;
@@ -1461,7 +1447,7 @@ const styles = StyleSheet.create({
   },
   placeholderContainer: {
     position: "absolute",
-    top: Platform.OS === "ios" ? 120 : 110,
+    top: Platform.OS === "ios" ? 130 : 120,
     bottom: 0,
     left: 0,
     right: 0,
