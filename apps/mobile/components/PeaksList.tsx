@@ -130,7 +130,10 @@ export const PeaksList = ({ peaks, checkins, userLocation, onSelectPeak, loading
       >
         <View className="relative">
           <LinearGradient
-            colors={isReached ? ["#10B981", "#059669"] : ["#9CA3AF", "#6B7280"]}
+            colors={isReached 
+              ? ["#10B981", "#059669"] 
+              : (isDark ? ["#B0B8C1", "#828F9F"] : ["#9CA3AF", "#6B7280"])
+            }
             style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' }}
           >
             <Mountain size={22} color="#FFFFFF" strokeWidth={2} />
@@ -147,7 +150,7 @@ export const PeaksList = ({ peaks, checkins, userLocation, onSelectPeak, loading
         </View>
         
         <VStack className="flex-1 ml-3" style={{ gap: 1 }}>
-          <Text className="font-semibold text-sm text-typography-900 dark:text-typography-50">
+          <Text className="font-semibold text-sm text-typography-900 dark:text-white">
             {item.name}
           </Text>
           <Text size="xs" className="text-typography-500 dark:text-typography-400">
