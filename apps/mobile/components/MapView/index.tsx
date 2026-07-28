@@ -238,7 +238,7 @@ export default function MapScreen() {
     if (isMapboxAvailable && isMapboxLayer) {
       try {
         mapboxCameraRef.current?.setCamera({
-          pitch: next3D ? 65 : 0,
+          pitch: next3D ? 60 : 0,
           duration: 600,
         });
       } catch (e) {
@@ -247,7 +247,7 @@ export default function MapScreen() {
     } else {
       try {
         mapRef.current?.animateCamera({
-          pitch: next3D ? 85 : 0,
+          pitch: next3D ? 60 : 0,
         }, { duration: 600 });
       } catch (e) {
         console.warn("Could not animate map camera:", e);
@@ -258,7 +258,7 @@ export default function MapScreen() {
   const handleMapReady = () => {
     try {
       mapRef.current?.animateCamera({
-        pitch: is3DEnabled ? 85 : 0,
+        pitch: is3DEnabled ? 60 : 0,
       }, { duration: 800 });
     } catch (e) {
       console.warn("Could not tilt map on ready:", e);
@@ -280,9 +280,9 @@ export default function MapScreen() {
         // (latitudeDelta < 1.5, representing regional or local view), we request a high pitch (85 degrees).
         // MapKit will dynamically clamp this to the highest allowed angle for the current zoom/altitude,
         // preventing the map from bouncing back all the way to 0 degrees (completely flat).
-        if (camera.pitch < 75 && currentRegion.latitudeDelta < 1.5) {
+        if (camera.pitch < 55 && currentRegion.latitudeDelta < 1.5) {
           await mapRef.current.animateCamera({
-            pitch: 85, // Request maximum tilt; MapKit clamps it to the absolute max allowed
+            pitch: 60,
           }, { duration: 300 });
         }
       } catch (e) {
@@ -316,7 +316,7 @@ export default function MapScreen() {
           {...(is3DEnabled ? {
             terrain: {
               sourceID: "mapbox-dem",
-              exaggeration: 2.5
+              exaggeration: 1.2
             }
           } : {})}
         >
@@ -340,6 +340,22 @@ export default function MapScreen() {
               />
             </Mapbox.RasterSource>
           )}
+         {/* Hide built-in Mapbox peak layers */}
+         <Mapbox.SymbolLayer
+           id="hide-mountain-peak"
+           existingId="mountain_peak"
+           style={{ visibility: "none" }}
+         />
+         <Mapbox.SymbolLayer
+           id="hide-mountain-peak-label"
+           existingId="mountain_peak-label"
+           style={{ visibility: "none" }}
+         />
+         <Mapbox.SymbolLayer
+           id="hide-natural-point-label"
+           existingId="natural-point-label"
+           style={{ visibility: "none" }}
+         />
           <MapboxCamera
             ref={mapboxCameraRef}
             defaultSettings={{
@@ -347,7 +363,7 @@ export default function MapScreen() {
                 ? [selectedPeak.longitude, selectedPeak.latitude] 
                 : [8.5, 61.2],
               zoomLevel: selectedPeak ? 12 : 6,
-              pitch: is3DEnabled ? 65 : 0,
+              pitch: is3DEnabled ? 60 : 0,
             }}
           />
           {peaks.map((peak) => (

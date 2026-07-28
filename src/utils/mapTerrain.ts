@@ -3,8 +3,11 @@
  * Adds 3D terrain, hillshade, sky, and directional lighting.
  */
 
+/** Default vertical exaggeration for 3D terrain. */
+export const DEFAULT_TERRAIN_EXAGGERATION = 1.2;
+
 export function addEnhancedTerrain(map: any, options?: { exaggeration?: number; lightweight?: boolean }) {
-  const exaggeration = options?.exaggeration ?? 1.4;
+  const exaggeration = options?.exaggeration ?? DEFAULT_TERRAIN_EXAGGERATION;
   const lightweight = options?.lightweight ?? false;
 
   try {

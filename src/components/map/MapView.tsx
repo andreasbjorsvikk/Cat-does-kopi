@@ -10,7 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { decodePolyline } from '@/utils/polyline';
-import { addEnhancedTerrain } from '@/utils/mapTerrain';
+import { addEnhancedTerrain, DEFAULT_TERRAIN_EXAGGERATION } from '@/utils/mapTerrain';
 import { getPeakIcon, getCheckedPeakIcon } from '@/utils/peakIcons';
 import { hapticsService } from '@/services/hapticsService';
 import { Settings2, LocateFixed, Loader2 } from 'lucide-react';
@@ -60,6 +60,35 @@ const MAPBOX_TOKEN =
     : undefined) ??
   '';
 
+// ---------------------------------------------------------------------------
+// 3D terrain settings — a single source of truth so every code path (map init,
+// style switch, 2D/3D toggle) renders the terrain identically.
+// ---------------------------------------------------------------------------
+const TERRAIN_EXAGGERATION = DEFAULT_TERRAIN_EXAGGERATION;
+const PITCH_3D = 60;
+const BEARING_3D = -20;
+
+// Mapbox styles such as outdoors-v12 ship their own peak symbol layers
+// ('mountain_peak', 'mountain_peak-label', 'natural-point-label'). They only
+// render at higher zoom levels and are easily mistaken for the app's peaks, so
+// we hide them and let the custom HTML peak markers be the only peak icons.
+const BUILT_IN_PEAK_LAYER_PATTERNS = [/peak/i, /^natural-point-label/i];
+
+const hideBuiltInPeakLayers = (m: mapboxgl.Map) => {
+  try {
+    const layers = m.getStyle()?.layers ?? [];
+    for (const layer of layers) {
+      const id = String((layer as any)?.id ?? '');
+      if (!id) continue;
+      if (BUILT_IN_PEAK_LAYER_PATTERNS.some((re) => re.test(id))) {
+        try {
+          m.setLayoutProperty(id, 'visibility', 'none');
+        } catch {}
+      }
+    }
+  } catch {}
+};
+
 const MapView = ({ peaks, checkins, onSelectPeak, adminMode, addMode, onMapClick, onMarkerDrag, onEditPeak, onDeletePeak, onLongPress, routeGeojson, routeFocus, suppressInitialGeolocate, onClearRoute, onMapReady, previewWaypoints, onWaypointClick, onWaypointDrag, showHeatmap, heatmapPeriod, showAreaStats, onlyReachedThisYear, suggestedPeaks, areaStatsMode = 'off', onSettingsClick, gpsTrackTrigger }: MapViewProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
@@ -72,7 +101,7 @@ const MapView = ({ peaks, checkins, onSelectPeak, adminMode, addMode, onMapClick
   const { user } = useAuth();
   const { isConstrainedDevice, isIOSDevice } = useMemo(() => {
     if (typeof window === 'undefined') {
-      return { isConstrainedDevice: false, isConstrainedDevice: false };
+      return { isConstrainedDevice: false, isIOSDevice: false };
     }
 
     const nav = navigator as Navigator & { deviceMemory?: number };
@@ -91,7 +120,13 @@ const MapView = ({ peaks, checkins, onSelectPeak, adminMode, addMode, onMapClick
   }, []);
   
   const [mapLoaded, setMapLoaded] = useState(false);
-  const [is3D, setIs3D] = useState(true);
+  const [is3D, setIs3D] = useState(true); // 3D terrain is on by default
+  // Ref mirror of is3D so style.load handlers registered once at map init
+  // always apply the current 2D/3D choice.
+  const is3DRef = useRef(is3D);
+  useEffect(() => {
+    is3DRef.current = is3D;
+  }, [is3D]);
   type MapStyleId = 'satellite' | 'streets' | 'topo' | 'terrain';
   const resolveStoredStyle = (): MapStyleId => {
     const raw = (localStorage.getItem('treningslogg_default_map_style') as string) || 'satellite';
@@ -238,6 +273,21 @@ const MapView = ({ peaks, checkins, onSelectPeak, adminMode, addMode, onMapClick
       cleanup();
     };
   }, []);
+
+  // Applies (or removes) 3D terrain and hides the built-in Mapbox peak layers.
+  // Runs on every style.load and whenever 3D is toggled so terrain, sky and
+  // lighting always match the current is3D state with the same exaggeration.
+  const applyStyleEnhancements = useCallback((m: mapboxgl.Map) => {
+    hideBuiltInPeakLayers(m);
+    if (is3DRef.current) {
+      addEnhancedTerrain(m, {
+        exaggeration: TERRAIN_EXAGGERATION,
+        lightweight: isConstrainedDevice,
+      });
+    } else {
+      try { m.setTerrain(null); } catch {}
+    }
+  }, [isConstrainedDevice]);
 
 
   const ensureRouteLayer = useCallback((m: mapboxgl.Map) => {
@@ -390,8 +440,8 @@ const MapView = ({ peaks, checkins, onSelectPeak, adminMode, addMode, onMapClick
         style: STYLE_URLS[initStyle],
         center,
         zoom,
-        pitch: isConstrainedDevice ? 40 : 60,
-        bearing: isConstrainedDevice ? 0 : -20,
+        pitch: PITCH_3D,
+        bearing: BEARING_3D,
         // Smoother edges on lines/labels while panning; keep off on constrained
         // devices to preserve battery / avoid WebGL pressure on iOS WKWebView.
         antialias: !isConstrainedDevice,
@@ -453,17 +503,14 @@ const MapView = ({ peaks, checkins, onSelectPeak, adminMode, addMode, onMapClick
     });
 
     m.on('style.load', () => {
-      addEnhancedTerrain(m, {
-        exaggeration: isConstrainedDevice ? 1.0 : 1.4,
-        lightweight: isConstrainedDevice,
-      });
+      applyStyleEnhancements(m);
       setMapLoaded(true);
       onMapReadyRef.current?.();
     });
 
     map.current = m;
     return () => { m.remove(); map.current = null; };
-  }, [isConstrainedDevice, suppressInitialGeolocate]);
+  }, [isConstrainedDevice, suppressInitialGeolocate, applyStyleEnhancements]);
 
   // ============================================================
   //  LIVE GPS POSITION
@@ -882,20 +929,13 @@ const MapView = ({ peaks, checkins, onSelectPeak, adminMode, addMode, onMapClick
     const m = map.current;
 
     if (is3D) {
-      m.easeTo({ pitch: isConstrainedDevice ? 40 : 60, bearing: isConstrainedDevice ? 0 : -20, duration: 600 });
-      whenStyleReady(m, () => {
-        if (!m.getTerrain()) {
-          if (!m.getSource('mapbox-dem')) {
-            m.addSource('mapbox-dem', { type: 'raster-dem', url: 'mapbox://mapbox.mapbox-terrain-dem-v1', tileSize: 512, maxzoom: 14 });
-          }
-          m.setTerrain({ source: 'mapbox-dem', exaggeration: isConstrainedDevice ? 1.0 : 1.5 });
-        }
-      });
+      m.easeTo({ pitch: PITCH_3D, bearing: BEARING_3D, duration: 600 });
+      whenStyleReady(m, () => applyStyleEnhancements(m));
     } else {
       m.easeTo({ pitch: 0, bearing: 0, duration: 600 });
       m.setTerrain(null);
     }
-  }, [is3D, isConstrainedDevice, mapLoaded, whenStyleReady]);
+  }, [is3D, mapLoaded, whenStyleReady, applyStyleEnhancements]);
 
   const { isOnline } = useNetworkStatus();
 
@@ -941,14 +981,10 @@ const MapView = ({ peaks, checkins, onSelectPeak, adminMode, addMode, onMapClick
     setMapLoaded(false);
     m.setStyle(styleUrl);
     m.once('style.load', () => {
-      addEnhancedTerrain(m, {
-        exaggeration: isConstrainedDevice ? 1.0 : 1.4,
-        lightweight: isConstrainedDevice,
-      });
-      if (is3D) m.setTerrain({ source: 'mapbox-dem', exaggeration: isConstrainedDevice ? 1.0 : 1.5 });
+      applyStyleEnhancements(m);
       setMapLoaded(true);
     });
-  }, [is3D, isConstrainedDevice, mapStyle, mapLoaded, whenStyleReady, isOnline]);
+  }, [is3D, isConstrainedDevice, mapStyle, mapLoaded, whenStyleReady, isOnline, applyStyleEnhancements]);
 
 
   // Route focus (especially important when opening route from Topper tab)
@@ -1123,15 +1159,15 @@ const MapView = ({ peaks, checkins, onSelectPeak, adminMode, addMode, onMapClick
       const el = document.createElement('div');
       const peakIcon = getPeakIcon(peak.heightMoh, peak.id);
       const markerBackground = effectivelyTaken
-          ? 'hsl(var(--success) / 0.88)'
+          ? 'hsl(var(--success) / 0.92)'
           : isUnpublished
             ? 'hsl(var(--warning) / 0.26)'
-            : 'hsl(0 0% 98% / 0.78)'; // Light color in both modes
+            : 'hsl(0 0% 98% / 0.94)'; // Nearly opaque so markers stay readable over any basemap, at any zoom
       const markerBorder = effectivelyTaken
-          ? 'hsl(var(--success) / 0.85)'
+          ? 'hsl(var(--success) / 0.9)'
           : isUnpublished
             ? 'hsl(var(--warning) / 0.45)'
-            : 'hsl(0 0% 88% / 0.85)'; // Light border in both modes
+            : 'hsl(0 0% 75% / 0.95)'; // Visible light border in both modes
       const markerShadow = isConstrainedDevice
         ? effectivelyTaken
           ? '0 4px 10px hsl(var(--success) / 0.18)'
@@ -1230,6 +1266,10 @@ const MapView = ({ peaks, checkins, onSelectPeak, adminMode, addMode, onMapClick
         .setLngLat([peak.longitude, peak.latitude])
         .setPopup(popup)
         .addTo(map.current!);
+
+      // Custom peak markers stay above basemap labels (and below the GPS dot)
+      // at every zoom level — no zoom-based hiding.
+      marker.getElement().style.zIndex = '10';
 
       if (adminMode && onMarkerDrag) {
         let isUnlocked = false;
@@ -1650,7 +1690,7 @@ const MapView = ({ peaks, checkins, onSelectPeak, adminMode, addMode, onMapClick
     } else {
       // === KOMMUNE MODE (existing logic) ===
       const fetchBoundaries = async () => {
-        const areaKommuneMap = new Map<string, Peak>();
+        const areaKommuneMap = new Map<string, { kommuneNr: string; kommuneNavn: string }>();
         const uniqueAreas = new Map<string, Peak>();
         peaks.forEach(peak => {
           const area = peak.area?.trim();
