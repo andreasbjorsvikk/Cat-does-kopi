@@ -92,13 +92,13 @@ export default function MapScreen() {
   const [activeTab, setActiveTab] = useState<"kart" | "topper" | "feed" | "lederliste" | "ar">("kart");
   
   // Map settings
-  const [mapType, setMapType] = useState<"standard" | "satellite" | "terrain" | "norgeskart">("satellite");
+  const [mapType, setMapType] = useState<"standard" | "satellite" | "terrain" | "norgeskart" | "satellite2">("satellite");
   const [is3DEnabled, setIs3DEnabled] = useState(true);
   const [showLayerMenu, setShowLayerMenu] = useState(false);
 
   // Resolve mapType to use flyover modes on iOS for maximum possible 3D/tilt
   const resolvedMapType = React.useMemo(() => {
-    if (mapType === "norgeskart") {
+    if (mapType === "norgeskart" || mapType === "satellite2") {
       // On iOS, 'none' prevents 3D tilt, so we use 'standard' with shouldReplaceMapContent on UrlTile.
       // On Android, 'none' works perfectly to hide the standard map underneath and allows tilt.
       return Platform.OS === "ios" ? "standard" : "none";
@@ -290,17 +290,30 @@ export default function MapScreen() {
 
   return (
     <View style={styles.container}>
-      {mapType === "terrain" && isMapboxAvailable ? (
+      {isMapboxAvailable && (mapType === "terrain" || mapType === "satellite2") ? (
         <MapboxMapView
           style={styles.map}
-          styleURL="mapbox://styles/mapbox/satellite-streets-v12"
+          styleURL={mapType === "satellite2" ? "mapbox://styles/mapbox/satellite-v9" : "mapbox://styles/mapbox/outdoors-v12"}
           maxPitch={85}
           pitchEnabled={true}
           rotateEnabled={true}
           logoEnabled={false}
           attributionEnabled={false}
           onLongPress={handleMapboxLongPress}
+          {...(mapType === "terrain" ? {
+            terrain: {
+              sourceID: "mapbox-dem",
+              exaggeration: 1.5
+            }
+          } : {})}
         >
+          {mapType === "terrain" && (
+            <Mapbox.RasterDemSource
+              id="mapbox-dem"
+              url="mapbox://mapbox.mapbox-terrain-dem-v1"
+              tileSize={512}
+            />
+          )}
           <MapboxCamera
             ref={mapboxCameraRef}
             defaultSettings={{
@@ -357,6 +370,16 @@ export default function MapScreen() {
             maxPitch: 90,
           } as any)}
         >
+          {mapType === "satellite2" && (
+            <UrlTile
+              key="mapbox-satellite-tile"
+              urlTemplate="https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}.png?access_token={accessToken}"
+              tileSize={256}
+              maximumZ={19}
+              zIndex={98}
+              shouldReplaceMapContent={Platform.OS === "ios"}
+            />
+          )}
           {mapType === "norgeskart" && (
             <UrlTile
               key="norgeskart-tile"
@@ -498,9 +521,26 @@ export default function MapScreen() {
               styles.layerMenu,
               { backgroundColor: isDark ? "rgba(17, 24, 39, 0.95)" : "rgba(255, 255, 255, 0.95)" }
             ])}>
-              {(["standard", "satellite", "terrain", "norgeskart"] as const).map((type) => {
+              {(["standard", "satellite", "satellite2", "terrain", "norgeskart"] as const).map((type) => {
                 const isActive = mapType === type;
-                const label = type === "standard" ? "Standard" : type === "satellite" ? "Satellitt" : type === "terrain" ? "Terreng" : "Norgeskart";
+                let label = "Standard";
+                switch(type) {
+                  case "standard":
+                    label = "Standard";
+                    break;
+                  case "satellite":
+                    label = "Satellitt";
+                    break;
+                  case "satellite2":
+                    label = "Satellitt 2";
+                    break;
+                  case "terrain":
+                    label = "Terreng";
+                    break;
+                  case "norgeskart":
+                    label = "Norgeskart";
+                    break;
+                }
                 return (
                   <TouchableOpacity
                     key={type}
