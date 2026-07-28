@@ -1461,7 +1461,7 @@ const styles = StyleSheet.create({
   },
   placeholderContainer: {
     position: "absolute",
-    top: Platform.OS === "ios" ? 115 : 105,
+    top: Platform.OS === "ios" ? 120 : 110,
     bottom: 0,
     left: 0,
     right: 0,

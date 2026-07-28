@@ -13,7 +13,8 @@ export default function CommunityScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
 
-  const [activeTab, setActiveTab] = useState<"challenges" | "leaderboard" | "groups">("challenges");
+  const [activeTab, setActiveTab] = useState<"feed" | "challenges" | "leaderboard" | "groups">("feed");
+  const [feedFilter, setFeedFilter] = useState<"all" | "friends" | "mine">("all");
 
   const themeClasses = {
     bg: isDark ? "bg-background-950" : "bg-background-0",
@@ -54,6 +55,12 @@ export default function CommunityScreen() {
     { id: "g2", name: "Løpeklubben", members: 8, desc: "Intervaller og langkjøring i Oslo-området" },
   ];
 
+  const mockFeedPosts = [
+    { id: "p1", user: "Erik", action: "fullførte løpetur", detail: "12 km på 58 min", time: "2t siden", avatar: null },
+    { id: "p2", user: "Silje", action: "ble med i utfordring", detail: "Mars-mila", time: "4t siden", avatar: null },
+    { id: "p3", user: "Magnus", action: "loggførte", detail: "Styrketrening, 45 min", time: "6t siden", avatar: null },
+  ];
+
   return (
     <ScrollView style={flattenStyle([styles.container, isDark ? styles.bgDark : styles.bgLight])} contentContainerStyle={styles.contentContainer}>
       {/* Header */}
@@ -71,6 +78,15 @@ export default function CommunityScreen() {
 
       {/* Sub tabs */}
       <HStack style={styles.tabContainer}>
+        <TouchableOpacity 
+          style={flattenStyle([styles.tabButton, activeTab === "feed" && styles.tabButtonActive])}
+          onPress={() => setActiveTab("feed")}
+        >
+          <Text style={flattenStyle([styles.tabButtonText, activeTab === "feed" ? styles.textWhite : { color: isDark ? "#9CA3AF" : "#4B5563" }])}>
+            Feed
+          </Text>
+        </TouchableOpacity>
+
         <TouchableOpacity 
           style={flattenStyle([styles.tabButton, activeTab === "challenges" && styles.tabButtonActive])}
           onPress={() => setActiveTab("challenges")}
@@ -98,6 +114,102 @@ export default function CommunityScreen() {
           </Text>
         </TouchableOpacity>
       </HStack>
+
+      {/* Feed Section */}
+      {activeTab === "feed" && (
+        <>
+          {/* Feed Filter Buttons - Alle/Venner/Mine */}
+          <HStack style={styles.feedFilterContainer}>
+            <TouchableOpacity
+              style={flattenStyle([
+                styles.feedFilterBtn,
+                feedFilter === "all"
+                  ? styles.feedFilterBtnActive
+                  : { backgroundColor: isDark ? "#1F2937" : "#E5E7EB" },
+              ])}
+              onPress={() => setFeedFilter("all")}
+            >
+              <Text style={flattenStyle([
+                styles.feedFilterBtnText,
+                feedFilter === "all"
+                  ? styles.feedFilterBtnTextActive
+                  : { color: isDark ? "#9CA3AF" : "#6B7280" },
+              ])}>
+                Alle
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={flattenStyle([
+                styles.feedFilterBtn,
+                feedFilter === "friends"
+                  ? styles.feedFilterBtnActive
+                  : { backgroundColor: isDark ? "#1F2937" : "#E5E7EB" },
+              ])}
+              onPress={() => setFeedFilter("friends")}
+            >
+              <Text style={flattenStyle([
+                styles.feedFilterBtnText,
+                feedFilter === "friends"
+                  ? styles.feedFilterBtnTextActive
+                  : { color: isDark ? "#9CA3AF" : "#6B7280" },
+              ])}>
+                Venner
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={flattenStyle([
+                styles.feedFilterBtn,
+                feedFilter === "mine"
+                  ? styles.feedFilterBtnActive
+                  : { backgroundColor: isDark ? "#1F2937" : "#E5E7EB" },
+              ])}
+              onPress={() => setFeedFilter("mine")}
+            >
+              <Text style={flattenStyle([
+                styles.feedFilterBtnText,
+                feedFilter === "mine"
+                  ? styles.feedFilterBtnTextActive
+                  : { color: isDark ? "#9CA3AF" : "#6B7280" },
+              ])}>
+                Mine
+              </Text>
+            </TouchableOpacity>
+          </HStack>
+
+          {/* Feed Posts */}
+          <VStack style={styles.feedSection}>
+            {mockFeedPosts.map((post, index) => (
+              <Card
+                key={post.id}
+                className={`p-4 ${themeClasses.cardBg}`}
+                style={flattenStyle([styles.feedItemCard, index === 0 && styles.feedItemFirst])}
+              >
+                <HStack style={{ alignItems: "center" }}>
+                  <View style={flattenStyle([styles.feedAvatar, { backgroundColor: isDark ? "#374151" : "#E5E7EB" }])}>
+                    <Text style={{ color: isDark ? "#9CA3AF" : "#6B7280", fontSize: 12, fontWeight: "600" }}>
+                      {post.user[0]}
+                    </Text>
+                  </View>
+                  <VStack style={{ flex: 1, marginLeft: 12 }}>
+                    <HStack style={{ alignItems: "center", gap: 4 }}>
+                      <Text className={`font-bold text-sm ${themeClasses.text}`}>{post.user}</Text>
+                      <Text className={`text-sm ${themeClasses.textMuted}`}>{post.action}</Text>
+                    </HStack>
+                    <Text className={`text-xs ${themeClasses.textMuted}`} style={{ marginTop: 2 }}>
+                      {post.detail}
+                    </Text>
+                    <Text className={`text-xs ${themeClasses.textMuted}`} style={{ marginTop: 4 }}>
+                      {post.time}
+                    </Text>
+                  </VStack>
+                </HStack>
+              </Card>
+            ))}
+          </VStack>
+        </>
+      )}
 
       {/* Content Sections */}
       {activeTab === "challenges" && (
@@ -190,7 +302,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: 16,
-    paddingTop: Platform.OS === "ios" ? 60 : 30,
+    paddingTop: Platform.OS === "ios" ? 120 : 30,
     paddingBottom: 40,
   },
   header: {
@@ -229,6 +341,44 @@ const styles = StyleSheet.create({
   },
   textWhite: {
     color: "#FFFFFF",
+  },
+  feedFilterContainer: {
+    flexDirection: "row",
+    marginBottom: 16,
+    gap: 8,
+  },
+  feedFilterBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  feedFilterBtnActive: {
+    backgroundColor: "#10B981",
+  },
+  feedFilterBtnText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  feedFilterBtnTextActive: {
+    color: "#FFFFFF",
+  },
+  feedSection: {
+    marginBottom: 20,
+    gap: 12,
+  },
+  feedItemCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  feedItemFirst: {
+    marginTop: -5,
+  },
+  feedAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
   },
   section: {
     marginBottom: 20,
