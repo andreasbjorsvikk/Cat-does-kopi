@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { Platform, ScrollView, TouchableOpacity, View, StyleSheet } from "react-native";
+import { Platform, ScrollView, TouchableOpacity, View, StyleSheet, Dimensions } from "react-native";
 import {
   Actionsheet,
   ActionsheetBackdrop,
@@ -12,7 +12,7 @@ import { HStack } from "@/components/ui/hstack";
 import { Heading } from "@/components/ui/heading";
 import { Text } from "@/components/ui/text";
 import { Button, ButtonText } from "@/components/ui/button";
-import { Slider, SliderFilledTrack, SliderThumb, SliderTrack } from "@/components/ui/slider";
+import MultiSlider from "@ptomasroos/react-native-multi-slider";
 import { Input, InputField, InputIcon, InputSlot } from "@/components/ui/input";
 import { Search, X } from "lucide-react-native";
 import { Badge, BadgeText } from "@/components/ui/badge";
@@ -22,7 +22,7 @@ import kommunerData from "@/data/kommuner.json";
 import { hapticsService } from "@/services/hapticsService";
 
 export interface PeaksFilter {
-  minHeight: number;
+  heightRange: [number, number];
   selectedCounty: string | null;
   selectedMunicipality: string | null;
 }
@@ -45,7 +45,13 @@ export const PeaksFilterSheet = ({
   uniqueCounties,
 }: PeaksFilterSheetProps) => {
   const isDark = useColorScheme() === "dark";
+  const [localHeightRange, setLocalHeightRange] = useState<[number, number]>(filter.heightRange);
   const [municipalitySearch, setMunicipalitySearch] = useState("");
+
+  // Sync local state when filter prop changes (e.g. on reset)
+  useEffect(() => {
+    setLocalHeightRange(filter.heightRange);
+  }, [filter.heightRange]);
 
   const sortedCounties = useMemo(() => {
     if (userLocation) {
@@ -77,15 +83,17 @@ export const PeaksFilterSheet = ({
   const handleReset = () => {
     hapticsService.impact("medium");
     onFilterChange({
-      minHeight: 0,
+      heightRange: [0, 2500],
       selectedCounty: null,
       selectedMunicipality: null,
     });
+    setLocalHeightRange([0, 2500]);
     setMunicipalitySearch("");
   };
 
   const hasActiveFilters = 
-    filter.minHeight > 0 || 
+    filter.heightRange[0] > 0 || 
+    filter.heightRange[1] < 2500 ||
     filter.selectedCounty !== null || 
     filter.selectedMunicipality !== null;
 
@@ -113,27 +121,44 @@ export const PeaksFilterSheet = ({
           <VStack style={{ gap: 12 }}>
             <HStack className="justify-between">
               <Text size="sm" className={isDark ? "text-typography-300" : "text-typography-700 font-medium"}>
-                Minimum høyde
+                Høyde
               </Text>
               <Text size="sm" className="text-emerald-500 font-bold">
-                {filter.minHeight} moh
+                {localHeightRange[0]}–{localHeightRange[1]} moh
               </Text>
             </HStack>
-            <Slider
-              value={filter.minHeight}
-              minValue={0}
-              maxValue={2500}
-              step={50}
-              onChange={(val) => {
-                onFilterChange({ ...filter, minHeight: val });
-              }}
-              size="md"
-            >
-              <SliderTrack>
-                <SliderFilledTrack className="bg-emerald-500" />
-              </SliderTrack>
-              <SliderThumb className="bg-emerald-500 border-2 border-white" />
-            </Slider>
+            <View className="items-center w-full px-2">
+              <MultiSlider
+                values={localHeightRange}
+                sliderLength={Dimensions.get('window').width - 80}
+                onValuesChange={(values) => setLocalHeightRange([values[0], values[1]])}
+                onValuesChangeFinish={(values) => {
+                  onFilterChange({ ...filter, heightRange: [values[0], values[1]] });
+                }}
+                min={0}
+                max={2500}
+                step={50}
+                allowOverlap={false}
+                snapped
+                selectedStyle={{ backgroundColor: "#10B981" }}
+                unselectedStyle={{ backgroundColor: isDark ? "#374151" : "#E5E7EB" }}
+                trackStyle={{ height: 4, borderRadius: 2 }}
+                markerStyle={{
+                  height: 24,
+                  width: 24,
+                  borderRadius: 12,
+                  backgroundColor: "#FFFFFF",
+                  borderWidth: 2,
+                  borderColor: "#10B981",
+                  marginTop: 2,
+                  elevation: 3,
+                  shadowColor: "#000",
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.2,
+                  shadowRadius: 2,
+                }}
+              />
+            </View>
           </VStack>
 
           {/* County Selector */}

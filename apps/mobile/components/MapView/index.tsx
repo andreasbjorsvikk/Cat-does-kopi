@@ -208,7 +208,8 @@ export default function MapScreen() {
         if (!newBoundaries[stat.id]) {
           const data = await fetchBoundary(areaStatsMode, stat.id);
           if (data) {
-            newBoundaries[stat.id] = data;
+            // Geonorge returns the GeoJSON geometry in the 'omrade' field
+            newBoundaries[stat.id] = data.omrade || data;
             changed = true;
           }
         }

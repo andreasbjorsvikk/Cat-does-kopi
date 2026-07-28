@@ -43,7 +43,7 @@ export const PeaksList = ({ peaks, checkins, userLocation, onSelectPeak, loading
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [showFilterSheet, setShowFiltersSheet] = useState(false);
   const [activeFilters, setActiveFilters] = useState<PeaksFilter>({
-    minHeight: 0,
+    heightRange: [0, 2500],
     selectedCounty: null,
     selectedMunicipality: null,
   });
@@ -79,9 +79,11 @@ export const PeaksList = ({ peaks, checkins, userLocation, onSelectPeak, loading
     }
 
     // Advanced filters
-    if (activeFilters.minHeight > 0) {
-      result = result.filter(p => p.heightMoh >= activeFilters.minHeight);
-    }
+    result = result.filter(p => 
+      p.heightMoh >= activeFilters.heightRange[0] && 
+      p.heightMoh <= activeFilters.heightRange[1]
+    );
+
     if (activeFilters.selectedCounty) {
       result = result.filter(p => p.county === activeFilters.selectedCounty);
     }
@@ -101,13 +103,14 @@ export const PeaksList = ({ peaks, checkins, userLocation, onSelectPeak, loading
   }, [peaksWithDistance, statusFilter, searchQuery, activeFilters, checkedPeakIds]);
 
   const formatDistance = (meters: number) => {
-    if (meters < 1000) return `< 1000 m`;
+    if (meters < 1000) return `${Math.round(meters)} m`;
     const km = meters / 1000;
     return `${km.toFixed(1).replace(".", ",")} km`;
   };
 
   const hasActiveAdvancedFilters = 
-    activeFilters.minHeight > 0 || 
+    activeFilters.heightRange[0] > 0 || 
+    activeFilters.heightRange[1] < 2500 ||
     activeFilters.selectedCounty !== null || 
     activeFilters.selectedMunicipality !== null;
 
