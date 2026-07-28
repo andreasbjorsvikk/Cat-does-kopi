@@ -26,6 +26,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import useColorScheme from "@/hooks/useColorScheme";
 import { PeaksFilter, PeaksFilterSheet } from "./PeaksFilterSheet";
 import { getPeakColor } from "@/utils/peakIcons";
+import { flattenStyle } from "@/utils/flatten-style";
 
 interface PeaksListProps {
   peaks: Peak[];
