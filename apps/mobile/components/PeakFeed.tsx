@@ -40,6 +40,8 @@ export interface GroupedFeedItem {
   peakElevation: number;
   peakMunicipality: string;
   peakCounty: string;
+  peakLatitude: number;
+  peakLongitude: number;
   participants: Participant[];
 }
 
@@ -115,7 +117,7 @@ export function PeakFeed() {
       // Query peaks
       const { data: peaks } = await supabase
         .from('peaks_db')
-        .select('id, name_no, elevation_moh, municipality, county')
+        .select('id, name_no, elevation_moh, municipality, county, latitude, longitude')
         .in('id', peakIds);
       const peakMap = new Map((peaks || []).map(p => [String(p.id), p as any]));
 
@@ -190,6 +192,8 @@ export function PeakFeed() {
           const peakElevation = peak?.elevation_moh || 0;
           const peakMunicipality = peak?.municipality || '';
           const peakCounty = peak?.county || '';
+          const peakLatitude = peak?.latitude || 0;
+          const peakLongitude = peak?.longitude || 0;
 
           const parentProfile = profileMap.get(parentUserId);
           const parentName = parentProfile?.username || 'Fjellvandrer';
@@ -207,6 +211,8 @@ export function PeakFeed() {
             peakElevation,
             peakMunicipality,
             peakCounty,
+            peakLatitude,
+            peakLongitude,
             participants: []
           };
 
@@ -240,24 +246,90 @@ export function PeakFeed() {
     const date = new Date(dateString);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / (1000 * 60));
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const diffSeconds = Math.floor(diffMs / 1000);
+    const diffMins = Math.floor(diffSeconds / 60);
+    const diffHours = Math.floor(diffMins / 60);
+    
+    // Check if it's the same calendar day, yesterday, or older
+    const isToday = date.toDateString() === now.toDateString();
+    
+    const yesterday = new Date();
+    yesterday.setDate(now.getDate() - 1);
+    const isYesterday = date.toDateString() === yesterday.toDateString();
+
+    const timeStr = date.toLocaleTimeString('no-NO', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
 
     if (diffMins < 60) {
       return `${diffMins} minutter siden`;
-    } else if (diffHours < 24) {
+    } else if (isToday) {
       return `${diffHours} timer siden`;
-    } else if (diffDays === 1) {
-      return 'i går';
-    } else if (diffDays < 7) {
-      return `${diffDays} dager siden`;
+    } else if (isYesterday) {
+      return `i går, kl. ${timeStr}`;
     } else {
-      return date.toLocaleDateString('no-NO', {
+      const dateStr = date.toLocaleDateString('no-NO', {
         day: '2-digit',
         month: 'short',
       });
+      return `${dateStr}, kl. ${timeStr}`;
     }
+  };
+
+  // Simple weather hook/fetch
+  const [weatherData, setWeatherData] = useState<Record<string, { temp: number; symbol: string }>>({});
+
+  useEffect(() => {
+    const fetchWeatherForVisiblePeaks = async () => {
+      const uniquePeaks = Array.from(new Set(feed.map(item => item.peak_id)));
+      const newWeatherData = { ...weatherData };
+      let changed = false;
+
+      for (const peakId of uniquePeaks) {
+        if (newWeatherData[peakId]) continue;
+        
+        const item = feed.find(i => i.peak_id === peakId);
+        if (!item || !item.peakLatitude || !item.peakLongitude) continue;
+
+        try {
+          // Note: MET Norway requires a User-Agent header. 
+          // In a real app, this should go through a proxy or have a proper header.
+          const response = await fetch(
+            `https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=${item.peakLatitude}&lon=${item.peakLongitude}`,
+            { headers: { 'User-Agent': 'TreningsappenCatDoes/1.0' } }
+          );
+          const data = await response.json();
+          const current = data.properties.timeseries[0].data.instant.details;
+          const symbol = data.properties.timeseries[0].data.next_1_hours?.summary.symbol_code || 'clearsky_day';
+          
+          newWeatherData[peakId] = {
+            temp: Math.round(current.air_temperature),
+            symbol: symbol
+          };
+          changed = true;
+        } catch (err) {
+          console.error('Weather fetch failed for peak', peakId, err);
+        }
+      }
+
+      if (changed) {
+        setWeatherData(newWeatherData);
+      }
+    };
+
+    if (feed.length > 0) {
+      fetchWeatherForVisiblePeaks();
+    }
+  }, [feed]);
+
+  const getWeatherIcon = (symbol: string) => {
+    // Map MET symbols to simple display icons or text
+    if (symbol.includes('cloud')) return '☁️';
+    if (symbol.includes('rain')) return '🌧️';
+    if (symbol.includes('snow')) return '❄️';
+    if (symbol.includes('sun') || symbol.includes('clear')) return '☀️';
+    return '🌤️';
   };
 
   const renderFeedItem = ({ item }: { item: GroupedFeedItem }) => {
@@ -266,11 +338,12 @@ export function PeakFeed() {
     const peakName = item.peakName;
     const elevation = item.peakElevation;
     const location = `${item.peakMunicipality}${item.peakMunicipality && item.peakCounty ? ', ' : ''}${item.peakCounty}`;
+    const weather = weatherData[item.peak_id];
 
     return (
       <Card style={flattenStyle([styles.card, { backgroundColor: isDark ? '#1F2937' : '#FFFFFF', borderColor: isDark ? '#374151' : '#E5E7EB' }])}>
-        <VStack style={{ gap: 12 }}>
-          <HStack style={styles.cardHeader}>
+        <VStack style={{ gap: 8 }}>
+          <HStack style={[styles.cardHeader, { marginBottom: 4 }]}>
             <View style={styles.avatarContainer}>
               {avatarUrl ? (
                 <Image source={{ uri: avatarUrl }} style={styles.avatarImg} />
@@ -289,14 +362,14 @@ export function PeakFeed() {
           </HStack>
 
           {item.participants.length > 0 && (
-            <VStack style={{ marginLeft: 12, marginTop: -4, gap: 4 }}>
+            <VStack style={{ marginLeft: 14, marginTop: -6, gap: 2, marginBottom: 4 }}>
               {item.participants.map(participant => (
-                <HStack key={participant.id} style={{ alignItems: 'center', gap: 8 }}>
+                <HStack key={participant.id} style={{ alignItems: 'center', gap: 6 }}>
                   <View style={styles.participantAvatarContainer}>
                     {participant.avatar_url ? (
                       <Image source={{ uri: participant.avatar_url }} style={styles.avatarImg} />
                     ) : (
-                      <View style={styles.avatarPlaceholder}>
+                      <View style={[styles.avatarPlaceholder, { backgroundColor: isDark ? '#374151' : '#F3F4F6' }]}>
                         <Text size="xs">{participant.emoji || '👶'}</Text>
                       </View>
                     )}
@@ -309,23 +382,34 @@ export function PeakFeed() {
             </VStack>
           )}
 
-          <VStack style={{ gap: 2 }}>
-            <Text size="xs" className="text-typography-500 font-medium">
-              Sjekket inn på
-            </Text>
-            <HStack style={{ alignItems: 'center', gap: 8 }}>
-              <Mountain size={18} color="#10B981" />
-              <Text size="lg" className="font-bold text-typography-900">
-                {peakName}
+          <HStack style={{ justifyContent: 'space-between', alignItems: 'flex-end' }}>
+            <VStack style={{ gap: 1 }}>
+              <Text style={{ fontSize: 11, color: isDark ? '#9CA3AF' : '#6B7280', fontWeight: '500' }}>
+                Sjekket inn på
               </Text>
-            </HStack>
-            <Text size="xs" className="text-typography-500">
-              {elevation} moh • {location}
-            </Text>
-          </VStack>
+              <HStack style={{ alignItems: 'center', gap: 6 }}>
+                <Mountain size={18} color="#10B981" />
+                <Text style={{ fontSize: 18, fontWeight: 'bold', color: isDark ? '#F9FAFB' : '#111827' }}>
+                  {peakName}
+                </Text>
+              </HStack>
+              <Text style={{ fontSize: 11, color: isDark ? '#9CA3AF' : '#6B7280' }}>
+                {elevation} moh • {location}
+              </Text>
+            </VStack>
+
+            {weather && (
+              <View style={[styles.weatherBadge, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
+                <Text style={{ fontSize: 12 }}>{getWeatherIcon(weather.symbol)}</Text>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: isDark ? '#D1D5DB' : '#4B5563', marginLeft: 4 }}>
+                  {weather.temp}°
+                </Text>
+              </View>
+            )}
+          </HStack>
 
           {item.image_url && (
-            <Image source={{ uri: item.image_url }} style={styles.feedImage} />
+            <Image source={{ uri: item.image_url }} style={[styles.feedImage, { marginTop: 4 }]} />
           )}
         </VStack>
 
@@ -333,10 +417,6 @@ export function PeakFeed() {
           <TouchableOpacity style={styles.footerAction} activeOpacity={0.7}>
             <Heart size={16} color={isDark ? '#9CA3AF' : '#4B5563'} />
             <Text size="xs" className="text-typography-500 ml-1">Lik</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.footerAction} activeOpacity={0.7}>
-            <Compass size={16} color={isDark ? '#9CA3AF' : '#4B5563'} />
-            <Text size="xs" className="text-typography-500 ml-1">Rute</Text>
           </TouchableOpacity>
         </HStack>
       </Card>
@@ -530,5 +610,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 60,
+  },
+  weatherBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginBottom: 2,
   },
 });
