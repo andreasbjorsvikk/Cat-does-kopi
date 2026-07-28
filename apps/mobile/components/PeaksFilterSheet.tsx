@@ -100,12 +100,12 @@ export const PeaksFilterSheet = ({
   return (
     <Actionsheet isOpen={isOpen} onClose={onClose} useRNModal={Platform.OS !== "web"}>
       <ActionsheetBackdrop />
-      <ActionsheetContent className={isDark ? "bg-background-900" : "bg-background-0"}>
+      <ActionsheetContent className={isDark ? "bg-background-950" : "bg-background-0"}>
         <ActionsheetDragIndicatorWrapper>
           <ActionsheetDragIndicator />
         </ActionsheetDragIndicatorWrapper>
         
-        <VStack className="w-full px-4 pt-2 pb-8" style={{ gap: 24 }}>
+        <VStack className={`w-full px-4 pt-2 pb-8 ${isDark ? 'bg-background-950' : 'bg-background-0'}`} style={{ gap: 24 }}>
           <HStack className="justify-between items-center">
             <Heading size="md" className={isDark ? "text-typography-50" : "text-typography-950"}>
               Filtrer topper
@@ -147,7 +147,7 @@ export const PeaksFilterSheet = ({
                   height: 24,
                   width: 24,
                   borderRadius: 12,
-                  backgroundColor: "#FFFFFF",
+                  backgroundColor: isDark ? "#E5E7EB" : "#FFFFFF",
                   borderWidth: 2,
                   borderColor: "#10B981",
                   marginTop: 2,
@@ -214,7 +214,7 @@ export const PeaksFilterSheet = ({
               
               {filter.selectedMunicipality ? (
                 <HStack>
-                  <Badge action="success" variant="solid" className="bg-emerald-100 dark:bg-emerald-900/30 px-3 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                  <Badge action="success" variant="solid" className="bg-emerald-500/10 dark:bg-emerald-500/20 px-3 py-1.5 rounded-lg border border-emerald-500/30 dark:border-emerald-500/40">
                     <Text size="sm" className="text-emerald-700 dark:text-emerald-400 font-medium mr-2">
                       {filter.selectedMunicipality}
                     </Text>
@@ -261,7 +261,7 @@ export const PeaksFilterSheet = ({
                       </TouchableOpacity>
                     ))}
                     {municipalitiesInCounty.length > 15 && !municipalitySearch && (
-                      <Text size="xs" className="italic text-typography-500 py-1">
+                      <Text size="xs" className="italic text-typography-500 dark:text-typography-400 py-1">
                         Søk for å finne flere...
                       </Text>
                     )}

@@ -164,11 +164,11 @@ export const PeaksList = ({ peaks, checkins, userLocation, onSelectPeak, loading
   };
 
   return (
-    <View style={styles.container}>
-      <VStack className="bg-background-0 dark:bg-background-950 border-b border-outline-50 dark:border-outline-800 pt-2 shadow-sm z-10">
+    <View style={flattenStyle([styles.container, { backgroundColor: isDark ? "#030712" : "#F9FAFB" }])}>
+      <VStack className="bg-background-0 dark:bg-background-950 border-b border-outline-100 dark:border-outline-800 pt-2 shadow-sm z-10">
         {/* Search and Filter Trigger */}
         <HStack className="px-4 py-2" style={{ gap: 10 }}>
-          <Input variant="outline" size="md" className="flex-1 rounded-xl bg-background-50 dark:bg-background-900 border-none">
+          <Input variant="outline" size="md" className="flex-1 rounded-xl bg-background-50 dark:bg-background-800 border-none">
             <InputSlot className="pl-3">
               <Search size={18} color={isDark ? "#9CA3AF" : "#6B7280"} />
             </InputSlot>
@@ -235,29 +235,31 @@ export const PeaksList = ({ peaks, checkins, userLocation, onSelectPeak, loading
         </HStack>
       </VStack>
 
-      {loading ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="#10B981" />
-          <Text className="mt-4 text-typography-500">Laster fjelltopper...</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={filteredPeaks}
-          renderItem={renderItem}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={{ paddingBottom: 100 }}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <VStack className="items-center justify-center py-20 px-10">
-              <Mountain size={48} color={isDark ? "#374151" : "#E5E7EB"} />
-              <Heading size="sm" className="mt-4 text-center">Ingen topper funnet</Heading>
-              <Text size="sm" className="text-center text-typography-500 mt-2">
-                Prøv å endre søket eller filtrene dine.
-              </Text>
-            </VStack>
-          }
-        />
-      )}
+      <View style={{ flex: 1 }}>
+        {loading ? (
+          <View className="flex-1 items-center justify-center">
+            <ActivityIndicator size="large" color="#10B981" />
+            <Text className="mt-4 text-typography-500 dark:text-typography-400">Laster fjelltopper...</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={filteredPeaks}
+            renderItem={renderItem}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={{ paddingBottom: 100 }}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              <VStack className="items-center justify-center py-20 px-10">
+                <Mountain size={48} color={isDark ? "#374151" : "#E5E7EB"} />
+                <Heading size="sm" className="mt-4 text-center dark:text-typography-50">Ingen topper funnet</Heading>
+                <Text size="sm" className="text-center text-typography-500 dark:text-typography-400 mt-2">
+                  Prøv å endre søket eller filtrene dine.
+                </Text>
+              </VStack>
+            }
+          />
+        )}
+      </View>
 
       <PeaksFilterSheet
         isOpen={showFilterSheet}

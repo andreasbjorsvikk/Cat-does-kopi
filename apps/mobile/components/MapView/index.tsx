@@ -828,9 +828,21 @@ export default function MapScreen() {
               />
               <Mapbox.Atmosphere
                 style={{
-                  range: [0, 25],
+                  range: [
+                    'interpolate',
+                    ['linear'],
+                    ['zoom'],
+                    10,
+                    [8, 12],
+                    13.5,
+                    [8, 14],
+                    15,
+                    [12, 20],
+                  ],
                   horizonBlend: 0.05,
-                  color: 'rgba(135, 206, 235, 0.5)',
+                  color: 'rgba(135, 206, 235, 0.6)',
+                  highColor: '#245cdf',
+                  spaceColor: '#0b1026',
                 }}
               />
             </>
@@ -1107,74 +1119,88 @@ export default function MapScreen() {
           </View>
 
           {showLayerMenu && (
-            <View style={flattenStyle([
-              styles.layerMenu,
-              { backgroundColor: isDark ? "rgba(17, 24, 39, 0.95)" : "rgba(255, 255, 255, 0.95)" }
-            ])}>
-              <VStack style={{ gap: 12, padding: 8 }}>
-                <VStack style={{ gap: 6 }}>
-                  <Text style={flattenStyle([styles.layerMenuSectionTitle, { color: isDark ? "#9CA3AF" : "#6B7280" }])}>Karttype</Text>
-                  <HStack style={{ gap: 6 }}>
-                    {(["satellite", "satellite2", "terrain", "norgeskart"] as const).map((type) => {
-                      const isActive = mapType === type;
-                      let label = "Standard";
-                      if (type === "satellite") label = "Satellitt";
-                      if (type === "satellite2") label = "Satellitt 2";
-                      if (type === "terrain") label = "Terreng";
-                      if (type === "norgeskart") label = "Norgeskart";
-                      
-                      return (
-                        <TouchableOpacity
-                          key={type}
-                          onPress={() => setMapType(type)}
-                          style={flattenStyle([
-                            styles.layerOption,
-                            isActive ? { backgroundColor: "#10B981" } : { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)" },
-                          ])}
-                        >
-                          <Text style={flattenStyle([
-                            styles.layerOptionText,
-                            { color: isActive ? "#FFFFFF" : (isDark ? "#E5E7EB" : "#1F2937") }
-                          ])}>
-                            {label}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </HStack>
-                </VStack>
+            <>
+              <TouchableOpacity
+                activeOpacity={1}
+                style={StyleSheet.absoluteFill}
+                onPress={() => setShowLayerMenu(false)}
+              />
+              <View style={flattenStyle([
+                styles.layerMenu,
+                { backgroundColor: isDark ? "rgba(17, 24, 39, 0.95)" : "rgba(255, 255, 255, 0.95)" }
+              ])}>
+                <TouchableOpacity 
+                  onPress={() => setShowLayerMenu(false)} 
+                  style={styles.layerMenuCloseBtn}
+                >
+                  <X size={18} color={isDark ? "#9CA3AF" : "#6B7280"} />
+                </TouchableOpacity>
 
-                <VStack style={{ gap: 6 }}>
-                  <Text style={flattenStyle([styles.layerMenuSectionTitle, { color: isDark ? "#9CA3AF" : "#6B7280" }])}>Områdestatistikk</Text>
-                  <HStack style={{ gap: 6 }}>
-                    {(['off', 'kommune', 'fylke'] as const).map((mode) => {
-                      const isActive = areaStatsMode === mode;
-                      let label = "Av";
-                      if (mode === 'kommune') label = "Kommune";
-                      if (mode === 'fylke') label = "Fylke";
-                      
-                      return (
-                        <TouchableOpacity
-                          key={mode}
-                          onPress={() => setAreaStatsMode(mode)}
-                          style={flattenStyle([
-                            styles.layerOption,
-                            isActive ? { backgroundColor: "#10B981" } : { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)" },
-                          ])}
-                        >
-                          <Text style={flattenStyle([
-                            styles.layerOptionText,
-                            { color: isActive ? "#FFFFFF" : (isDark ? "#E5E7EB" : "#1F2937") }
-                          ])}>
-                            {label}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </HStack>
+                <VStack style={{ gap: 12, padding: 8 }}>
+                  <VStack style={{ gap: 6 }}>
+                    <Text style={flattenStyle([styles.layerMenuSectionTitle, { color: isDark ? "#9CA3AF" : "#6B7280" }])}>Karttype</Text>
+                    <HStack style={{ gap: 6 }}>
+                      {(["satellite", "satellite2", "terrain", "norgeskart"] as const).map((type) => {
+                        const isActive = mapType === type;
+                        let label = "Standard";
+                        if (type === "satellite") label = "Satellitt";
+                        if (type === "satellite2") label = "Satellitt 2";
+                        if (type === "terrain") label = "Terreng";
+                        if (type === "norgeskart") label = "Norgeskart";
+                        
+                        return (
+                          <TouchableOpacity
+                            key={type}
+                            onPress={() => setMapType(type)}
+                            style={flattenStyle([
+                              styles.layerOption,
+                              isActive ? { backgroundColor: "#10B981" } : { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)" },
+                            ])}
+                          >
+                            <Text style={flattenStyle([
+                              styles.layerOptionText,
+                              { color: isActive ? "#FFFFFF" : (isDark ? "#E5E7EB" : "#1F2937") }
+                            ])}>
+                              {label}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </HStack>
+                  </VStack>
+
+                  <VStack style={{ gap: 6 }}>
+                    <Text style={flattenStyle([styles.layerMenuSectionTitle, { color: isDark ? "#9CA3AF" : "#6B7280" }])}>Områdestatistikk</Text>
+                    <HStack style={{ gap: 6 }}>
+                      {(['off', 'kommune', 'fylke'] as const).map((mode) => {
+                        const isActive = areaStatsMode === mode;
+                        let label = "Av";
+                        if (mode === 'kommune') label = "Kommune";
+                        if (mode === 'fylke') label = "Fylke";
+                        
+                        return (
+                          <TouchableOpacity
+                            key={mode}
+                            onPress={() => setAreaStatsMode(mode)}
+                            style={flattenStyle([
+                              styles.layerOption,
+                              isActive ? { backgroundColor: "#10B981" } : { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)" },
+                            ])}
+                          >
+                            <Text style={flattenStyle([
+                              styles.layerOptionText,
+                              { color: isActive ? "#FFFFFF" : (isDark ? "#E5E7EB" : "#1F2937") }
+                            ])}>
+                              {label}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </HStack>
+                  </VStack>
                 </VStack>
-              </VStack>
-            </View>
+              </View>
+            </>
           )}
         </>
       )}
@@ -1761,6 +1787,13 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     textTransform: "uppercase",
     letterSpacing: 1,
+  },
+  layerMenuCloseBtn: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    padding: 4,
+    zIndex: 1,
   },
   areaLabelContainer: {
     backgroundColor: "rgba(0, 0, 0, 0.7)",
