@@ -321,10 +321,10 @@ export default function MapScreen() {
     if (distanceToPeak === null) return "Avstand ukjent";
     if (distanceToPeak < 1000) {
       const value = distanceToPeak.toFixed(1).replace(".", ",");
-      return `${value} m unna`;
+      return `${value} m`;
     }
     const value = (distanceToPeak / 1000).toFixed(1).replace(".", ",");
-    return `${value} km unna`;
+    return `${value} km`;
   }, [distanceToPeak]);
 
   const selectedPeakCheckins = React.useMemo(() => {
@@ -369,27 +369,32 @@ export default function MapScreen() {
   const handleCheckinSuccess = (checkedInNames: string[], imageUrl: string | null) => {
     if (!selectedPeak || !user) return;
 
-    // Optimistically update checkedPeakIds and userCheckins so indicators update instantly
-    setCheckedPeakIds(prev => {
-      const next = new Set(prev);
-      next.add(selectedPeak.id);
-      return next;
-    });
+    const parentUsername = profile?.username || user?.email?.split('@')[0] || 'Bruker';
+    const parentCheckedIn = checkedInNames.includes(parentUsername);
 
-    const timestamp = new Date().toISOString();
-    const optimisticCheckins: PeakCheckin[] = [
-      {
-        id: `optimistic-${Date.now()}`,
-        user_id: user.id,
-        peak_id: selectedPeak.id,
-        checked_in_at: timestamp,
-        verified: true,
-        activity_id: null,
-        image_url: imageUrl,
-      }
-    ];
+    if (parentCheckedIn) {
+      // Optimistically update checkedPeakIds and userCheckins so indicators update instantly
+      setCheckedPeakIds(prev => {
+        const next = new Set(prev);
+        next.add(selectedPeak.id);
+        return next;
+      });
 
-    setUserCheckins(prev => [...optimisticCheckins, ...prev]);
+      const timestamp = new Date().toISOString();
+      const optimisticCheckins: PeakCheckin[] = [
+        {
+          id: `optimistic-${Date.now()}`,
+          user_id: user.id,
+          peak_id: selectedPeak.id,
+          checked_in_at: timestamp,
+          verified: true,
+          activity_id: null,
+          image_url: imageUrl,
+        }
+      ];
+
+      setUserCheckins(prev => [...optimisticCheckins, ...prev]);
+    }
 
     // Reload from server in background to sync actual database state
     loadUserCheckins();
@@ -466,7 +471,7 @@ export default function MapScreen() {
       if (!result.canceled && result.assets && result.assets.length > 0 && user) {
         setCheckinLoading(true);
         const localUri = result.assets[0].uri;
-        const uploadedUrl = await uploadCheckinImage(localUri, user.id);
+        const uploadedUrl = await uploadCheckinImage(localUri, user.id, selectedPeak?.id || '');
         if (uploadedUrl) {
           await updateCheckinImage(checkinId, uploadedUrl);
           await loadUserCheckins();

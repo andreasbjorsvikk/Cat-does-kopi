@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   TouchableOpacity,
+  ScrollView,
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { Heading } from '@/components/ui/heading';
@@ -14,52 +15,204 @@ import { Text } from '@/components/ui/text';
 import { Card } from '@/components/ui/card';
 import { HStack } from '@/components/ui/hstack';
 import { VStack } from '@/components/ui/vstack';
-import { MapPin, Calendar, RefreshCw, MessageSquare, Heart, Compass } from 'lucide-react-native';
+import { MapPin, Calendar, Heart, Compass, Users, User } from 'lucide-react-native';
 import useColorScheme from '@/hooks/useColorScheme';
 import { flattenStyle } from '@/utils/flatten-style';
 
-interface FeedItem {
+export interface Participant {
   id: string;
+  user_id: string;
+  name: string;
+  avatar_url: string | null;
+  is_child: boolean;
+  emoji?: string | null;
+}
+
+export interface GroupedFeedItem {
+  id: string;
+  parentUserId: string;
+  peak_id: string;
   checked_in_at: string;
   image_url: string | null;
-  profiles: {
-    username: string | null;
-    avatar_url: string | null;
-  } | null;
-  peaks_db: {
-    name: string;
-    height_moh?: number;
-  } | null;
+  parentName: string;
+  parentAvatarUrl: string | null;
+  peakName: string;
+  peakElevation: number;
+  participants: Participant[];
 }
+
+type FeedFilter = 'alle' | 'venner' | 'mine' | 'global';
 
 export function PeakFeed() {
   const isDark = useColorScheme() === 'dark';
-  const [feed, setFeed] = useState<FeedItem[]>([]);
+  const [feed, setFeed] = useState<GroupedFeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<FeedFilter>('alle');
 
   const fetchFeed = async () => {
     try {
-      const { data, error } = await supabase
-        .from('peak_checkins')
-        .select(`
-          id,
-          checked_in_at,
-          image_url,
-          profiles:user_id (
-            username,
-            avatar_url
-          ),
-          peaks_db:peak_id (
-            name,
-            height_moh
-          )
-        `)
-        .order('checked_in_at', { ascending: false })
-        .limit(30);
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) {
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
 
+      // Get friendships for friends checkins
+      const { data: friendships } = await supabase
+        .from('friendships')
+        .select('user_id, friend_id')
+        .eq('status', 'accepted')
+        .or(`user_id.eq.${currentUser.id},friend_id.eq.${currentUser.id}`);
+        
+      const friendIds = (friendships || []).map(f =>
+        f.user_id === currentUser.id ? f.friend_id : f.user_id
+      );
+
+      let checkinsQuery = supabase
+        .from('peak_checkins')
+        .select('*')
+        .order('checked_in_at', { ascending: false })
+        .limit(50);
+
+      if (activeFilter === 'mine') {
+        checkinsQuery = checkinsQuery.or(`user_id.eq.${currentUser.id},checked_in_by.eq.${currentUser.id}`);
+      } else if (activeFilter === 'venner') {
+        if (friendIds.length > 0) {
+          const friendFilter = friendIds.map(id => `user_id.eq.${id},checked_in_by.eq.${id}`).join(',');
+          checkinsQuery = checkinsQuery.or(friendFilter);
+        } else {
+          setFeed([]);
+          setLoading(false);
+          setRefreshing(false);
+          return;
+        }
+      } else if (activeFilter === 'alle') {
+        const ids = [currentUser.id, ...friendIds];
+        const allFilter = ids.map(id => `user_id.eq.${id},checked_in_by.eq.${id}`).join(',');
+        checkinsQuery = checkinsQuery.or(allFilter);
+      } // 'global' has no user filters
+
+      const { data: checkins, error } = await checkinsQuery;
       if (error) throw error;
-      setFeed((data || []) as unknown as FeedItem[]);
+      if (!checkins || checkins.length === 0) {
+        setFeed([]);
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
+      // Gather unique peak_ids, user_ids and checked_in_bys to fetch details
+      const peakIds = [...new Set(checkins.map(c => String(c.peak_id)))];
+      const allUserIds = [...new Set([
+        ...checkins.map(c => c.user_id),
+        ...checkins.map(c => c.checked_in_by).filter(Boolean) as string[]
+      ])];
+
+      // Query peaks
+      const { data: peaks } = await supabase
+        .from('peaks_db')
+        .select('id, name, height_moh')
+        .in('id', peakIds);
+      const peakMap = new Map((peaks || []).map(p => [String(p.id), p]));
+
+      // Query profiles
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, username, avatar_url')
+        .in('id', allUserIds);
+      const profileMap = new Map((profiles || []).map(p => [p.id, p]));
+
+      // Query child profiles
+      const { data: childProfiles } = await supabase
+        .from('child_profiles')
+        .select('id, name, avatar_url, emoji')
+        .in('id', allUserIds);
+      const childMap = new Map((childProfiles || []).map(c => [c.id, c]));
+
+      // Grouping logic
+      const groups: GroupedFeedItem[] = [];
+
+      for (const checkin of checkins) {
+        const checkinTime = new Date(checkin.checked_in_at).getTime();
+        const parentUserId = checkin.checked_in_by || checkin.user_id;
+
+        // Find if there is an existing group to merge into
+        let matchedGroup = groups.find(g => 
+          g.parentUserId === parentUserId &&
+          g.peak_id === checkin.peak_id &&
+          Math.abs(new Date(g.checked_in_at).getTime() - checkinTime) < 60 * 60 * 1000 // 1 hour
+        );
+
+        // Lookup person who is checking in
+        const profile = profileMap.get(checkin.user_id);
+        const child = childMap.get(checkin.user_id);
+        
+        const name = profile?.username || child?.name || 'Fjellvandrer';
+        const avatar_url = profile?.avatar_url || child?.avatar_url || null;
+        const is_child = !!child;
+        const emoji = child?.emoji || null;
+
+        const participant: Participant = {
+          id: checkin.id,
+          user_id: checkin.user_id,
+          name,
+          avatar_url,
+          is_child,
+          emoji
+        };
+
+        const image_url = checkin.image_url || null;
+
+        if (matchedGroup) {
+          // Parent takes priority as main post author
+          if (checkin.user_id === parentUserId) {
+            matchedGroup.parentName = name;
+            matchedGroup.parentAvatarUrl = avatar_url;
+            if (image_url) {
+              matchedGroup.image_url = image_url;
+            }
+          } else {
+            // Add as participant
+            if (!matchedGroup.participants.some(p => p.user_id === checkin.user_id)) {
+              matchedGroup.participants.push(participant);
+            }
+            if (!matchedGroup.image_url && image_url) {
+              matchedGroup.image_url = image_url;
+            }
+          }
+        } else {
+          const peak = peakMap.get(String(checkin.peak_id));
+          const peakName = peak?.name || 'Ukjent Topp';
+          const peakElevation = peak?.height_moh || 0;
+
+          const parentProfile = profileMap.get(parentUserId);
+          const parentName = parentProfile?.username || 'Fjellvandrer';
+          const parentAvatarUrl = parentProfile?.avatar_url || null;
+
+          const newGroup: GroupedFeedItem = {
+            id: checkin.id,
+            parentUserId,
+            peak_id: checkin.peak_id,
+            checked_in_at: checkin.checked_in_at,
+            image_url: image_url,
+            parentName: checkin.user_id === parentUserId ? name : parentName,
+            parentAvatarUrl: checkin.user_id === parentUserId ? avatar_url : parentAvatarUrl,
+            peakName,
+            peakElevation,
+            participants: []
+          };
+
+          if (checkin.user_id !== parentUserId) {
+            newGroup.participants.push(participant);
+          }
+
+          groups.push(newGroup);
+        }
+      }
+
+      setFeed(groups);
     } catch (err) {
       console.error('Failed to load checkins feed:', err);
     } finally {
@@ -70,7 +223,7 @@ export function PeakFeed() {
 
   useEffect(() => {
     fetchFeed();
-  }, []);
+  }, [activeFilter]);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -87,22 +240,20 @@ export function PeakFeed() {
     });
   };
 
-  const renderFeedItem = ({ item }: { item: FeedItem }) => {
-    const username = item.profiles?.username || 'Fjellvandrer';
-    const avatarUrl = item.profiles?.avatar_url;
-    const peakName = item.peaks_db?.name || 'Ukjent Topp';
+  const renderFeedItem = ({ item }: { item: GroupedFeedItem }) => {
+    const username = item.parentName;
+    const avatarUrl = item.parentAvatarUrl;
+    const peakName = item.peakName;
 
     return (
-      <Card style={[styles.card, { backgroundColor: isDark ? '#1F2937' : '#FFFFFF', borderColor: isDark ? '#374151' : '#E5E7EB' }]}>
+      <Card style={flattenStyle([styles.card, { backgroundColor: isDark ? '#1F2937' : '#FFFFFF', borderColor: isDark ? '#374151' : '#E5E7EB' }])}>
         <HStack style={styles.cardHeader}>
           <View style={styles.avatarContainer}>
             {avatarUrl ? (
               <Image source={{ uri: avatarUrl }} style={styles.avatarImg} />
             ) : (
               <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarPlaceholderText}>
-                  {username.charAt(0).toUpperCase()}
-                </Text>
+                <User size={20} color={isDark ? '#9CA3AF' : '#4B5563'} />
               </View>
             )}
           </View>
@@ -124,6 +275,15 @@ export function PeakFeed() {
               Har sjekket inn på {peakName}
             </Text>
           </HStack>
+
+          {item.participants.length > 0 && (
+            <HStack style={{ marginBottom: 10, alignItems: 'center', gap: 6 }}>
+              <Users size={14} color={isDark ? '#9CA3AF' : '#4B5563'} />
+              <Text size="xs" className="text-typography-500 font-medium">
+                sammen med {item.participants.map(p => p.emoji ? `${p.emoji} ${p.name}` : p.name).join(', ')}
+              </Text>
+            </HStack>
+          )}
 
           {item.image_url && (
             <Image source={{ uri: item.image_url }} style={styles.feedImage} />
@@ -152,8 +312,49 @@ export function PeakFeed() {
     );
   }
 
+  const filters: { key: FeedFilter; label: string }[] = [
+    { key: 'alle', label: 'Alle' },
+    { key: 'venner', label: 'Venner' },
+    { key: 'mine', label: 'Mine' },
+    { key: 'global', label: 'Global' }
+  ];
+
   return (
     <View style={styles.container}>
+      <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 12 }}>
+          {filters.map((filter) => {
+            const isActive = activeFilter === filter.key;
+            return (
+              <TouchableOpacity
+                key={filter.key}
+                onPress={() => setActiveFilter(filter.key)}
+                style={flattenStyle([
+                  {
+                    paddingHorizontal: 16,
+                    paddingVertical: 8,
+                    borderRadius: 20,
+                    borderWidth: 1,
+                    borderColor: isActive ? '#10B981' : (isDark ? '#374151' : '#E5E7EB'),
+                    backgroundColor: isActive ? '#10B981' : 'transparent'
+                  }
+                ])}
+              >
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: '600',
+                    color: isActive ? '#FFFFFF' : (isDark ? '#D1D5DB' : '#4B5563')
+                  }}
+                >
+                  {filter.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
       <FlatList
         data={feed}
         keyExtractor={(item) => item.id}

@@ -199,8 +199,17 @@ async function executeOperation(op: SyncOperation): Promise<void> {
   switch (action) {
     case 'insert': {
       const { localTempId, _offline_temp_id, ...data } = payload as any;
-      if (table === 'peak_checkins' && !data.checked_in_at) {
-        data.checked_in_at = op.createdAt;
+      if (table === 'peak_checkins') {
+        const checkedInAt = data.checked_in_at || op.createdAt;
+        data.checked_in_at = checkedInAt;
+
+        // Idempotency: Before inserting, check for an existing row with same user_id + peak_id within ±2 minutes
+        const { findDuplicateCheckin } = require('./peakCheckinService');
+        const existing = await findDuplicateCheckin(data.user_id, data.peak_id, checkedInAt);
+        if (existing) {
+          console.log(`[syncQueue] Duplicate peak_checkins insert detected, skipping insertion for user ${data.user_id} and peak ${data.peak_id}`);
+          break;
+        }
       }
       const { error } = await supabase.from(table).insert(data);
       if (error) throw new Error(error.message);

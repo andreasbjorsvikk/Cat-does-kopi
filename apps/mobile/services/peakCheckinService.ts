@@ -66,14 +66,44 @@ export async function hasCheckinCooldown(userId: string, peakId: string): Promis
   return elapsed < CHECKIN_COOLDOWN_MS;
 }
 
+export async function findDuplicateCheckin(
+  userId: string,
+  peakId: string,
+  checkedInAt: string
+): Promise<PeakCheckin | null> {
+  const dateToCheck = checkedInAt;
+  const minTime = new Date(new Date(dateToCheck).getTime() - 2 * 60 * 1000).toISOString();
+  const maxTime = new Date(new Date(dateToCheck).getTime() + 2 * 60 * 1000).toISOString();
+
+  const { data, error } = await supabase
+    .from('peak_checkins')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('peak_id', peakId)
+    .gte('checked_in_at', minTime)
+    .lte('checked_in_at', maxTime)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return data as unknown as PeakCheckin;
+}
+
 export async function checkinPeak(
   userId: string,
   peakId: string,
   checkedInAt?: string,
   imageUrl?: string | null,
-  checkedInBy?: string
+  checkedInBy?: string | null
 ): Promise<PeakCheckin> {
-  // Check cooldown
+  const dateToCheck = checkedInAt || new Date().toISOString();
+
+  // Idempotency check: check if a check-in already exists in ±2 minutes interval
+  const existing = await findDuplicateCheckin(userId, peakId, dateToCheck);
+  if (existing) {
+    return existing as unknown as PeakCheckin;
+  }
+
+  // Check cooldown if not already checked in
   const onCooldown = await hasCheckinCooldown(userId, peakId);
   if (onCooldown) {
     throw new Error("Du har allerede sjekket inn på denne toppen i løpet av de siste 3 timene.");
@@ -82,17 +112,11 @@ export async function checkinPeak(
   const payload: any = {
     user_id: userId,
     peak_id: peakId,
-    verified: true
+    verified: true,
+    checked_in_by: checkedInBy || null,
+    checked_in_at: dateToCheck
   };
   
-  if (checkedInAt) {
-    payload.checked_in_at = checkedInAt;
-  } else {
-    payload.checked_in_at = new Date().toISOString();
-  }
-  if (checkedInBy) {
-    payload.checked_in_by = checkedInBy;
-  }
   if (imageUrl) {
     payload.image_url = imageUrl;
   }
@@ -112,32 +136,8 @@ export async function checkinChild(
   peakId: string,
   imageUrl?: string
 ): Promise<PeakCheckin> {
-  // Check cooldown for the child
-  const onCooldown = await hasCheckinCooldown(childId, peakId);
-  if (onCooldown) {
-    throw new Error("Barnet har allerede sjekket inn på denne toppen i løpet av de siste 3 timene.");
-  }
-
-  const payload: any = {
-    user_id: childId,
-    peak_id: peakId,
-    verified: true,
-    checked_in_by: parentId,
-    checked_in_at: new Date().toISOString()
-  };
-  
-  if (imageUrl) {
-    payload.image_url = imageUrl;
-  }
-  
-  const { data, error } = await supabase
-    .from('peak_checkins')
-    .insert(payload)
-    .select()
-    .single();
-    
-  if (error) throw error;
-  return data as unknown as PeakCheckin;
+  // Since child's check-in shouldn't have image ("lay the image on parent's row"), we pass null for imageUrl to the child checkin
+  return checkinPeak(childId, peakId, new Date().toISOString(), null, parentId);
 }
 
 export async function deleteCheckin(checkinId: string): Promise<void> {
@@ -191,27 +191,27 @@ export async function updateCheckinImage(checkinId: string, imageUrl: string): P
 export async function uploadCheckinImage(
   imageUri: string,
   userId: string,
+  peakId: string,
   base64Data?: string
 ): Promise<string | null> {
   try {
     let binaryData: File | Uint8Array;
     let fileName: string;
     let contentType: string;
+    const ext = imageUri.split('.').pop()?.toLowerCase() || 'jpg';
+    contentType = ext === 'png' ? 'image/png' : 'image/jpeg';
+    fileName = `${userId}/${peakId}/${Date.now()}.${ext}`;
 
     if (Platform.OS === 'web') {
       try {
         const response = await fetch(imageUri);
         const blob = await response.blob();
-        contentType = blob.type || 'image/jpeg';
-        const extension = contentType.split('/').pop() || 'jpg';
-        fileName = `${userId}/${Date.now()}.${extension}`;
-        binaryData = new File([blob], fileName, { type: contentType });
+        contentType = blob.type || contentType;
+        binaryData = new File([blob], fileName.split('/').pop()!, { type: contentType });
       } catch (fetchErr) {
         if (base64Data) {
-          contentType = 'image/jpeg';
-          fileName = `${userId}/${Date.now()}.jpg`;
           const fallbackBlob = new Blob([decode(base64Data)], { type: contentType });
-          binaryData = new File([fallbackBlob], fileName, { type: contentType });
+          binaryData = new File([fallbackBlob], fileName.split('/').pop()!, { type: contentType });
         } else {
           throw fetchErr;
         }
@@ -221,9 +221,6 @@ export async function uploadCheckinImage(
         encoding: 'base64',
       });
       binaryData = new Uint8Array(decode(base64));
-      const extension = imageUri.split('.').pop()?.toLowerCase() || 'jpg';
-      contentType = extension === 'png' ? 'image/png' : 'image/jpeg';
-      fileName = `${userId}/${Date.now()}.${extension}`;
     }
 
     const { data, error } = await supabase.storage
@@ -235,11 +232,13 @@ export async function uploadCheckinImage(
 
     if (error) throw error;
 
-    const { data: urlData } = supabase.storage
+    // Get signed URL for 5 years (157,680,000 seconds)
+    const { data: signedData, error: signedError } = await supabase.storage
       .from('peak-images')
-      .getPublicUrl(data.path);
+      .createSignedUrl(data.path, 157680000);
 
-    return urlData.publicUrl;
+    if (signedError) throw signedError;
+    return signedData.signedUrl;
   } catch (error) {
     console.error('Upload failed:', error);
     return null;

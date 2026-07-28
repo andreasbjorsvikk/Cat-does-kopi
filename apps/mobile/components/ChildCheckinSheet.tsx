@@ -111,8 +111,14 @@ export function ChildCheckinSheet({
   };
 
   const handleCheckin = async () => {
-    if (selectedUserIds.size === 0) {
-      Alert.alert('Innsjekk', 'Du må velge minst én person å sjekke inn.');
+    // If a photo is taken, ensure parent is checked in to lay the image on parent's row
+    const idsToCheckIn = new Set(selectedUserIds);
+    if (imageUri && !idsToCheckIn.has(userId)) {
+      idsToCheckIn.add(userId);
+    }
+
+    if (idsToCheckIn.size === 0) {
+      Alert.alert('Innsjekk', 'Du må velge minst én person å sjekke inn eller ta et bilde.');
       return;
     }
 
@@ -120,50 +126,65 @@ export function ChildCheckinSheet({
     try {
       let uploadedUrl: string | null = null;
       if (imageUri) {
-        uploadedUrl = await uploadCheckinImage(imageUri, userId);
+        uploadedUrl = await uploadCheckinImage(imageUri, userId, peakId);
       }
 
-      const checkedInNames: string[] = [];
+      const successNames: string[] = [];
+      const failedNames: { name: string; error: string }[] = [];
       const timestamp = new Date().toISOString();
 
-      for (const id of selectedUserIds) {
+      for (const id of idsToCheckIn) {
         const isSelf = id === userId;
         const child = children.find((c) => c.id === id);
         const name = isSelf ? username : (child ? child.name : 'Barn');
-        checkedInNames.push(name);
 
         try {
           if (isSelf) {
             await checkinPeak(userId, peakId, timestamp, uploadedUrl);
           } else {
-            await checkinChild(userId, id, peakId, uploadedUrl || undefined);
+            await checkinChild(userId, id, peakId);
           }
+          successNames.push(name);
         } catch (onlineErr: any) {
-          // If offline or cooldown error, enqueue to sync queue
-          if (onlineErr.message && onlineErr.message.includes('Du har allerede sjekket inn')) {
-            throw onlineErr; // Don't queue cooldown errors
+          const isCooldown = onlineErr.message && (
+            onlineErr.message.includes('allerede sjekket inn') ||
+            onlineErr.message.includes('cooldown')
+          );
+          if (isCooldown) {
+            failedNames.push({ name, error: onlineErr.message });
+          } else {
+            console.log(`Fallback for ${name} to offline sync queue:`, onlineErr);
+            try {
+              await enqueue('peak_checkins', 'insert', {
+                user_id: id,
+                peak_id: peakId,
+                verified: true,
+                checked_in_by: isSelf ? null : userId,
+                image_url: isSelf ? (uploadedUrl || imageUri || null) : null,
+                checked_in_at: timestamp,
+              });
+              successNames.push(`${name} (frakoblet)`);
+            } catch (queueErr: any) {
+              failedNames.push({ name, error: queueErr.message || 'Frakoblet køing feilet' });
+            }
           }
-          console.log(`Fallback for ${name} to offline sync queue:`, onlineErr);
-          await enqueue('peak_checkins', 'insert', {
-            user_id: id,
-            peak_id: peakId,
-            verified: true,
-            checked_in_by: isSelf ? null : userId,
-            image_url: uploadedUrl || imageUri || null,
-            checked_in_at: timestamp,
-          });
         }
       }
 
-      Alert.alert(
-        'Innsjekk vellykket!',
-        `Sjekket inn på ${peakName} for:\n${checkedInNames.join(', ')}`
-      );
-      
-      onSuccess(checkedInNames, uploadedUrl || imageUri);
-      setImageUri(null);
-      setSelectedUserIds(new Set([userId]));
-      onClose();
+      if (successNames.length > 0) {
+        let msg = `Sjekket inn på ${peakName} for:\n${successNames.join(', ')}`;
+        if (failedNames.length > 0) {
+          msg += `\n\nKunne ikke sjekke inn for:\n${failedNames.map(f => `${f.name}: ${f.error}`).join('\n')}`;
+        }
+        Alert.alert('Innsjekk utført', msg);
+        onSuccess(successNames, uploadedUrl || imageUri);
+        setImageUri(null);
+        setSelectedUserIds(new Set([userId]));
+        onClose();
+      } else {
+        const errorMsg = failedNames.map(f => `${f.name}: ${f.error}`).join('\n');
+        Alert.alert('Innsjekk feilet', `Kunne ikke sjekke inn noen:\n\n${errorMsg}`);
+      }
     } catch (err: any) {
       Alert.alert('Innsjekk feilet', err.message || 'Noe gikk galt.');
     } finally {
