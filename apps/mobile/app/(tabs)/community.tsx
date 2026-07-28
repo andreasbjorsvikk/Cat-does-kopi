@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
   },
   feedFilterContainer: {
     flexDirection: "row",
-    marginBottom: 16,
+    marginBottom: 8,
     gap: 8,
   },
   feedFilterBtn: {
