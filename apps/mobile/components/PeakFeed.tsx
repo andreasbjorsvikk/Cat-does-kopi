@@ -439,7 +439,7 @@ export function PeakFeed() {
 
   return (
     <View style={styles.container}>
-      <View style={{ paddingHorizontal: 16, paddingTop: 0, height: 40 }}>
+      <View style={{ paddingHorizontal: 16, paddingTop: 0, height: 40, marginTop: -8, marginBottom: 8 }}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, alignItems: 'center', justifyContent: 'center', flexGrow: 1 }}>
           {filters.map((filter) => {
             const isActive = activeFilter === filter.key;
