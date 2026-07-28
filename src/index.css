@@ -1,0 +1,410 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 20% 98%;
+    --foreground: 220 25% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 25% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 25% 10%;
+
+    --primary: 0 0% 15%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 16% 93%;
+    --secondary-foreground: 220 25% 10%;
+
+    --muted: 210 14% 95%;
+    --muted-foreground: 220 10% 46%;
+
+    --accent: 196 80% 46%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 13% 90%;
+    --input: 220 13% 90%;
+    --ring: 0 0% 15%;
+
+    --radius: 0.75rem;
+
+    --success: 152 60% 42%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --energy: 152 60% 42%;
+    --energy-glow: 152 50% 35%;
+    --badge-socket-high-peaks: 0 0% 22%;
+
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-body: 'Inter', sans-serif;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 222 30% 8%;
+    --foreground: 210 20% 95%;
+
+    --card: 222 25% 12%;
+    --card-foreground: 210 20% 95%;
+
+    --popover: 222 25% 12%;
+    --popover-foreground: 210 20% 95%;
+
+    --primary: 0 0% 85%;
+    --primary-foreground: 0 0% 0%;
+
+    --secondary: 222 20% 18%;
+    --secondary-foreground: 210 20% 90%;
+
+    --muted: 222 20% 16%;
+    --muted-foreground: 220 12% 62%;
+
+    --accent: 196 80% 46%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 222 20% 18%;
+    --input: 222 20% 18%;
+    --ring: 0 0% 85%;
+
+    --success: 152 55% 38%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 85% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --energy: 152 55% 50%;
+    --energy-glow: 152 45% 40%;
+    --badge-socket-high-peaks: 222 25% 12%;
+
+    --sidebar-background: 222 30% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 222 20% 16%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 222 20% 18%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-body);
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+  }
+}
+
+@layer utilities {
+  .glass-card {
+    @apply bg-card/80 backdrop-blur-md border border-border/50 shadow-sm;
+  }
+
+  .card-gradient {
+    background: linear-gradient(135deg, hsl(var(--primary) / 0.00), hsl(var(--background)), hsl(var(--accent) / 0.00));
+  }
+
+  .dark .card-gradient {
+    background: linear-gradient(135deg, hsl(var(--primary) / 0.03), hsl(var(--background)), hsl(var(--accent) / 0.01));
+  }
+
+  .gradient-energy {
+    background: linear-gradient(135deg, hsl(var(--energy)), hsl(var(--energy-glow)));
+  }
+
+  .text-gradient-energy {
+    background: linear-gradient(135deg, hsl(var(--energy)), hsl(var(--energy-glow)));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}
+
+@keyframes achievement-pulse {
+  0% { opacity: 0.9; stroke-width: 10; }
+  30% { opacity: 0.6; stroke-width: 20; }
+  60% { opacity: 0.3; stroke-width: 28; }
+  100% { opacity: 0; stroke-width: 34; }
+}
+
+@keyframes gold-pulse {
+  0%, 100% { opacity: 0.05; }
+  50% { opacity: 0.3; }
+}
+
+@keyframes gold-pulse-strong {
+  0%, 100% { opacity: 0.1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes gold-shimmer {
+  0% { stroke-dashoffset: 0; opacity: 0; }
+  10% { opacity: 0.15; }
+  25% { opacity: 0.3; }
+  40% { opacity: 0.15; }
+  50% { opacity: 0; }
+  100% { stroke-dashoffset: -200; opacity: 0; }
+}
+
+@keyframes gold-shimmer-2 {
+  0% { stroke-dashoffset: -80; opacity: 0; }
+  25% { opacity: 0; }
+  35% { opacity: 0.12; }
+  45% { opacity: 0.22; }
+  55% { opacity: 0.12; }
+  65% { opacity: 0; }
+  100% { stroke-dashoffset: -240; opacity: 0; }
+}
+
+@keyframes gold-shimmer-3 {
+  0% { stroke-dashoffset: -40; opacity: 0; }
+  45% { opacity: 0; }
+  52% { opacity: 0.1; }
+  60% { opacity: 0.2; }
+  68% { opacity: 0.1; }
+  75% { opacity: 0; }
+  100% { stroke-dashoffset: -180; opacity: 0; }
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@keyframes float-icon {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-12px) rotate(3deg); }
+}
+
+@keyframes coin-spin {
+  0% { transform: rotateY(0deg); }
+  100% { transform: rotateY(720deg); }
+}
+
+.animate-coin-spin {
+  animation: coin-spin 2s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+}
+
+/* Mapbox popup theming */
+.peak-popup {
+  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.map-is-3d .peak-popup .mapboxgl-popup-content {
+  transform-origin: bottom center;
+  transform: rotateX(25deg) translateY(-8px);
+  box-shadow: 0 25px 40px -10px rgba(0, 0, 0, 0.4), inset 0 1px 1px hsl(var(--primary) / 0.1);
+  border: 1px solid hsl(var(--border) / 0.2);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  background: hsl(var(--card) / 0.65);
+}
+
+.map-is-3d .peak-popup .mapboxgl-popup-tip {
+  display: none;
+}
+
+.peak-popup .mapboxgl-popup-content {
+  padding: 0;
+  border-radius: 20px;
+  background: hsl(var(--card) / 0.75);
+  color: hsl(var(--card-foreground));
+  border: 1px solid hsl(var(--border) / 0.3);
+  box-shadow: 0 12px 40px -10px rgba(0, 0, 0, 0.2), inset 0 1px 1px hsl(var(--primary) / 0.1);
+  overflow: hidden;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.peak-popup-inner {
+  font-family: var(--font-body);
+  padding: 18px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+  text-align: center;
+}
+
+.peak-popup-header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
+.peak-popup-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.25rem;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.peak-popup-unpublished {
+  font-size: 0.65rem;
+  color: hsl(var(--warning));
+  font-family: var(--font-body);
+  font-weight: 500;
+  background: hsl(var(--warning) / 0.1);
+  padding: 2px 6px;
+  border-radius: 6px;
+  display: inline-block;
+  margin-top: 6px;
+}
+
+.peak-popup-area {
+  font-size: 0.8rem;
+  color: hsl(var(--muted-foreground));
+  font-weight: 500;
+  margin-top: -4px;
+}
+
+.peak-popup-info {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 6px;
+}
+
+.peak-popup-status {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 14px;
+  border-radius: 100px;
+  letter-spacing: 0.02em;
+}
+
+.peak-popup-status.taken {
+  color: hsl(var(--success-foreground));
+  background: hsl(var(--success) / 0.9);
+  box-shadow: 0 2px 10px hsl(var(--success) / 0.3);
+}
+
+.peak-popup-status.untaken {
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--muted) / 0.5);
+  border: 1px solid hsl(var(--border) / 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.peak-popup-area {
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+  font-weight: 500;
+}
+
+.peak-popup-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.peak-popup-btn {
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 10px 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  width: 100%;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.peak-popup-btn.primary {
+  background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8));
+  color: hsl(var(--primary-foreground));
+  box-shadow: 0 4px 15px hsl(var(--primary) / 0.2);
+}
+
+.peak-popup-btn.primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px hsl(var(--primary) / 0.3);
+}
+
+.peak-popup-btn.secondary {
+  flex: 1;
+  background: hsl(var(--secondary) / 0.8);
+  color: hsl(var(--secondary-foreground));
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.peak-popup-btn.edit {
+  flex: 1;
+  background: hsl(210, 80%, 50% / 0.9);
+  color: white;
+}
+
+.peak-popup-btn.delete {
+  flex: 1;
+  background: hsl(var(--destructive) / 0.9);
+  color: hsl(var(--destructive-foreground));
+}
+
+.peak-popup-btn:hover {
+  filter: brightness(1.1);
+}
+
+.peak-popup .mapboxgl-popup-tip {
+  border-top-color: hsl(var(--card) / 0.75);
+  z-index: 2;
+  transition: all 0.4s ease;
+}
+
+/* Hide Mapbox attribution/logo globally */
+.mapboxgl-ctrl-attrib,
+.mapboxgl-ctrl-logo {
+  display: none !important;
+}
+
+/* Push Mapbox built-in controls below the sub-tab bar */
+.mapboxgl-ctrl-top-right {
+  top: 3rem !important;
+}

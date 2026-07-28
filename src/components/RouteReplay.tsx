@@ -1,0 +1,719 @@
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Play, X, Mountain, Satellite } from 'lucide-react';
+
+interface RouteReplayProps {
+  map: any;
+  routePoints: [number, number][]; // [lat, lng] pairs
+  lineColor: string;
+  totalDistance?: number; // km
+  totalElevation?: number; // m
+  averageHeartrate?: number | null;
+  maxHeartrate?: number | null;
+  durationMinutes?: number; // actual workout duration in minutes
+}
+
+function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function lerp(a: number, b: number, t: number) {
+  return a + (b - a) * t;
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function bearing(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const y = Math.sin(dLng) * Math.cos((lat2 * Math.PI) / 180);
+  const x =
+    Math.cos((lat1 * Math.PI) / 180) * Math.sin((lat2 * Math.PI) / 180) -
+    Math.sin((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.cos(dLng);
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+}
+
+function normalizeBearingDelta(delta: number): number {
+  let normalized = delta;
+  while (normalized > 180) normalized -= 360;
+  while (normalized < -180) normalized += 360;
+  return normalized;
+}
+
+function buildCumulativeDistances(points: [number, number][]): number[] {
+  const dists = [0];
+  for (let i = 1; i < points.length; i++) {
+    dists.push(dists[i - 1] + haversine(points[i - 1][0], points[i - 1][1], points[i][0], points[i][1]));
+  }
+  return dists;
+}
+
+function sampleAtDistance(
+  points: [number, number][],
+  cumDist: number[],
+  targetDist: number
+): { lat: number; lng: number; segIdx: number; t: number } {
+  if (targetDist <= 0) return { lat: points[0][0], lng: points[0][1], segIdx: 0, t: 0 };
+  if (targetDist >= cumDist[cumDist.length - 1]) {
+    const last = points[points.length - 1];
+    return { lat: last[0], lng: last[1], segIdx: points.length - 2, t: 1 };
+  }
+  let lo = 0, hi = cumDist.length - 1;
+  while (lo < hi - 1) {
+    const mid = (lo + hi) >> 1;
+    if (cumDist[mid] <= targetDist) lo = mid;
+    else hi = mid;
+  }
+  const segLen = cumDist[hi] - cumDist[lo];
+  const t = segLen > 0 ? (targetDist - cumDist[lo]) / segLen : 0;
+  return {
+    lat: lerp(points[lo][0], points[hi][0], t),
+    lng: lerp(points[lo][1], points[hi][1], t),
+    segIdx: lo,
+    t,
+  };
+}
+
+// Catmull-Rom spline interpolation for smooth GPS lines
+function catmullRomSpline(points: [number, number][], numPointsPerSegment: number = 3): [number, number][] {
+  if (points.length < 3) return points;
+  const result: [number, number][] = [points[0]];
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[Math.max(i - 1, 0)];
+    const p1 = points[i];
+    const p2 = points[Math.min(i + 1, points.length - 1)];
+    const p3 = points[Math.min(i + 2, points.length - 1)];
+    for (let j = 1; j <= numPointsPerSegment; j++) {
+      const t = j / numPointsPerSegment;
+      const t2 = t * t;
+      const t3 = t2 * t;
+      const lat = 0.5 * (
+        (2 * p1[0]) +
+        (-p0[0] + p2[0]) * t +
+        (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 +
+        (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3
+      );
+      const lng = 0.5 * (
+        (2 * p1[1]) +
+        (-p0[1] + p2[1]) * t +
+        (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 +
+        (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3
+      );
+      result.push([lat, lng]);
+    }
+  }
+  return result;
+}
+
+// Simplify points using Ramer-Douglas-Peucker before smoothing
+function rdpSimplify(points: [number, number][], epsilon: number): [number, number][] {
+  if (points.length < 3) return points;
+  let maxDist = 0;
+  let maxIdx = 0;
+  const start = points[0];
+  const end = points[points.length - 1];
+  for (let i = 1; i < points.length - 1; i++) {
+    const d = perpendicularDist(points[i], start, end);
+    if (d > maxDist) { maxDist = d; maxIdx = i; }
+  }
+  if (maxDist > epsilon) {
+    const left = rdpSimplify(points.slice(0, maxIdx + 1), epsilon);
+    const right = rdpSimplify(points.slice(maxIdx), epsilon);
+    return [...left.slice(0, -1), ...right];
+  }
+  return [start, end];
+}
+
+function perpendicularDist(point: [number, number], start: [number, number], end: [number, number]): number {
+  const dx = end[1] - start[1];
+  const dy = end[0] - start[0];
+  const len = Math.sqrt(dx * dx + dy * dy);
+  if (len === 0) return Math.sqrt((point[0] - start[0]) ** 2 + (point[1] - start[1]) ** 2);
+  return Math.abs(dy * point[1] - dx * point[0] + end[1] * start[0] - end[0] * start[1]) / len;
+}
+
+function smoothRoute(points: [number, number][]): [number, number][] {
+  const simplified = rdpSimplify(points, 0.00003);
+  return catmullRomSpline(simplified, 4);
+}
+
+function getReplayDuration(totalDistKm: number): number {
+  const base = 25000;
+  const perKm = 2000;
+  return Math.min(60000, Math.max(base, base + totalDistKm * perKm));
+}
+
+const ROUTE_COLOR = '#e67e22';
+const ROUTE_CASING = '#a85a10';
+
+const RouteReplay = ({ map, routePoints, lineColor, totalDistance, totalElevation, averageHeartrate, maxHeartrate, durationMinutes }: RouteReplayProps) => {
+  const [phase, setPhase] = useState<'idle' | 'intro' | 'playing' | 'outro'>('idle');
+  const [stats, setStats] = useState({ distance: 0, elevation: 0, altitude: 0 });
+  const [mapStyle, setMapStyle] = useState<'terrain' | 'satellite'>('satellite');
+  const markerRef = useRef<any>(null);
+  const glowMarkerRef = useRef<any>(null);
+  const rafRef = useRef<number>(0);
+  const startTimeRef = useRef<number>(0);
+  const cumDistRef = useRef<number[]>([]);
+  const totalDistRef = useRef(0);
+  const smoothedRef = useRef<[number, number][]>([]);
+  const smoothedCumDistRef = useRef<number[]>([]);
+  const stoppedRef = useRef(false);
+  const routeHiddenRef = useRef(false);
+  // Camera follow state
+  const cameraFollowRef = useRef(true);
+  const userInteractedRef = useRef(false);
+  const resumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastPosRef = useRef<{ lat: number; lng: number } | null>(null);
+  // Cumulative elevation tracking
+  const elevGainRef = useRef(0);
+  const lastElevRef = useRef<number | null>(null);
+  const smoothBearingRef = useRef(0);
+  const smoothCenterRef = useRef<{ lat: number; lng: number } | null>(null);
+  const lastCameraUpdateRef = useRef<number>(0);
+  const reverseCameraRef = useRef(false);
+
+  useEffect(() => {
+    cumDistRef.current = buildCumulativeDistances(routePoints);
+    totalDistRef.current = cumDistRef.current[cumDistRef.current.length - 1];
+    smoothedRef.current = [];
+    smoothedCumDistRef.current = [];
+  }, [routePoints]);
+
+  const cleanup = useCallback(() => {
+    stoppedRef.current = true;
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    if (markerRef.current) { markerRef.current.remove(); markerRef.current = null; }
+    if (glowMarkerRef.current) { glowMarkerRef.current.remove(); glowMarkerRef.current = null; }
+    try {
+      if (map.getLayer('replay-progress-casing')) map.removeLayer('replay-progress-casing');
+      if (map.getLayer('replay-progress')) map.removeLayer('replay-progress');
+      if (map.getSource('replay-progress')) map.removeSource('replay-progress');
+    } catch {}
+    if (routeHiddenRef.current) {
+      try {
+        if (map.getLayer('route-line')) {
+          map.setLayoutProperty('route-line', 'visibility', 'visible');
+        }
+      } catch {}
+      routeHiddenRef.current = false;
+    }
+    // Remove user interaction listeners
+    try {
+      map.off('mousedown', handleUserInteraction);
+      map.off('touchstart', handleUserInteraction);
+    } catch {}
+  }, [map]);
+
+  const handleUserInteraction = useCallback(() => {
+    if (phase !== 'playing' || stoppedRef.current) return;
+    cameraFollowRef.current = false;
+    userInteractedRef.current = true;
+    // Clear any existing resume timer
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    // Resume camera follow after 3s of no interaction
+    resumeTimerRef.current = setTimeout(() => {
+      if (!stoppedRef.current) {
+        cameraFollowRef.current = true;
+        userInteractedRef.current = false;
+      }
+    }, 3000);
+  }, [phase]);
+
+  // Listen for moveend to reset the resume timer when user stops interacting
+  useEffect(() => {
+    if (phase !== 'playing') return;
+    const onMoveEnd = () => {
+      if (!userInteractedRef.current || stoppedRef.current) return;
+      if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+      resumeTimerRef.current = setTimeout(() => {
+        if (!stoppedRef.current) {
+          cameraFollowRef.current = true;
+          userInteractedRef.current = false;
+        }
+      }, 3000);
+    };
+    map.on('moveend', onMoveEnd);
+    return () => { map.off('moveend', onMoveEnd); };
+  }, [map, phase]);
+
+  const resetCamera = useCallback(() => {
+    const lats = routePoints.map(p => p[0]);
+    const lngs = routePoints.map(p => p[1]);
+    const sw: [number, number] = [Math.min(...lngs) - 0.005, Math.min(...lats) - 0.002];
+    const ne: [number, number] = [Math.max(...lngs) + 0.005, Math.max(...lats) + 0.002];
+    map.fitBounds([sw, ne], { padding: 60, pitch: 60, bearing: -20, duration: 1200 });
+  }, [map, routePoints]);
+
+  const stopReplay = useCallback(() => {
+    cleanup();
+    setPhase('idle');
+    setStats({ distance: 0, elevation: 0, altitude: 0 });
+    resetCamera();
+  }, [cleanup, resetCamera]);
+
+  // Toggle map style
+  const toggleStyle = useCallback(() => {
+    const newStyle = mapStyle === 'terrain' ? 'satellite' : 'terrain';
+    setMapStyle(newStyle);
+    
+    if (newStyle === 'satellite') {
+      map.setStyle('mapbox://styles/mapbox/satellite-streets-v12');
+    } else {
+      map.setStyle('mapbox://styles/mapbox/outdoors-v12');
+    }
+
+    // Re-add the replay-progress source/layer after style change
+    map.once('style.load', () => {
+      if (stoppedRef.current) return;
+      // Re-add terrain
+      try {
+        if (!map.getSource('mapbox-dem')) {
+          map.addSource('mapbox-dem', { type: 'raster-dem', url: 'mapbox://mapbox.mapbox-terrain-dem-v1', tileSize: 512 });
+          map.setTerrain({ source: 'mapbox-dem', exaggeration: 1.4 });
+        }
+      } catch {}
+      // Re-add progress line with casing
+      try {
+        if (!map.getSource('replay-progress')) {
+          map.addSource('replay-progress', {
+            type: 'geojson',
+            data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } },
+          });
+          map.addLayer({
+            id: 'replay-progress-casing', type: 'line', source: 'replay-progress',
+            layout: { 'line-join': 'round', 'line-cap': 'round' },
+            paint: { 'line-color': ROUTE_CASING, 'line-width': 14, 'line-opacity': 0.5 },
+          });
+          map.addLayer({
+            id: 'replay-progress', type: 'line', source: 'replay-progress',
+            layout: { 'line-join': 'round', 'line-cap': 'round' },
+            paint: { 'line-color': ROUTE_COLOR, 'line-width': 8, 'line-opacity': 0.95 },
+          });
+        }
+      } catch {}
+    });
+  }, [map, mapStyle]);
+
+  const startReplay = useCallback(async () => {
+    if (!map || routePoints.length < 2) return;
+    cleanup();
+    stoppedRef.current = false;
+    cameraFollowRef.current = true;
+    userInteractedRef.current = false;
+    elevGainRef.current = 0;
+    lastElevRef.current = null;
+    smoothBearingRef.current = 0;
+    smoothCenterRef.current = null;
+    lastCameraUpdateRef.current = 0;
+    reverseCameraRef.current = false;
+    setPhase('intro');
+    setStats({ distance: 0, elevation: 0, altitude: 0 });
+
+    const mapboxgl = (await import('mapbox-gl')).default;
+    const cumDist = cumDistRef.current;
+    const totalDist = totalDistRef.current;
+    const reportedDist = totalDistance ?? totalDist;
+    const reportedElev = totalElevation ?? 0;
+    const replayDuration = getReplayDuration(reportedDist);
+
+    // Compute smoothed route lazily
+    if (smoothedRef.current.length === 0) {
+      const smoothed = smoothRoute(routePoints);
+      smoothedRef.current = smoothed;
+      smoothedCumDistRef.current = buildCumulativeDistances(smoothed);
+    }
+
+    // Hide the existing route line
+    try {
+      if (map.getLayer('route-line')) {
+        map.setLayoutProperty('route-line', 'visibility', 'none');
+        routeHiddenRef.current = true;
+      }
+    } catch {}
+
+    // Fly camera to start point
+    const startBearing = bearing(
+      routePoints[0][0], routePoints[0][1],
+      routePoints[Math.min(15, routePoints.length - 1)][0],
+      routePoints[Math.min(15, routePoints.length - 1)][1]
+    );
+    smoothBearingRef.current = startBearing;
+    smoothCenterRef.current = { lat: routePoints[0][0], lng: routePoints[0][1] };
+
+    map.flyTo({
+      center: [routePoints[0][1], routePoints[0][0]],
+      zoom: 13.8,
+      pitch: 50,
+      bearing: startBearing,
+      duration: 1800,
+      essential: true,
+    });
+
+    await new Promise(r => setTimeout(r, 2400));
+    if (stoppedRef.current) return;
+
+    setPhase('playing');
+
+    // Add user interaction listeners for manual camera override
+    map.on('mousedown', handleUserInteraction);
+    map.on('touchstart', handleUserInteraction);
+
+    // Add progress line with casing for 3D depth effect
+    if (!map.getSource('replay-progress')) {
+      map.addSource('replay-progress', {
+        type: 'geojson',
+        data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } },
+      });
+      // Dark casing layer (wider, underneath)
+      map.addLayer({
+        id: 'replay-progress-casing', type: 'line', source: 'replay-progress',
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: { 'line-color': ROUTE_CASING, 'line-width': 14, 'line-opacity': 0.5 },
+      });
+      // Main line
+      map.addLayer({
+        id: 'replay-progress', type: 'line', source: 'replay-progress',
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: { 'line-color': ROUTE_COLOR, 'line-width': 8, 'line-opacity': 0.95 },
+      });
+    }
+
+    // Glow marker (larger pulsing ring)
+    const glowEl = document.createElement('div');
+    glowEl.style.cssText = `
+      width: 40px; height: 40px; border-radius: 50%;
+      background: radial-gradient(circle, ${ROUTE_COLOR}44 0%, ${ROUTE_COLOR}11 50%, transparent 70%);
+      pointer-events: none;
+      animation: replay-pulse 2s ease-in-out infinite;
+    `;
+    glowMarkerRef.current = new mapboxgl.Marker({ element: glowEl, anchor: 'center' })
+      .setLngLat([routePoints[0][1], routePoints[0][0]])
+      .addTo(map);
+
+    // Main marker dot (larger, with glow)
+    const el = document.createElement('div');
+    el.style.cssText = `
+      width: 18px; height: 18px; border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #f5a623, ${ROUTE_COLOR});
+      border: 3px solid white;
+      box-shadow: 0 0 16px ${ROUTE_COLOR}cc, 0 0 6px ${ROUTE_COLOR}88, 0 2px 8px rgba(0,0,0,0.4);
+      pointer-events: none;
+    `;
+    markerRef.current = new mapboxgl.Marker({ element: el, anchor: 'center' })
+      .setLngLat([routePoints[0][1], routePoints[0][0]])
+      .addTo(map);
+
+    // Inject pulse animation CSS
+    if (!document.getElementById('replay-pulse-style')) {
+      const style = document.createElement('style');
+      style.id = 'replay-pulse-style';
+      style.textContent = `
+        @keyframes replay-pulse {
+          0%, 100% { transform: scale(1); opacity: 0.6; }
+          50% { transform: scale(1.6); opacity: 0.15; }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    startTimeRef.current = performance.now();
+
+    const smoothed = smoothedRef.current;
+    const smoothedCumDist = smoothedCumDistRef.current;
+    const smoothedTotalDist = smoothedCumDist[smoothedCumDist.length - 1] || totalDist;
+
+    const animate = (now: number) => {
+      if (stoppedRef.current) return;
+      const elapsed = now - startTimeRef.current;
+      const rawProgress = Math.min(elapsed / replayDuration, 1);
+      const progress = rawProgress;
+
+      // Use original points for marker position
+      const currentDist = progress * totalDist;
+      const pos = sampleAtDistance(routePoints, cumDist, currentDist);
+
+      const lngLat: [number, number] = [pos.lng, pos.lat];
+      markerRef.current?.setLngLat(lngLat);
+      glowMarkerRef.current?.setLngLat(lngLat);
+      lastPosRef.current = { lat: pos.lat, lng: pos.lng };
+
+      // Use smoothed points for the drawn line
+      const smoothedTargetDist = progress * smoothedTotalDist;
+      const smoothPos = sampleAtDistance(smoothed, smoothedCumDist, smoothedTargetDist);
+      const progressCoords: [number, number][] = [];
+      for (let i = 0; i <= smoothPos.segIdx; i++) {
+        progressCoords.push([smoothed[i][1], smoothed[i][0]]);
+      }
+      progressCoords.push([smoothPos.lng, smoothPos.lat]);
+
+      try {
+        const src = map.getSource('replay-progress');
+        if (src) {
+          src.setData({
+            type: 'Feature', properties: {},
+            geometry: { type: 'LineString', coordinates: progressCoords },
+          });
+        }
+      } catch {}
+
+      // Stats — terrain-based cumulative elevation gain
+      const distKm = progress * reportedDist;
+
+      // Get real altitude from terrain (divided by exaggeration factor)
+      let altitude = 0;
+      try {
+        const terrainElev = map.queryTerrainElevation([pos.lng, pos.lat]);
+        if (terrainElev != null) {
+          altitude = Math.round(terrainElev / 1.4); // Divide by terrain exaggeration
+          // Accumulate only positive elevation changes (uphill)
+          if (lastElevRef.current !== null) {
+            const delta = altitude - lastElevRef.current;
+            if (delta > 0) {
+              elevGainRef.current = Math.min(elevGainRef.current + delta, reportedElev);
+            }
+          }
+          lastElevRef.current = altitude;
+        }
+      } catch {}
+      const elevGain = Math.round(elevGainRef.current);
+      setStats({ distance: Math.round(distKm * 10) / 10, elevation: elevGain, altitude });
+
+      // Cinematic camera follow (only if not overridden by user)
+      if (cameraFollowRef.current) {
+        const dtSeconds = lastCameraUpdateRef.current
+          ? Math.max((now - lastCameraUpdateRef.current) / 1000, 1 / 120)
+          : 1 / 60;
+        lastCameraUpdateRef.current = now;
+
+        // Derive direction from a VERY wide corridor so tiny zigzags are completely invisible
+        const directionWindowKm = clamp(smoothedTotalDist * 0.07, 0.15, 0.6);
+        const directionBehind = sampleAtDistance(
+          smoothed,
+          smoothedCumDist,
+          Math.max(smoothedTargetDist - directionWindowKm, 0)
+        );
+        const directionAhead = sampleAtDistance(
+          smoothed,
+          smoothedCumDist,
+          Math.min(smoothedTargetDist + directionWindowKm * 2.5, smoothedTotalDist)
+        );
+        const rawBearing = bearing(
+          directionBehind.lat,
+          directionBehind.lng,
+          directionAhead.lat,
+          directionAhead.lng
+        );
+
+        // Detect downhill over a larger distance and with hysteresis to avoid rapid 180° flipping
+        try {
+          const curElev = map.queryTerrainElevation([smoothPos.lng, smoothPos.lat]);
+          const slopeProbe = sampleAtDistance(
+            smoothed,
+            smoothedCumDist,
+            Math.min(smoothedTargetDist + directionWindowKm * 1.4, smoothedTotalDist)
+          );
+          const aheadElev = map.queryTerrainElevation([slopeProbe.lng, slopeProbe.lat]);
+          if (curElev != null && aheadElev != null) {
+            const slopeDelta = curElev - aheadElev;
+            if (slopeDelta > 16) reverseCameraRef.current = true;
+            else if (slopeDelta < -16) reverseCameraRef.current = false;
+          }
+        } catch {}
+
+        // When going downhill, offset bearing by 180° so the route comes TOWARD the camera
+        const targetBearing = reverseCameraRef.current ? (rawBearing + 180) % 360 : rawBearing;
+
+        // Ultra-smooth damping: large deadzone, very low factor, strict turn-rate cap
+        const prevBearing = smoothBearingRef.current;
+        const bearingDiff = normalizeBearingDelta(targetBearing - prevBearing);
+        const deadzone = 35;
+        const desiredStep = Math.abs(bearingDiff) <= deadzone ? 0 : bearingDiff * 0.015;
+        const maxTurnRate = Math.abs(bearingDiff) > 90 ? 10 : 14;
+        const maxStep = maxTurnRate * dtSeconds;
+        const nextBearing = prevBearing + clamp(desiredStep, -maxStep, maxStep);
+        smoothBearingRef.current = (nextBearing + 360) % 360;
+
+        const previousCenter = smoothCenterRef.current ?? { lat: pos.lat, lng: pos.lng };
+        const nextCenter = {
+          lat: previousCenter.lat + (pos.lat - previousCenter.lat) * 0.18,
+          lng: previousCenter.lng + (pos.lng - previousCenter.lng) * 0.18,
+        };
+        smoothCenterRef.current = nextCenter;
+
+        // Keep the tracked dot near the middle with a fixed, calmer camera
+        map.jumpTo({
+          center: [nextCenter.lng, nextCenter.lat],
+          bearing: smoothBearingRef.current,
+          pitch: 50,
+          zoom: 13.8,
+        });
+      }
+
+      if (rawProgress < 1) {
+        rafRef.current = requestAnimationFrame(animate);
+      } else {
+        // --- OUTRO ---
+        setPhase('outro');
+        setStats({ distance: reportedDist, elevation: reportedElev, altitude: 0 });
+
+        const lats = routePoints.map(p => p[0]);
+        const lngs = routePoints.map(p => p[1]);
+        const sw: [number, number] = [Math.min(...lngs) - 0.008, Math.min(...lats) - 0.004];
+        const ne: [number, number] = [Math.max(...lngs) + 0.008, Math.max(...lats) + 0.004];
+
+        setTimeout(() => {
+          if (stoppedRef.current) return;
+          map.fitBounds([sw, ne], {
+            padding: 50,
+            pitch: 55,
+            duration: 2500,
+          });
+        }, 600);
+
+        setTimeout(() => {
+          if (!stoppedRef.current) stopReplay();
+        }, 7000);
+      }
+    };
+
+    rafRef.current = requestAnimationFrame(animate);
+  }, [map, routePoints, lineColor, totalDistance, totalElevation, cleanup, stopReplay, resetCamera, handleUserInteraction]);
+
+  useEffect(() => {
+    return () => {
+      stoppedRef.current = true;
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      cleanup();
+    };
+  }, [cleanup]);
+
+  if (!map) return null;
+
+  const reportedDist = totalDistance ?? totalDistRef.current;
+  const reportedElev = totalElevation ?? 0;
+
+  if (phase === 'idle') {
+    return (
+      <button
+        onClick={startReplay}
+        className="absolute bottom-6 right-4 z-[10001] flex items-center gap-2 rounded-full bg-background/90 backdrop-blur-sm px-4 py-2.5 shadow-lg border border-border hover:bg-background transition-all hover:scale-105"
+      >
+        <Play className="w-5 h-5 text-primary fill-primary" />
+        <span className="text-sm font-semibold text-foreground">Replay</span>
+      </button>
+    );
+  }
+
+  return (
+    <>
+      {/* Close button */}
+      <button
+        onClick={stopReplay}
+        className="absolute right-4 z-[10001] p-2.5 rounded-full bg-background/90 backdrop-blur-sm shadow-lg border border-border hover:bg-background transition-colors"
+        style={{ top: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}
+      >
+        <X className="w-5 h-5 text-foreground" />
+      </button>
+
+      {/* Map style toggle */}
+      {(phase === 'playing' || phase === 'intro') && (
+        <button
+          onClick={toggleStyle}
+          className="absolute right-4 z-[10001] p-2.5 rounded-full bg-background/90 backdrop-blur-sm shadow-lg border border-border hover:bg-background transition-colors"
+          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 4.5rem)' }}
+          title={mapStyle === 'terrain' ? 'Satellitt' : 'Terreng'}
+        >
+          {mapStyle === 'terrain' ? (
+            <Satellite className="w-5 h-5 text-foreground" />
+          ) : (
+            <Mountain className="w-5 h-5 text-foreground" />
+          )}
+        </button>
+      )}
+
+      {/* Live stats during playing */}
+      {phase === 'playing' && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[10001] flex gap-6 rounded-2xl bg-background/85 backdrop-blur-md px-6 py-3 shadow-xl border border-border animate-fade-in">
+          <div className="text-center">
+            <p className="text-lg font-bold text-foreground leading-tight">
+              {stats.distance.toFixed(1)} <span className="text-xs font-normal text-muted-foreground">km</span>
+            </p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Distanse</p>
+          </div>
+          {stats.elevation > 0 && (
+            <div className="text-center">
+              <p className="text-lg font-bold text-foreground leading-tight">
+                {stats.elevation} <span className="text-xs font-normal text-muted-foreground">m</span>
+              </p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Stigning</p>
+            </div>
+          )}
+          {stats.altitude > 0 && (
+            <div className="text-center">
+              <p className="text-lg font-bold text-foreground leading-tight">
+                {stats.altitude} <span className="text-xs font-normal text-muted-foreground">moh</span>
+              </p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Høyde</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Outro: 3D stats card — positioned at top so it doesn't cover the route */}
+      {phase === 'outro' && (
+        <div className="absolute inset-x-0 z-[10002] flex justify-center pointer-events-none animate-fade-in" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 4rem)' }}>
+          <div
+            className="pointer-events-auto rounded-2xl px-8 py-6 shadow-2xl border border-border/50 text-center"
+            style={{
+              background: 'linear-gradient(145deg, hsl(var(--background) / 0.92), hsl(var(--card) / 0.88))',
+              backdropFilter: 'blur(16px)',
+              transform: 'perspective(800px) rotateX(4deg) rotateY(-2deg)',
+              boxShadow: `
+                0 25px 50px -12px rgba(0,0,0,0.4),
+                0 12px 24px -8px rgba(0,0,0,0.2),
+                inset 0 1px 0 rgba(255,255,255,0.15),
+                inset 0 -1px 0 rgba(0,0,0,0.1)
+              `,
+            }}
+          >
+            <p className="text-2xl mb-3">🏁</p>
+            <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+              <div className="text-center">
+                <p className="text-xl font-bold text-foreground">{reportedDist.toFixed(1)}<span className="text-xs font-normal text-muted-foreground ml-1">km</span></p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Distanse</p>
+              </div>
+              {reportedElev > 0 && (
+                <div className="text-center">
+                  <p className="text-xl font-bold text-foreground">{reportedElev}<span className="text-xs font-normal text-muted-foreground ml-1">m</span></p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Stigning</p>
+                </div>
+              )}
+              {averageHeartrate && averageHeartrate > 0 && (
+                <div className="text-center">
+                  <p className="text-xl font-bold text-foreground">{Math.round(averageHeartrate)}<span className="text-xs font-normal text-muted-foreground ml-1">bpm</span></p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Gj.sn. puls</p>
+                </div>
+              )}
+              {maxHeartrate && maxHeartrate > 0 && (
+                <div className="text-center">
+                  <p className="text-xl font-bold text-foreground">{Math.round(maxHeartrate)}<span className="text-xs font-normal text-muted-foreground ml-1">bpm</span></p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Maks puls</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
+export default RouteReplay;

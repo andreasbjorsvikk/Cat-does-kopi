@@ -1,0 +1,379 @@
+import { useState, useEffect } from 'react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { getNotifications, markAllNotificationsRead, respondToChallenge, NotificationRow } from '@/services/communityService';
+import { supabase } from '@/integrations/supabase/client';
+import { Mail, Settings, Trophy, UserPlus, Loader2, Check, X, Eye, Baby, Mountain, ArrowLeft } from 'lucide-react';
+import { useTranslation } from '@/i18n/useTranslation';
+import { toast } from 'sonner';
+
+interface NotificationSheetProps {
+  open: boolean;
+  onClose: () => void;
+  onNavigateToFriends?: () => void;
+  onViewChallenge?: (challengeId: string) => void;
+  onNavigateToProfile?: () => void;
+  onNavigateToRecords?: () => void;
+}
+const iconMap: Record<string, typeof Mail> = {
+  invite: Mail,
+  edit_approval: Settings,
+  challenge_ended: Trophy,
+  friend_request: UserPlus,
+  child_share: Baby,
+  hike_share: Mountain,
+};
+
+interface EnrichedNotification extends NotificationRow {
+  currentChallengeName?: string;
+  alreadyResponded?: boolean;
+}
+
+const NotificationSheet = ({ open, onClose, onNavigateToFriends, onViewChallenge, onNavigateToProfile, onNavigateToRecords }: NotificationSheetProps) => {
+  const { t } = useTranslation();
+  const [notifications, setNotifications] = useState<EnrichedNotification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [respondingTo, setRespondingTo] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setLoading(true);
+      enrichNotifications().then(n => { setNotifications(n); setLoading(false); });
+    }
+  }, [open]);
+
+  const enrichNotifications = async (): Promise<EnrichedNotification[]> => {
+    const raw = await getNotifications();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return raw;
+
+    // Get unique challenge IDs from invite notifications
+    const challengeIds = [...new Set(raw.filter(n => n.type === 'invite' && n.challenge_id).map(n => n.challenge_id!))];
+    
+    // Fetch current challenge names and user's participation status
+    let challengeNameMap: Record<string, string> = {};
+    const latestParticipationByChallenge = new Map<string, { status: string; createdAt: string }>();
+
+    if (challengeIds.length > 0) {
+      const { data: challenges } = await supabase
+        .from('challenges')
+        .select('id, name')
+        .in('id', challengeIds);
+      challengeNameMap = Object.fromEntries((challenges || []).map(c => [c.id, c.name]));
+
+      const { data: participations } = await supabase
+        .from('challenge_participants')
+        .select('challenge_id, status, created_at')
+        .eq('user_id', user.id)
+        .in('challenge_id', challengeIds);
+
+      for (const p of participations || []) {
+        const existing = latestParticipationByChallenge.get(p.challenge_id);
+        if (!existing || new Date(p.created_at).getTime() > new Date(existing.createdAt).getTime()) {
+          latestParticipationByChallenge.set(p.challenge_id, {
+            status: p.status,
+            createdAt: p.created_at,
+          });
+        }
+      }
+    }
+
+    // Check friend request status for friend_request notifications
+    const friendRequestFromIds = [...new Set(raw.filter(n => n.type === 'friend_request' && n.from_user_id).map(n => n.from_user_id!))];
+    const respondedFriendRequests = new Set<string>();
+    if (friendRequestFromIds.length > 0) {
+      const { data: friendships } = await supabase
+        .from('friendships')
+        .select('user_id, friend_id, status')
+        .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`)
+        .in('status', ['accepted', 'declined']);
+      for (const f of friendships || []) {
+        const otherId = f.user_id === user.id ? f.friend_id : f.user_id;
+        if (friendRequestFromIds.includes(otherId)) {
+          respondedFriendRequests.add(otherId);
+        }
+      }
+    }
+
+    // Pre-fetch child share statuses
+    const childShareIds = raw.filter(n => n.type === 'child_share' && n.challenge_id).map(n => n.challenge_id!);
+    const respondedChildShares = new Set<string>();
+    if (childShareIds.length > 0) {
+      const { data: accesses } = await supabase
+        .from('child_shared_access')
+        .select('id, status')
+        .in('id', childShareIds);
+      for (const a of accesses || []) {
+        if ((a as any).status !== 'pending') respondedChildShares.add((a as any).id);
+      }
+    }
+
+    // Pre-fetch hike share statuses
+    const hikeShareIds = raw.filter(n => n.type === 'hike_share' && n.challenge_id).map(n => n.challenge_id!);
+    const respondedHikeShares = new Set<string>();
+    if (hikeShareIds.length > 0) {
+      const { data: hikeShares } = await supabase
+        .from('hiking_record_shares')
+        .select('id, status')
+        .in('id', hikeShareIds);
+      for (const s of hikeShares || []) {
+        if ((s as any).status !== 'pending') respondedHikeShares.add((s as any).id);
+      }
+    }
+
+    const enriched = raw.map(n => {
+      let alreadyResponded = false;
+
+      if (n.type === 'invite' && n.challenge_id) {
+        const latest = latestParticipationByChallenge.get(n.challenge_id);
+        if (!latest) {
+          alreadyResponded = true;
+        } else if (latest.status === 'pending') {
+          alreadyResponded = false;
+        } else if (latest.status === 'declined') {
+          alreadyResponded = new Date(n.created_at).getTime() <= new Date(latest.createdAt).getTime();
+        } else {
+          alreadyResponded = true;
+        }
+      }
+
+      if (n.type === 'friend_request' && n.from_user_id && respondedFriendRequests.has(n.from_user_id)) {
+        alreadyResponded = true;
+      }
+
+      if (n.type === 'child_share' && n.challenge_id && respondedChildShares.has(n.challenge_id)) {
+        alreadyResponded = true;
+      }
+
+      if (n.type === 'hike_share' && n.challenge_id && respondedHikeShares.has(n.challenge_id)) {
+        alreadyResponded = true;
+      }
+
+      return {
+        ...n,
+        currentChallengeName: n.challenge_id ? challengeNameMap[n.challenge_id] : undefined,
+        alreadyResponded,
+      };
+    });
+
+    // Deduplicate: for challenge invites, keep only the newest per challenge_id
+    const seenChallenges = new Set<string>();
+    const deduped: EnrichedNotification[] = [];
+    // Sort newest first for dedup
+    const sorted = [...enriched].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    for (const n of sorted) {
+      if (n.type === 'invite' && n.challenge_id) {
+        if (seenChallenges.has(n.challenge_id)) continue;
+        seenChallenges.add(n.challenge_id);
+      }
+      // Hide responded notifications entirely
+      if (n.alreadyResponded) continue;
+      deduped.push(n);
+    }
+    // Re-sort by created_at descending (already is, but be explicit)
+    return deduped;
+  };
+
+  const handleClose = () => {
+    markAllNotificationsRead();
+    onClose();
+  };
+
+  const handleRespondChallenge = async (challengeId: string, accept: boolean) => {
+    setRespondingTo(challengeId);
+    try {
+      await respondToChallenge(challengeId, accept);
+      toast.success(accept ? t('notifications.challengeAccepted') : t('notifications.challengeDeclined'));
+      const updated = await enrichNotifications();
+      setNotifications(updated);
+    } catch {
+      toast.error(t('notifications.respondError'));
+    }
+    setRespondingTo(null);
+  };
+
+  const getTimeAgo = (ts: string): string => {
+    const diff = Date.now() - new Date(ts).getTime();
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    if (hours < 1) return t('notifications.justNow');
+    if (hours < 24) return t('notifications.hoursAgo', { n: hours });
+    const days = Math.floor(hours / 24);
+    return t('notifications.daysAgo', { n: days });
+  };
+
+  // Build display message, replacing old challenge name with current one
+  const getDisplayMessage = (n: EnrichedNotification): string => {
+    if (n.type === 'invite' && n.currentChallengeName && n.challenge_id) {
+      // Replace the old name in the message with the current name
+      const match = n.message.match(/«(.+?)»/);
+      if (match && match[1] !== n.currentChallengeName) {
+        return n.message.replace(`«${match[1]}»`, `«${n.currentChallengeName}»`);
+      }
+    }
+    return n.message;
+  };
+
+  return (
+    <Sheet open={open} onOpenChange={(o) => !o && handleClose()}>
+      <SheetContent
+        side="right"
+        className="w-full sm:max-w-sm pt-[env(safe-area-inset-top)] [&>button.absolute.right-4.top-4]:hidden"
+      >
+        <SheetHeader className="flex-row items-center gap-2 space-y-0 text-left">
+          <button
+            type="button"
+            onClick={handleClose}
+            aria-label={t('common.back') || 'Tilbake'}
+            className="-ml-2 p-2 rounded-md hover:bg-secondary/60 transition-colors flex items-center gap-1"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span className="text-sm font-medium">{t('common.back') || 'Tilbake'}</span>
+          </button>
+          <SheetTitle className="flex-1 text-right">{t('notifications.title')}</SheetTitle>
+        </SheetHeader>
+        <div className="mt-4 space-y-2">
+          {loading ? (
+            <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+          ) : notifications.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">{t('notifications.none')}</p>
+          ) : (
+            notifications.map(n => {
+              const Icon = iconMap[n.type] || Mail;
+              const timeAgo = getTimeAgo(n.created_at);
+              const isFriendRequest = n.type === 'friend_request';
+              const isChallengeInvite = n.type === 'invite';
+              const isChildShare = n.type === 'child_share';
+              const showActions = isChallengeInvite && n.challenge_id && !n.alreadyResponded;
+              const showChildShareActions = isChildShare && n.challenge_id && !n.alreadyResponded;
+              return (
+                <div
+                  key={n.id}
+                  className={`w-full text-left flex items-start gap-3 p-3 rounded-lg transition-colors ${
+                    n.read ? 'bg-secondary/30' : 'bg-accent/5 border border-accent/20'
+                  }`}
+                >
+                  <div className={`p-1.5 rounded-md shrink-0 ${n.read ? 'bg-secondary' : 'bg-accent/10'}`}>
+                    <Icon className={`w-4 h-4 ${n.read ? 'text-muted-foreground' : 'text-accent'}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">{n.title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{getDisplayMessage(n)}</p>
+                    {isFriendRequest && (
+                      <button
+                        onClick={() => {
+                          handleClose();
+                          setTimeout(() => onNavigateToFriends?.(), 150);
+                        }}
+                        className="text-[10px] text-primary mt-1 font-medium hover:underline"
+                      >
+                        {t('notifications.tapToSee')}
+                      </button>
+                    )}
+                    {showActions && (
+                      <div className="flex items-center gap-2 mt-2">
+                        <button
+                          onClick={() => {
+                            handleClose();
+                            setTimeout(() => onViewChallenge?.(n.challenge_id!), 150);
+                          }}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+                        >
+                          <Eye className="w-3 h-3" /> {t('notifications.viewChallenge')}
+                        </button>
+                        <button
+                          onClick={() => handleRespondChallenge(n.challenge_id!, false)}
+                          disabled={respondingTo === n.challenge_id}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-secondary text-foreground text-xs font-medium hover:bg-secondary/80 transition-colors disabled:opacity-50"
+                        >
+                          <X className="w-3 h-3" /> {t('notifications.decline')}
+                        </button>
+                      </div>
+                    )}
+                    {showChildShareActions && (
+                      <div className="flex flex-col gap-2 mt-2">
+                        <button
+                          onClick={() => {
+                            handleClose();
+                            setTimeout(() => onNavigateToProfile?.(), 150);
+                          }}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-accent/10 text-accent text-xs font-medium hover:bg-accent/20 transition-colors w-fit"
+                        >
+                          <Eye className="w-3 h-3" /> Se invitasjon
+                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={async () => {
+                              setRespondingTo(n.challenge_id);
+                              try {
+                                await supabase.from('child_shared_access').update({ status: 'accepted' }).eq('id', n.challenge_id);
+                                toast.success('Barn-tilgang godkjent!');
+                                const updated = await enrichNotifications();
+                                setNotifications(updated);
+                              } catch { toast.error('Kunne ikke godkjenne'); }
+                              setRespondingTo(null);
+                            }}
+                            disabled={respondingTo === n.challenge_id}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+                          >
+                            <Check className="w-3 h-3" /> Godta
+                          </button>
+                          <button
+                            onClick={async () => {
+                              setRespondingTo(n.challenge_id);
+                              try {
+                                await supabase.from('child_shared_access').update({ status: 'declined' }).eq('id', n.challenge_id);
+                                toast.success('Avvist');
+                                const updated = await enrichNotifications();
+                                setNotifications(updated);
+                              } catch { toast.error('Kunne ikke avvise'); }
+                              setRespondingTo(null);
+                            }}
+                            disabled={respondingTo === n.challenge_id}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-secondary text-foreground text-xs font-medium hover:bg-secondary/80 transition-colors disabled:opacity-50"
+                          >
+                            <X className="w-3 h-3" /> Avvis
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {n.type === 'hike_share' && n.challenge_id && !n.alreadyResponded && (
+                      <div className="flex items-center gap-2 mt-2">
+                        <button
+                          onClick={() => {
+                            handleClose();
+                            setTimeout(() => onNavigateToRecords?.(), 150);
+                          }}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+                        >
+                          <Eye className="w-3 h-3" /> Se invitasjon
+                        </button>
+                        <button
+                          onClick={async () => {
+                            setRespondingTo(n.challenge_id);
+                            try {
+                              await supabase.from('hiking_record_shares').delete().eq('id', n.challenge_id);
+                              toast.success('Avslått');
+                              const updated = await enrichNotifications();
+                              setNotifications(updated);
+                            } catch { toast.error('Kunne ikke avslå'); }
+                            setRespondingTo(null);
+                          }}
+                          disabled={respondingTo === n.challenge_id}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-secondary text-foreground text-xs font-medium hover:bg-secondary/80 transition-colors disabled:opacity-50"
+                        >
+                          <X className="w-3 h-3" /> Avslå
+                        </button>
+                      </div>
+                    )}
+                    <p className="text-[10px] text-muted-foreground mt-1">{timeAgo}</p>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+};
+
+export default NotificationSheet;

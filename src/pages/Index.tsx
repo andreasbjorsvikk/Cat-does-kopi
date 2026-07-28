@@ -1,0 +1,1395 @@
+import { useState, useMemo, useEffect, useRef, useCallback, Component, ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { WorkoutSession, ExtraGoal } from '@/types/workout';
+import { AppDataProvider, useAppDataContext } from '@/contexts/AppDataContext';
+import { computeMonthWheelData, computeYearWheelData } from '@/utils/goalWheelData';
+import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
+import { stravaService } from '@/services/stravaService';
+import { goalService } from '@/services/goalService';
+import { getChallenges, getChallengeParticipants, getChallengeProgress, getUnreadNotificationCount, ChallengeRow } from '@/services/communityService';
+import { ChallengeWithParticipants } from '@/pages/CommunityPage';
+import { toast } from 'sonner';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useAdmin } from '@/hooks/useAdmin';
+
+import BottomNav, { TabId } from '@/components/BottomNav';
+import AdminDashboard from '@/components/map/AdminDashboard';
+import StatsOverview from '@/components/StatsOverview';
+import SessionCard from '@/components/SessionCard';
+import WorkoutDialog from '@/components/WorkoutDialog';
+import WorkoutDetailDrawer from '@/components/WorkoutDetailDrawer';
+import HealthEventDialog from '@/components/HealthEventDialog';
+import GoalForm from '@/components/GoalForm';
+import CalendarPage from '@/pages/CalendarPage';
+import MapPage from '@/pages/MapPage';
+import TrainingPage from '@/pages/TrainingPage';
+import CommunityPage from '@/pages/CommunityPage';
+import SettingsPage from '@/pages/SettingsPage';
+import ProgressWheel from '@/components/ProgressWheel';
+import GoalGraph from '@/components/GoalGraph';
+import Last7Days from '@/components/Last7Days';
+import DraggableGoalGrid from '@/components/DraggableGoalGrid';
+import ChallengeCard from '@/components/community/ChallengeCard';
+import ChallengeDetail from '@/components/community/ChallengeDetail';
+import GoalCompletionOverlay from '@/components/GoalCompletionOverlay';
+import MonthGoalCompletionOverlay from '@/components/MonthGoalCompletionOverlay';
+import BadgeUnlockOverlay from '@/components/badges/BadgeUnlockOverlay';
+import ChallengeCompletionOverlay from '@/components/community/ChallengeCompletionOverlay';
+import { computeUserBadges, findNewlyUnlocked, UserBadge } from '@/services/badgeService';
+import { Plus, Sun, Moon, Dumbbell, Ambulance, LogIn, Loader2, GripVertical, Check, User, BarChart3, TrendingUp, Play, FileText, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { useSettings } from '@/contexts/SettingsContext';
+import { useTranslation } from '@/i18n/useTranslation';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import GoalTutorialDialog from '@/components/GoalTutorialDialog';
+import TrainingTutorialDialog from '@/components/TrainingTutorialDialog';
+import CalendarTutorialDialog from '@/components/CalendarTutorialDialog';
+import WelcomeDialog from '@/components/WelcomeDialog';
+import FullTutorialFlow from '@/components/FullTutorialFlow';
+import ReportDialog from '@/components/ReportDialog';
+import ReportPrompt from '@/components/ReportPrompt';
+import { computeWeeklyReport, computeMonthlyReport, shouldShowWeeklyReport, shouldShowMonthlyReport, getReportDismissKey, getReportLaterKey, ReportData } from '@/utils/reportUtils';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { HealthEvent } from '@/types/workout';
+import { supabase } from '@/integrations/supabase/client';
+import { fetchPendingSuggestions } from '@/services/peakSuggestionService';
+import badgeMountainIcon from '@/assets/icons/badge-mountain.png';
+import SyncStatusIndicator from '@/components/SyncStatusIndicator';
+
+class IndexErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch() { setTimeout(() => this.setState({ hasError: false }), 100); }
+  render() {
+    if (this.state.hasError) return <div className="min-h-screen bg-background flex items-center justify-center"><span className="animate-pulse text-muted-foreground">Laster…</span></div>;
+    return this.props.children;
+  }
+}
+
+const Index = () => {
+  return (
+    <IndexErrorBoundary>
+      <AppDataProvider>
+        <IndexContent />
+      </AppDataProvider>
+    </IndexErrorBoundary>
+  );
+};
+
+// Desktop: only bottom sections are reorderable
+const DESKTOP_REORDERABLE_IDS = ['challenges', 'extraGoals', 'recentSessions'] as const;
+// Mobile: all sections reorderable
+const MOBILE_REORDERABLE_IDS = ['trainingGoals', 'last7dCalendar', 'statistics', 'challenges', 'extraGoals', 'recentSessions'] as const;
+const MOBILE_SECTION_LABELS_KEYS: Record<string, string> = {
+  trainingGoals: 'home.trainingGoals',
+  last7dCalendar: 'home.last7dCalendar',
+  statistics: 'home.statistics',
+  challenges: 'home.challenges',
+  extraGoals: 'home.goals',
+  recentSessions: 'home.recentSessions',
+};
+const MOBILE_REORDER_LABELS_KEYS: Record<string, string> = {
+  ...MOBILE_SECTION_LABELS_KEYS,
+  last7dCalendar: 'home.last7dCalendar',
+};
+
+const IndexContent = () => {
+  const { settings, updateSettings } = useSettings();
+  const { t } = useTranslation();
+  const { user, signOut } = useAuth();
+  const { isAdmin, adminMode } = useAdmin();
+  const navigate = useNavigate();
+  const appData = useAppDataContext();
+  const isMobile = useIsMobile();
+
+  const [activeTab, setActiveTab] = useState<TabId>('hjem');
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [healthDialogOpen, setHealthDialogOpen] = useState(false);
+  const [editSession, setEditSession] = useState<WorkoutSession | undefined>();
+  const [initialStatPeriod, setInitialStatPeriod] = useState<'month' | 'year' | undefined>();
+  const [editGoal, setEditGoal] = useState<ExtraGoal | undefined>();
+  const [showGoalEditDialog, setShowGoalEditDialog] = useState(false);
+  const [homeStatMode, setHomeStatMode] = useState<'week' | 'month'>('week');
+  const [heroView, setHeroView] = useState<'målgraf' | 'statistikk'>('målgraf');
+  const [heroDropdownOpen, setHeroDropdownOpen] = useState(false);
+  const heroLongPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [stravaSyncing, setStravaSyncing] = useState(false);
+  const [detailSession, setDetailSession] = useState<WorkoutSession | null>(null);
+  const [challengeDetail, setChallengeDetail] = useState<ChallengeWithParticipants | null>(null);
+  const [showGoalTip, setShowGoalTip] = useState(false);
+  const [showTrainingTutorial, setShowTrainingTutorial] = useState(false);
+  const [showCalendarTutorial, setShowCalendarTutorial] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [adminSuggestionsDot, setAdminSuggestionsDot] = useState(false);
+  const [badgeUnlocks, setBadgeUnlocks] = useState<UserBadge[]>([]);
+  const badgeSnapshotRef = useRef<UserBadge[] | null>(null);
+  const [adminPreviewMonth, setAdminPreviewMonth] = useState(false);
+  const [adminPreviewYear, setAdminPreviewYear] = useState(false);
+  const [showFullTutorial, setShowFullTutorial] = useState(false);
+  const [completedChallenge, setCompletedChallenge] = useState<ChallengeWithParticipants | null>(null);
+  const [adminPreviewChallenge, setAdminPreviewChallenge] = useState<ChallengeWithParticipants | null>(null);
+
+  // Report state
+  const [reportPromptType, setReportPromptType] = useState<'week' | 'month' | null>(null);
+  const [reportData, setReportData] = useState<ReportData | null>(null);
+  const [showReport, setShowReport] = useState(false);
+  const [pendingWeekReport, setPendingWeekReport] = useState(false);
+  const [pendingMonthReport, setPendingMonthReport] = useState(false);
+
+  // Profile info (cached via React Query for offline use)
+  const { profile, updateProfile } = useProfile();
+  const avatarUrl = profile?.avatar_url ?? null;
+  const username = profile?.username ?? '';
+
+  // Handle pending username on first login
+  useEffect(() => {
+    if (!user || !profile) return;
+    const pendingName = localStorage.getItem('treningslogg_pending_username');
+    if (pendingName && !profile.username) {
+      updateProfile({ username: pendingName });
+      localStorage.removeItem('treningslogg_pending_username');
+    }
+  }, [user, profile, updateProfile]);
+
+  // Show welcome on first login
+  useEffect(() => {
+    if (!user || profile === undefined) return;
+    const welcomeShown = localStorage.getItem('treningslogg_welcome_shown');
+    if (!welcomeShown) {
+      setShowWelcome(true);
+      localStorage.setItem('treningslogg_welcome_shown', 'true');
+    }
+  }, [user, profile]);
+
+  // Initialize badge snapshot on load and check for new unlocks.
+  // Guard against backfill: if many badges appear "new" (e.g. after Strava
+  // historical import or after a snapshot was cleared), treat it as a
+  // recalculation — seed silently instead of firing a popup spam.
+  useEffect(() => {
+    if (!user || appData.loading) return;
+    const prevKey = `treningslogg_badge_snapshot_${user.id}`;
+    const seededKey = `treningslogg_badge_snapshot_seeded_${user.id}`;
+    computeUserBadges(user.id).then(newBadges => {
+      const unlockedIds = newBadges.filter(b => b.unlocked).map(b => b.badge.id);
+      const storedJson = localStorage.getItem(prevKey);
+      const hasSeeded = localStorage.getItem(seededKey) === '1';
+
+      if (storedJson && hasSeeded) {
+        try {
+          const storedUnlockedIds: string[] = JSON.parse(storedJson);
+          const newlyUnlocked = newBadges.filter(b => b.unlocked && !storedUnlockedIds.includes(b.badge.id));
+          // Only popup for small, plausible unlock bursts (max 3).
+          // Larger deltas indicate a historical import or recalculation.
+          if (newlyUnlocked.length > 0 && newlyUnlocked.length <= 3) {
+            setTimeout(() => setBadgeUnlocks(newlyUnlocked), 2000);
+          }
+        } catch { /* ignore */ }
+      }
+      // Save current unlocked badge IDs and mark seeded (so future diffs are real)
+      localStorage.setItem(prevKey, JSON.stringify(unlockedIds));
+      localStorage.setItem(seededKey, '1');
+      badgeSnapshotRef.current = newBadges;
+    });
+  }, [user, appData.loading]);
+
+  // Check for completed challenges on login
+  useEffect(() => {
+    if (!user || appData.loading) return;
+    const checkCompleted = async () => {
+      const allChallenges = await getChallenges();
+      const now = new Date();
+      const todayStr = now.toISOString().split('T')[0];
+      
+      for (const c of allChallenges) {
+        // Challenge is ended if period_end < today
+        if (c.period_end >= todayStr) continue;
+        
+        const seenKey = `treningslogg_challenge_completed_${c.id}`;
+        if (localStorage.getItem(seenKey)) continue;
+        
+        // Check if within 2 days of ending
+        const endDate = new Date(c.period_end + 'T23:59:59');
+        const daysSinceEnd = (now.getTime() - endDate.getTime()) / (1000 * 60 * 60 * 24);
+        if (daysSinceEnd > 3) {
+          localStorage.setItem(seenKey, 'true');
+          continue;
+        }
+        
+        // Get participants and progress
+        const parts = await getChallengeParticipants(c.id);
+        const userPart = parts.find(p => p.user_id === user.id);
+        if (!userPart || userPart.status !== 'accepted') continue;
+        
+        const acceptedParts = parts.filter(p => p.status === 'accepted');
+        const userIds = acceptedParts.map(p => p.user_id);
+        const { data: profiles } = await supabase.from('profiles').select('id, username, avatar_url').in('id', userIds);
+        const profileMap = new Map((profiles || []).map(p => [p.id, p]));
+        const progress = userIds.length > 0 ? await getChallengeProgress(c, userIds) : {};
+        
+        const participantData = acceptedParts.map(p => {
+          const profile = profileMap.get(p.user_id);
+          return {
+            userId: p.user_id,
+            username: profile?.username || 'Ukjent',
+            avatarUrl: profile?.avatar_url || null,
+            progress: progress[p.user_id] || 0,
+            rank: 0,
+            status: p.status,
+          };
+        }).sort((a, b) => b.progress - a.progress);
+        participantData.forEach((p, i) => { p.rank = i + 1; });
+        
+        localStorage.setItem(seenKey, 'true');
+        setTimeout(() => setCompletedChallenge({ challenge: c, participants: participantData }), 3000);
+        break; // Show one at a time
+      }
+    };
+    checkCompleted();
+  }, [user, appData.loading]);
+  // Check admin pending suggestions for red dot
+  useEffect(() => {
+    if (!user || !isAdmin) { setAdminSuggestionsDot(false); return; }
+    const lastSeen = parseInt(localStorage.getItem('treningslogg_admin_suggestions_seen') || '0');
+    fetchPendingSuggestions().then(pending => {
+      const hasNew = pending.some(s => new Date(s.created_at).getTime() > lastSeen);
+      setAdminSuggestionsDot(hasNew && pending.length > 0);
+    }).catch(() => {});
+
+    const handler = () => setAdminSuggestionsDot(false);
+    window.addEventListener('admin-suggestions-seen', handler);
+    return () => window.removeEventListener('admin-suggestions-seen', handler);
+  }, [user, isAdmin]);
+
+  // Listen for navigate-to-map-suggestions from settings
+  useEffect(() => {
+    const handler = () => {
+      setActiveTab('kart');
+      setTimeout(() => window.dispatchEvent(new CustomEvent('open-admin-peak-suggestions')), 100);
+    };
+    window.addEventListener('navigate-to-map-suggestions', handler);
+    return () => window.removeEventListener('navigate-to-map-suggestions', handler);
+  }, []);
+
+  // Report trigger logic
+  useEffect(() => {
+    if (!user || appData.loading) return;
+
+    // Check weekly report
+    if (settings.weeklyReportEnabled !== false) {
+      const weekKey = getReportDismissKey('week');
+      const dismissed = localStorage.getItem(weekKey);
+      const laterKey = getReportLaterKey('week');
+      const laterTs = localStorage.getItem(laterKey);
+      
+      if (!dismissed) {
+        if (laterTs) {
+          // "Se senere" was chosen - show banner for 48h
+          const ts = parseInt(laterTs);
+          if (Date.now() - ts < 48 * 60 * 60 * 1000) {
+            setPendingWeekReport(true);
+          } else {
+            localStorage.setItem(weekKey, 'true');
+            setPendingWeekReport(false);
+          }
+        } else if (shouldShowWeeklyReport()) {
+          // Show prompt
+          setTimeout(() => setReportPromptType('week'), 1500);
+        }
+      }
+    }
+
+    // Check monthly report
+    if (settings.monthlyReportEnabled !== false) {
+      const monthKey = getReportDismissKey('month');
+      const dismissed = localStorage.getItem(monthKey);
+      const laterKey = getReportLaterKey('month');
+      const laterTs = localStorage.getItem(laterKey);
+      
+      if (!dismissed) {
+        if (laterTs) {
+          const ts = parseInt(laterTs);
+          if (Date.now() - ts < 48 * 60 * 60 * 1000) {
+            setPendingMonthReport(true);
+          } else {
+            localStorage.setItem(monthKey, 'true');
+            setPendingMonthReport(false);
+          }
+        } else if (shouldShowMonthlyReport() && !reportPromptType) {
+          setTimeout(() => {
+            if (!reportPromptType) setReportPromptType('month');
+          }, 2000);
+        }
+      }
+    }
+  }, [user, appData.loading, settings.weeklyReportEnabled, settings.monthlyReportEnabled]);
+
+  // Listen for full tutorial start from help section
+  useEffect(() => {
+    const handler = () => {
+      setActiveTab('hjem');
+      setShowFullTutorial(true);
+    };
+    window.addEventListener('start-full-tutorial', handler);
+    return () => window.removeEventListener('start-full-tutorial', handler);
+  }, []);
+
+  // Direct drag-and-drop reordering
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dragOrder, setDragOrder] = useState<string[]>([]);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressStartPos = useRef<{ x: number; y: number } | null>(null);
+  const initialOrderRef = useRef<string[]>([]);
+  const dragJustActivated = useRef(false);
+  // Track if a scroll event happened during long press
+  const scrolledDuringLongPress = useRef(false);
+
+  const reorderableIds = isMobile ? MOBILE_REORDERABLE_IDS : DESKTOP_REORDERABLE_IDS;
+  const sectionOrder = settings.homeSectionOrder?.length === reorderableIds.length
+    ? settings.homeSectionOrder
+    : [...reorderableIds];
+
+  // Lock body scroll when dragging
+  useEffect(() => {
+    if (isDragging) {
+      document.body.style.overflow = 'hidden';
+      document.body.style.touchAction = 'none';
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+    };
+  }, [isDragging]);
+
+  // Cancel long press on ANY scroll event
+  useEffect(() => {
+    const onScroll = () => {
+      scrolledDuringLongPress.current = true;
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+        longPressTimer.current = null;
+        longPressStartPos.current = null;
+      }
+    };
+    window.addEventListener('scroll', onScroll, true); // capture phase
+    return () => window.removeEventListener('scroll', onScroll, true);
+  }, []);
+
+  // Auto-sync Strava
+  const lastSyncRef = useRef<number>(0);
+
+  const autoSyncStrava = useCallback(async () => {
+    if (!user) return;
+    const now = Date.now();
+    if (now - lastSyncRef.current < 15 * 60 * 1000) return;
+    lastSyncRef.current = now;
+    try {
+      const status = await stravaService.getStatus();
+      if (!status.connected) return;
+      const result = await stravaService.sync();
+      if (result.synced > 0) {
+        toast.success(t('sync.newSessions', { n: result.synced }));
+        appData.reload({ checkGoals: true });
+      }
+    } catch { }
+  }, [user, appData]);
+
+  useEffect(() => { autoSyncStrava(); }, [autoSyncStrava]);
+
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') autoSyncStrava();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [autoSyncStrava]);
+
+  const handleManualSync = async () => {
+    if (!user) return;
+    setStravaSyncing(true);
+    try {
+      const status = await stravaService.getStatus();
+      if (!status.connected) {
+        toast.info(t('sync.notConnected'));
+        setStravaSyncing(false);
+        return;
+      }
+      lastSyncRef.current = Date.now();
+      const result = await stravaService.sync();
+      if (result.synced > 0) {
+        toast.success(t('sync.newSessions', { n: result.synced }));
+        appData.reload({ checkGoals: true });
+      } else {
+        toast.info(t('sync.noNew'));
+      }
+    } catch {
+      toast.error(t('sync.failed'));
+    }
+    setStravaSyncing(false);
+  };
+
+  const stats = homeStatMode === 'week' ? appData.weekStats : appData.monthStats;
+  const allSessions = appData.sessions;
+  const recentSessions = allSessions.slice(0, 5);
+  const primaryGoal = appData.currentPrimaryGoal;
+  const allPeriods = appData.primaryGoals;
+
+  const monthData = useMemo(() => {
+    const now = new Date();
+    return computeMonthWheelData(allPeriods, allSessions, now.getMonth(), now.getFullYear(), now, t('metric.sessions'));
+  }, [allSessions, allPeriods, t]);
+
+  const yearData = useMemo(() => {
+    const now = new Date();
+    return computeYearWheelData(allPeriods, allSessions, now.getFullYear(), now, t('metric.sessions'));
+  }, [allSessions, allPeriods, t]);
+
+  // Monthly goal completion detection
+  const [monthGoalCompleted, setMonthGoalCompleted] = useState(false);
+  const prevMonthCurrentRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!primaryGoal || monthData.target === 0 || appData.loading) return;
+    const now = new Date();
+    const monthKey = `treningslogg_month_goal_celebrated_${now.getFullYear()}_${now.getMonth()}`;
+
+    // Already celebrated this month - never show again
+    if (localStorage.getItem(monthKey)) {
+      prevMonthCurrentRef.current = monthData.current;
+      return;
+    }
+
+    if (monthData.current < monthData.target) {
+      prevMonthCurrentRef.current = monthData.current;
+      return;
+    }
+
+    // Only show when crossing the threshold (not on initial load when already above)
+    const wasBelow = prevMonthCurrentRef.current !== null && prevMonthCurrentRef.current < monthData.target;
+    if (wasBelow) {
+      setMonthGoalCompleted(true);
+      localStorage.setItem(monthKey, 'true');
+    }
+    prevMonthCurrentRef.current = monthData.current;
+  }, [monthData.current, monthData.target, primaryGoal, appData.loading]);
+
+  const homeGoals = appData.goals.filter(g => g.showOnHome);
+  const [pinnedChallenges, setPinnedChallenges] = useState<ChallengeWithParticipants[]>([]);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+
+  // Load unread notification count
+  useEffect(() => {
+    if (!user) return;
+    getUnreadNotificationCount().then(setUnreadNotifications);
+  }, [user, activeTab]);
+
+  // Listen for navigate-to-settings events
+  useEffect(() => {
+    const handler = () => setActiveTab('settings');
+    window.addEventListener('navigate-to-settings', handler);
+    return () => window.removeEventListener('navigate-to-settings', handler);
+  }, []);
+
+  // Listen for navigate-to-training events (e.g. from community notifications)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      setActiveTab('trening');
+      window.scrollTo({ top: 0 });
+      if (detail?.subTab === 'hiking' || detail?.tab === 'records') {
+        (window as any).__navigateToRecords = true;
+        // Ask RecordsSection to show the requested inner tab (default hiking for record navigations)
+        const innerTab = detail?.subTab === 'hiking' ? 'hiking' : (detail?.recordTab || undefined);
+        if (innerTab) {
+          (window as any).__pendingRecordsTab = innerTab;
+        }
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('navigate-to-records'));
+          if (innerTab) {
+            window.dispatchEvent(new CustomEvent('set-records-tab', { detail: { tab: innerTab } }));
+          }
+        }, 50);
+      }
+    };
+    window.addEventListener('navigate-to-training', handler);
+    return () => window.removeEventListener('navigate-to-training', handler);
+  }, []);
+
+  // Listen for open-workout-detail from records
+  useEffect(() => {
+    const handler = (e: CustomEvent) => {
+      if (e.detail) setDetailSession(e.detail);
+    };
+    window.addEventListener('open-workout-detail', handler as EventListener);
+    return () => window.removeEventListener('open-workout-detail', handler as EventListener);
+  }, []);
+
+  // Load pinned challenges
+  useEffect(() => {
+    if (!user || !settings.pinnedChallengeIds?.length) {
+      setPinnedChallenges([]);
+      return;
+    }
+    const loadPinned = async () => {
+      const pinnedIds = settings.pinnedChallengeIds;
+      const raw = await getChallenges();
+      const now = new Date().toISOString().split('T')[0];
+      const pinned = raw.filter(c => pinnedIds.includes(c.id) && c.period_end >= now);
+      const enriched: ChallengeWithParticipants[] = [];
+      for (const c of pinned) {
+        const parts = await getChallengeParticipants(c.id);
+        const acceptedParts = parts.filter(p => p.status === 'accepted');
+        // Skip if current user is not an accepted participant (left/declined)
+        const userPart = parts.find(p => p.user_id === user!.id);
+        if (!userPart || userPart.status !== 'accepted') continue;
+        const userIds = acceptedParts.map(p => p.user_id);
+        const { data: profiles } = await supabase.from('profiles').select('id, username, avatar_url').in('id', userIds);
+        const profileMap = new Map((profiles || []).map(p => [p.id, p]));
+        const progress = userIds.length > 0 ? await getChallengeProgress(c, userIds) : {};
+        const participantData = acceptedParts.map(p => {
+          const profile = profileMap.get(p.user_id);
+          return {
+            userId: p.user_id,
+            username: profile?.username || t('common.unknown'),
+            avatarUrl: profile?.avatar_url || null,
+            progress: progress[p.user_id] || 0,
+            rank: 0,
+            status: p.status,
+          };
+        }).sort((a, b) => b.progress - a.progress);
+        participantData.forEach((p, i) => { p.rank = i + 1; });
+        enriched.push({ challenge: c, participants: participantData });
+      }
+      setPinnedChallenges(enriched);
+    };
+    loadPinned();
+  }, [user, settings.pinnedChallengeIds, appData.sessions]);
+
+  const handleDelete = async (id: string) => { await appData.deleteSession(id); };
+  const handleEdit = (session: WorkoutSession) => { setEditSession(session); setDialogOpen(true); };
+  const handleSave = async (data: Omit<WorkoutSession, 'id'>) => {
+    if (editSession) await appData.updateSession(editSession.id, data);
+    else await appData.addSession(data);
+    setEditSession(undefined);
+    // Check for badge unlocks
+    if (user && badgeSnapshotRef.current) {
+      const prev = badgeSnapshotRef.current;
+      const newBadges = await computeUserBadges(user.id);
+      const unlocked = findNewlyUnlocked(prev, newBadges);
+      badgeSnapshotRef.current = newBadges;
+      // Persist snapshot
+      const unlockedIds = newBadges.filter(b => b.unlocked).map(b => b.badge.id);
+      localStorage.setItem(`treningslogg_badge_snapshot_${user.id}`, JSON.stringify(unlockedIds));
+      if (unlocked.length > 0 && unlocked.length <= 3) setTimeout(() => setBadgeUnlocks(unlocked), 1500);
+    }
+  };
+  const handleHealthSave = async (data: Omit<HealthEvent, 'id'>) => { await appData.addHealthEvent(data); };
+
+  // Report handlers
+  const openReport = (type: 'week' | 'month') => {
+    const data = type === 'week'
+      ? computeWeeklyReport(allSessions, appData.primaryGoals, appData.goals, allSessions)
+      : computeMonthlyReport(allSessions, appData.primaryGoals, appData.goals, allSessions, monthData.target, monthData.current);
+    setReportData(data);
+    setShowReport(true);
+    setReportPromptType(null);
+  };
+
+  const handleReportView = (type: 'week' | 'month') => {
+    openReport(type);
+    // Clear pending banner
+    if (type === 'week') setPendingWeekReport(false);
+    if (type === 'month') setPendingMonthReport(false);
+    localStorage.setItem(getReportDismissKey(type), 'true');
+  };
+
+  const handleReportLater = (type: 'week' | 'month') => {
+    localStorage.setItem(getReportLaterKey(type), String(Date.now()));
+    if (type === 'week') setPendingWeekReport(true);
+    if (type === 'month') setPendingMonthReport(true);
+    setReportPromptType(null);
+  };
+
+  const handleReportDismiss = (type: 'week' | 'month') => {
+    localStorage.setItem(getReportDismissKey(type), 'true');
+    if (type === 'week') setPendingWeekReport(false);
+    if (type === 'month') setPendingMonthReport(false);
+    setReportPromptType(null);
+  };
+
+  const dismissPendingReport = (type: 'week' | 'month') => {
+    localStorage.setItem(getReportDismissKey(type), 'true');
+    if (type === 'week') setPendingWeekReport(false);
+    if (type === 'month') setPendingMonthReport(false);
+  };
+
+  const navigateToGoals = () => {
+    if (!primaryGoal) {
+      const tipShown = localStorage.getItem('treningslogg_goal_tip_shown');
+      if (!tipShown) {
+        setShowGoalTip(true);
+        localStorage.setItem('treningslogg_goal_tip_shown', 'true');
+      }
+    }
+    setInitialStatPeriod(undefined);
+    (window as any).__navigateToGoals = true;
+    setActiveTab('trening');
+    window.scrollTo({ top: 0 });
+    setTimeout(() => window.dispatchEvent(new CustomEvent('navigate-to-goals')), 50);
+  };
+  const navigateToStats = () => { setInitialStatPeriod(undefined); setActiveTab('trening'); window.scrollTo({ top: 0 }); };
+  const navigateToCalendar = () => { setActiveTab('kalender'); window.scrollTo({ top: 0 }); };
+  const navigateToHistory = () => {
+    setInitialStatPeriod(undefined);
+    (window as any).__navigateToHistory = true;
+    setActiveTab('trening');
+    window.scrollTo({ top: 0 });
+    setTimeout(() => window.dispatchEvent(new CustomEvent('navigate-to-history')), 50);
+  };
+
+  // === Section labels ===
+  const sectionLabels: Record<string, string> = {};
+  const labelKeys = isMobile
+    ? (isDragging ? MOBILE_REORDER_LABELS_KEYS : MOBILE_SECTION_LABELS_KEYS)
+    : {
+        challenges: 'home.challenges',
+        extraGoals: 'home.goals',
+        recentSessions: 'home.recentSessions',
+      };
+  for (const [k, v] of Object.entries(labelKeys)) {
+    sectionLabels[k] = t(v);
+  }
+
+  // === Direct drag handlers ===
+  const startDrag = (id: string) => {
+    // If a scroll happened during the long press, cancel
+    if (scrolledDuringLongPress.current) {
+      scrolledDuringLongPress.current = false;
+      return;
+    }
+    const order = [...sectionOrder];
+    initialOrderRef.current = [...order];
+    setDragOrder(order);
+    setDragId(id);
+    dragJustActivated.current = true;
+    setIsDragging(true);
+    if (navigator.vibrate) navigator.vibrate(30);
+
+    // On desktop, auto-scroll to bottom so confirm button is visible
+    if (!isMobile) {
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+      });
+    }
+
+    requestAnimationFrame(() => {
+      dragJustActivated.current = false;
+    });
+  };
+
+  const cancelLongPress = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+    longPressStartPos.current = null;
+  };
+
+  const handleLongPressStart = (id: string, e?: React.TouchEvent) => {
+    scrolledDuringLongPress.current = false;
+    if (e && e.touches.length > 0) {
+      longPressStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    } else {
+      longPressStartPos.current = null;
+    }
+    longPressTimer.current = setTimeout(() => {
+      if (!scrolledDuringLongPress.current) {
+        startDrag(id);
+      }
+    }, 700);
+  };
+
+  const handleLongPressEnd = () => {
+    cancelLongPress();
+  };
+
+  const handleLongPressMove = (e: React.TouchEvent) => {
+    if (!longPressStartPos.current || !longPressTimer.current) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+    const dx = Math.abs(touch.clientX - longPressStartPos.current.x);
+    const dy = Math.abs(touch.clientY - longPressStartPos.current.y);
+    // Cancel on ANY movement > 5px
+    if (dx > 5 || dy > 5) {
+      cancelLongPress();
+    }
+  };
+
+  // Desktop HTML5 drag
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    if (!isDragging) {
+      // Start reorder mode via drag on desktop
+      const order = [...sectionOrder];
+      initialOrderRef.current = [...order];
+      setDragOrder(order);
+      setDragId(id);
+      setIsDragging(true);
+      if (navigator.vibrate) navigator.vibrate(30);
+    }
+    e.dataTransfer.effectAllowed = 'move';
+    setDragId(id);
+  };
+  const handleDragOver = (e: React.DragEvent, overId: string) => {
+    e.preventDefault();
+    if (dragId && dragId !== overId) {
+      setDragOrder(prev => {
+        const next = [...prev];
+        const fromIdx = next.indexOf(dragId!);
+        const toIdx = next.indexOf(overId);
+        if (fromIdx !== -1 && toIdx !== -1 && fromIdx !== toIdx) {
+          next[fromIdx] = overId;
+          next[toIdx] = dragId!;
+        }
+        return next;
+      });
+    }
+  };
+  const handleDragEnd = () => {
+    setDragId(null);
+  };
+
+  const StatModeToggle = () => (
+    <div className="flex items-center gap-1 mb-1">
+      <button
+        onClick={() => setHomeStatMode('week')}
+        className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full transition-all ${
+          homeStatMode === 'week' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+        }`}
+      >
+        {t('home.thisWeek')}
+      </button>
+      <button
+        onClick={() => setHomeStatMode('month')}
+        className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full transition-all ${
+          homeStatMode === 'month' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+        }`}
+      >
+        {t('home.thisMonth')}
+      </button>
+    </div>
+  );
+
+  // === Render section content (collapsed when dragging) ===
+  const renderSection = (id: string, collapsed: boolean) => {
+    if (collapsed) return null;
+    switch (id) {
+      case 'trainingGoals':
+        return (
+           <div className="grid grid-cols-2 gap-1.5">
+            <div className="relative min-w-0">
+              <ProgressWheel
+                percent={monthData.percent} current={monthData.current} target={monthData.target}
+                unit={monthData.unit} title={t(`month.${new Date().getMonth()}`)}
+                hasGoal={!!primaryGoal} expectedFraction={monthData.expectedFraction}
+                paceDiff={monthData.diff} showPaceLabel onClick={navigateToGoals}
+              />
+              {adminMode && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setAdminPreviewMonth(true); }}
+                  className="absolute top-1 right-1 z-10 p-1 rounded-full bg-muted/80 hover:bg-muted transition-colors"
+                  title="Preview month completion"
+                >
+                  <Play className="w-3 h-3 text-muted-foreground" />
+                </button>
+              )}
+            </div>
+            <div className="relative min-w-0">
+              <ProgressWheel
+                percent={yearData.percent} current={yearData.current} target={yearData.target}
+                unit={yearData.unit} title={String(new Date().getFullYear())}
+                hasGoal={!!primaryGoal} expectedFraction={yearData.expectedFraction}
+                paceDiff={yearData.diff} showPaceLabel onClick={navigateToGoals}
+              />
+              {adminMode && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setAdminPreviewYear(true); }}
+                  className="absolute top-1 right-1 z-10 p-1 rounded-full bg-muted/80 hover:bg-muted transition-colors"
+                  title="Preview year completion"
+                >
+                  <Play className="w-3 h-3 text-muted-foreground" />
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      case 'last7dCalendar':
+        return (
+          <Last7Days sessions={allSessions} onClick={navigateToHistory} />
+        );
+      case 'statistics':
+        return (
+          <>
+            <StatModeToggle />
+            <StatsOverview stats={stats} compact onClick={navigateToStats} />
+          </>
+        );
+      case 'challenges':
+        if (pinnedChallenges.length === 0) return null;
+        return (
+          <div className="space-y-2">
+            {pinnedChallenges.map(c => (
+              <ChallengeCard key={c.challenge.id} challenge={c} onClick={() => setChallengeDetail(c)} onPreviewComplete={(ch) => setAdminPreviewChallenge(ch)} />
+            ))}
+          </div>
+        );
+      case 'extraGoals':
+        if (homeGoals.length === 0) return null;
+        return (
+          <DraggableGoalGrid
+            goals={homeGoals}
+            sessions={allSessions}
+            onEdit={(g) => { setEditGoal(g); setShowGoalEditDialog(true); }}
+            onDelete={() => {}}
+            onToggleHome={(id) => { appData.updateGoal(id, { showOnHome: false }); }}
+            onReorder={(ids) => { if (ids) appData.reorderGoals(ids); }}
+          />
+        );
+      case 'recentSessions':
+        return (
+          <div className="space-y-3">
+            {recentSessions.map(s => (
+              <SessionCard key={s.id} session={s} onClick={setDetailSession} />
+            ))}
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
+  const currentOrder = isDragging ? dragOrder : sectionOrder;
+
+  const openBadges = (badgeId?: string) => {
+    setActiveTab('settings');
+    window.scrollTo({ top: 0 });
+    setTimeout(() => window.dispatchEvent(new CustomEvent('navigate-to-badges', { detail: { badgeId } })), 50);
+  };
+
+  // Profile button component
+  const ProfileButton = ({ className }: { className?: string }) => (
+    <button
+      onClick={() => { setActiveTab('settings'); setTimeout(() => window.dispatchEvent(new CustomEvent('navigate-to-profile')), 50); }}
+      className={`rounded-full transition-all hover:ring-2 hover:ring-energy/30 ${className || ''}`}
+    >
+      <Avatar className="w-9 h-9 ring-2 ring-energy/40">
+        {avatarUrl ? <AvatarImage src={avatarUrl} alt="Profil" /> : null}
+        <AvatarFallback className="text-xs font-bold bg-energy/20 text-foreground">
+          {(username || user?.email?.charAt(0) || 'U').charAt(0).toUpperCase()}
+        </AvatarFallback>
+      </Avatar>
+    </button>
+  );
+
+  const BadgeShortcutButton = () => (
+    <button
+      onClick={() => openBadges()}
+      className="flex h-11 w-11 items-center justify-center transition-transform active:scale-95"
+      title={t('badge.tab')}
+      aria-label={t('badge.tab')}
+    >
+      <img src={badgeMountainIcon} alt="" className="h-8 w-8 object-contain" loading="lazy" />
+    </button>
+  );
+
+  // Section gradient styles - subtle gradients
+  const sectionGradients: Record<string, string> = {};
+
+  return (
+    <div className="min-h-screen bg-background pb-20 lg:pb-0 lg:pt-16">
+      <main className={`${activeTab === 'kart' ? 'w-full px-0 py-0' : 'container py-4 space-y-5'}`}>
+        {activeTab === 'hjem' && (
+          <>
+            {/* ===== HERO HEADER ===== */}
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-energy/10 via-background to-accent/5 border border-border/30 px-4 py-3">
+              <div className="relative flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  {user && isMobile && <ProfileButton />}
+                  {user && isMobile && <BadgeShortcutButton />}
+                  <div
+                    className="flex-1 min-w-0 relative"
+                    onTouchStart={() => {
+                      heroLongPressTimer.current = setTimeout(() => {
+                        setHeroDropdownOpen(true);
+                        if (navigator.vibrate) navigator.vibrate(20);
+                      }, 500);
+                    }}
+                    onTouchEnd={() => { if (heroLongPressTimer.current) { clearTimeout(heroLongPressTimer.current); heroLongPressTimer.current = null; } }}
+                    onTouchMove={() => { if (heroLongPressTimer.current) { clearTimeout(heroLongPressTimer.current); heroLongPressTimer.current = null; } }}
+                    onContextMenu={(e) => { e.preventDefault(); setHeroDropdownOpen(true); }}
+                  >
+                    {heroView === 'statistikk' ? (
+                      <div className="flex gap-3">
+                        <div className="flex flex-col items-center px-2.5 py-1 rounded-lg bg-muted/50">
+                          <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">{t('home.thisWeek')}</span>
+                          <span className="text-base font-bold text-foreground leading-tight">{appData.weekStats.totalSessions}</span>
+                          <span className="text-[9px] text-muted-foreground">{t('metric.sessions')}</span>
+                        </div>
+                        <div className="flex flex-col items-center px-2.5 py-1 rounded-lg bg-muted/50">
+                          <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">{t('home.thisMonth')}</span>
+                          <span className="text-base font-bold text-foreground leading-tight">{appData.monthStats.totalSessions}</span>
+                          <span className="text-[9px] text-muted-foreground">{t('metric.sessions')}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <GoalGraph
+                        sessions={allSessions}
+                        periods={allPeriods}
+                        onClick={navigateToGoals}
+                        compact
+                      />
+                    )}
+
+                    {/* Dropdown overlay - positioned at bottom of hero */}
+                    {heroDropdownOpen && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setHeroDropdownOpen(false)} />
+                        <div className="absolute left-0 right-0 -bottom-1 translate-y-full z-50 flex justify-center">
+                          <div className="bg-popover border border-border rounded-lg shadow-lg p-1 min-w-[140px]">
+                            <button
+                              className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded-md transition-colors ${heroView === 'målgraf' ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/50'}`}
+                              onClick={() => { setHeroView('målgraf'); setHeroDropdownOpen(false); }}
+                            >
+                              <TrendingUp className="w-3.5 h-3.5" />
+                              Målgraf
+                            </button>
+                            <button
+                              className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded-md transition-colors ${heroView === 'statistikk' ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/50'}`}
+                              onClick={() => { setHeroView('statistikk'); setHeroDropdownOpen(false); }}
+                            >
+                              <BarChart3 className="w-3.5 h-3.5" />
+                              Statistikk
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0 pl-1">
+                  <SyncStatusIndicator />
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="icon" variant="ghost" className="rounded-full h-10 w-10">
+                        <Plus className="w-7 h-7" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => { setEditSession(undefined); setDialogOpen(true); }}>
+                        <Dumbbell className="w-4 h-4 mr-2" /> {t('home.newSession')}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setHealthDialogOpen(true)}>
+                        <Ambulance className="w-4 h-4 mr-2" /> {t('health.newEvent')}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            </div>
+
+            {/* ===== REPORT BANNERS ===== */}
+            {(pendingWeekReport || pendingMonthReport || (adminMode && isAdmin)) && (
+              <div className="space-y-2">
+                {/* Admin report preview buttons */}
+                {adminMode && isAdmin && (
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 text-xs gap-1.5"
+                      onClick={() => openReport('week')}
+                    >
+                      <FileText className="w-3.5 h-3.5" /> Se ukesrapport
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 text-xs gap-1.5"
+                      onClick={() => openReport('month')}
+                    >
+                      <FileText className="w-3.5 h-3.5" /> Se månedsrapport
+                    </Button>
+                  </div>
+                )}
+                {pendingWeekReport && (
+                  <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-primary/5 border border-primary/15">
+                    <BarChart3 className="w-4 h-4 text-primary shrink-0" />
+                    <button onClick={() => handleReportView('week')} className="flex-1 text-left text-sm font-medium text-foreground hover:underline">
+                      Se ukesrapport
+                    </button>
+                    <button onClick={() => dismissPendingReport('week')} className="p-1 rounded-full hover:bg-muted transition-colors text-muted-foreground">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+                {pendingMonthReport && (
+                  <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-primary/5 border border-primary/15">
+                    <BarChart3 className="w-4 h-4 text-primary shrink-0" />
+                    <button onClick={() => handleReportView('month')} className="flex-1 text-left text-sm font-medium text-foreground hover:underline">
+                      Se månedsrapport
+                    </button>
+                    <button onClick={() => dismissPendingReport('month')} className="p-1 rounded-full hover:bg-muted transition-colors text-muted-foreground">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ===== FIXED TOP SECTION (not reorderable) ===== */}
+            <div className="space-y-5">
+              {/* Desktop: 3-column layout */}
+              {!isMobile && (
+                <div className="grid grid-cols-3 gap-3 items-stretch">
+                  <ProgressWheel
+                    percent={monthData.percent} current={monthData.current} target={monthData.target}
+                    unit={monthData.unit} title={t(`month.${new Date().getMonth()}`)}
+                    hasGoal={!!primaryGoal} expectedFraction={monthData.expectedFraction}
+                    paceDiff={monthData.diff} showPaceLabel onClick={navigateToGoals}
+                  />
+                  <ProgressWheel
+                    percent={yearData.percent} current={yearData.current} target={yearData.target}
+                    unit={yearData.unit} title={String(new Date().getFullYear())}
+                    hasGoal={!!primaryGoal} expectedFraction={yearData.expectedFraction}
+                    paceDiff={yearData.diff} showPaceLabel onClick={navigateToGoals}
+                  />
+                  <div className="space-y-3">
+                    <div>
+                      <StatModeToggle />
+                      <StatsOverview stats={stats} compact onClick={navigateToStats} />
+                    </div>
+                    <div>
+                     <h2 className="font-display font-semibold text-[10px] text-muted-foreground uppercase tracking-wide mb-1.5">
+                       {t('home.last7dCalendar')}
+                     </h2>
+                      <Last7Days sessions={allSessions} onClick={navigateToHistory} />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* ===== REORDERABLE SECTIONS ===== */}
+            <div
+              ref={containerRef}
+              className={isDragging ? "space-y-2" : "space-y-4"}
+              style={isDragging ? { touchAction: 'none', overflowX: 'hidden' } : undefined}
+              onTouchMove={(e) => {
+                if (isDragging && dragId) {
+                  if (dragJustActivated.current) return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const touch = e.touches[0];
+                  const el = document.elementFromPoint(touch.clientX, touch.clientY);
+                  const target = el?.closest('[data-section-id]');
+                  if (target) {
+                    const overId = target.getAttribute('data-section-id');
+                    if (overId && overId !== dragId) {
+                      setDragOrder(prev => {
+                        const fromIdx = prev.indexOf(dragId!);
+                        const toIdx = prev.indexOf(overId);
+                        if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return prev;
+                        const next = [...prev];
+                        next[fromIdx] = overId;
+                        next[toIdx] = dragId!;
+                        return next;
+                      });
+                      if (navigator.vibrate) navigator.vibrate(10);
+                    }
+                  }
+                }
+              }}
+              onTouchEnd={() => {
+                handleLongPressEnd();
+                if (isDragging) {
+                  setDragId(null);
+                }
+              }}
+            >
+              {isDragging && (
+                <p className="text-xs text-muted-foreground text-center animate-pulse">{t('home.dragToReorder')}</p>
+              )}
+              {currentOrder.map(id => {
+                // Skip empty sections when not dragging
+                if (!isDragging) {
+                  if (id === 'challenges' && pinnedChallenges.length === 0) return null;
+                  if (id === 'extraGoals' && homeGoals.length === 0) return null;
+                }
+                const gradient = sectionGradients[id] || '';
+                return (
+                  <section
+                    key={id}
+                    data-section-id={id}
+                    onDragOver={(e) => handleDragOver(e, id)}
+                    onDrop={() => { if (dragId) { /* swap handled in dragOver */ } }}
+                    onDragEnd={handleDragEnd}
+                    className={`transition-all duration-200 ease-in-out rounded-2xl border border-border/30 px-4 ${isDragging ? 'py-2.5' : 'py-4'} ${gradient} ${
+                      isDragging
+                        ? `${dragId === id ? 'scale-[1.02] shadow-md ring-2 ring-energy/30' : 'opacity-80'}`
+                        : ''
+                    }`}
+                  >
+                    <div
+                      className={`flex items-center gap-2 select-none ${isDragging ? 'cursor-grab active:cursor-grabbing' : 'cursor-grab'}`}
+                      draggable
+                      onDragStart={(e) => {
+                        handleDragStart(e, id);
+                      }}
+                      onTouchStart={(e) => {
+                        if (isDragging) {
+                          setDragId(id);
+                          if (navigator.vibrate) navigator.vibrate(15);
+                        } else {
+                          handleLongPressStart(id, e);
+                        }
+                      }}
+                      onTouchMove={handleLongPressMove}
+                      onTouchEnd={handleLongPressEnd}
+                      onMouseDown={() => {}}
+                    >
+                      {isDragging && <GripVertical className="w-4 h-4 text-muted-foreground shrink-0" />}
+                      <h2 className={`font-display font-semibold text-sm text-muted-foreground uppercase tracking-wide flex-1 ${isDragging ? '' : 'mb-2'}`}>
+                        {sectionLabels[id]}
+                      </h2>
+                    </div>
+                    {renderSection(id, isDragging)}
+                  </section>
+                );
+              })}
+              {isDragging && (
+                <Button onClick={() => { updateSettings({ homeSectionOrder: dragOrder }); setDragId(null); setIsDragging(false); }} className="w-full gradient-energy text-primary-foreground border-0" size="sm">
+                  <Check className="w-4 h-4 mr-1" /> {t('common.done')}
+                </Button>
+              )}
+            </div>
+          </>
+        )}
+
+        {activeTab === 'kalender' && <CalendarPage />}
+        {activeTab === 'kart' && <MapPage />}
+        {activeTab === 'trening' && <TrainingPage initialStatPeriod={initialStatPeriod} />}
+        {activeTab === 'fellesskap' && <CommunityPage />}
+        {activeTab === 'admin' && adminMode && <AdminDashboard />}
+        {activeTab === 'settings' && <SettingsPage />}
+      </main>
+
+      <button
+        onClick={() => updateSettings({ darkMode: !settings.darkMode })}
+        className="fixed bottom-20 right-4 z-40 glass-card rounded-full p-3.5 shadow-lg hover:shadow-xl transition-all border border-border/50"
+      >
+        {settings.darkMode ? <Sun className="w-5 h-5 text-foreground" /> : <Moon className="w-5 h-5 text-foreground" />}
+      </button>
+
+      <BottomNav
+        active={activeTab}
+        onNavigate={(tab) => {
+          setInitialStatPeriod(undefined);
+          if (isDragging) {
+            setIsDragging(false);
+            setDragId(null);
+            setDragOrder([]);
+          }
+          // Show training tutorial on first visit
+          if (tab === 'trening') {
+            const seen = localStorage.getItem('treningslogg_training_tutorial_shown');
+            if (!seen) {
+              setShowTrainingTutorial(true);
+              localStorage.setItem('treningslogg_training_tutorial_shown', 'true');
+            }
+          }
+          // Show calendar tutorial on first visit
+          if (tab === 'kalender') {
+            const seen = localStorage.getItem('treningslogg_calendar_tutorial_shown');
+            if (!seen) {
+              setShowCalendarTutorial(true);
+              localStorage.setItem('treningslogg_calendar_tutorial_shown', 'true');
+            }
+          }
+          // If already on settings, reset to main view
+          if (tab === 'settings' && activeTab === 'settings') {
+            window.dispatchEvent(new CustomEvent('settings-reset-to-main'));
+          }
+          setActiveTab(tab);
+          window.scrollTo({ top: 0 });
+        }}
+        notificationCount={unreadNotifications}
+        settingsDot={isAdmin && adminSuggestionsDot}
+        showAdmin={adminMode}
+        profileButton={
+          !isMobile && user ? (
+            <div className="flex items-center gap-1">
+              <BadgeShortcutButton />
+              <ProfileButton className="ml-1" />
+            </div>
+          ) : undefined
+        }
+      />
+
+      <WorkoutDialog
+        open={dialogOpen}
+        onClose={() => { setDialogOpen(false); setEditSession(undefined); }}
+        onSave={handleSave}
+        session={editSession}
+      />
+
+      <WorkoutDetailDrawer
+        session={detailSession}
+        open={!!detailSession}
+        onClose={() => setDetailSession(null)}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+      />
+
+      <HealthEventDialog
+        open={healthDialogOpen}
+        onClose={() => setHealthDialogOpen(false)}
+        onSave={handleHealthSave}
+      />
+
+      <ChallengeDetail
+        challenge={challengeDetail}
+        open={!!challengeDetail}
+        onClose={() => setChallengeDetail(null)}
+      />
+
+      <Dialog open={showGoalEditDialog} onOpenChange={(open) => { if (!open) { setShowGoalEditDialog(false); setEditGoal(undefined); } }}>
+        <DialogContent className="max-w-[min(calc(100vw-2rem),26rem)] p-4 overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>{t('home.editGoal')}</DialogTitle>
+          </DialogHeader>
+          {editGoal && (
+            <GoalForm
+              goal={editGoal}
+              embedded
+              onSave={(data) => {
+                appData.updateGoal(editGoal.id, data);
+                setEditGoal(undefined);
+                setShowGoalEditDialog(false);
+              }}
+              onCancel={() => { setShowGoalEditDialog(false); setEditGoal(undefined); }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <GoalCompletionOverlay
+        goal={appData.completedGoal}
+        sessions={appData.sessions}
+        onArchive={(id) => appData.archiveGoal(id)}
+        onDismiss={() => appData.dismissCompletedGoal()}
+      />
+
+      <MonthGoalCompletionOverlay
+        open={monthGoalCompleted}
+        current={monthData.current}
+        target={monthData.target}
+        monthLabel={t(`month.${new Date().getMonth()}`)}
+        onDismiss={() => setMonthGoalCompleted(false)}
+      />
+
+      {/* Admin preview overlays */}
+      {adminMode && adminPreviewMonth && (
+        <MonthGoalCompletionOverlay
+          open={true}
+          current={monthData.target}
+          target={monthData.target}
+          monthLabel={t(`month.${new Date().getMonth()}`)}
+          onDismiss={() => setAdminPreviewMonth(false)}
+        />
+      )}
+      {adminMode && adminPreviewYear && (
+        <MonthGoalCompletionOverlay
+          open={true}
+          current={yearData.target}
+          target={yearData.target}
+          monthLabel={String(new Date().getFullYear())}
+          onDismiss={() => setAdminPreviewYear(false)}
+        />
+      )}
+
+      {badgeUnlocks.length > 0 && (
+        <BadgeUnlockOverlay
+          badges={badgeUnlocks}
+          onDismiss={() => setBadgeUnlocks([])}
+          onViewBadge={(badgeId) => { setBadgeUnlocks([]); openBadges(badgeId); }}
+        />
+      )}
+
+      {/* Goal tip popup - multi-step */}
+      <GoalTutorialDialog open={showGoalTip} onClose={() => setShowGoalTip(false)} />
+      <TrainingTutorialDialog open={showTrainingTutorial} onClose={() => setShowTrainingTutorial(false)} />
+      <CalendarTutorialDialog open={showCalendarTutorial} onClose={() => setShowCalendarTutorial(false)} />
+      <WelcomeDialog
+        open={showWelcome}
+        onClose={() => setShowWelcome(false)}
+        username={username}
+        onNavigateToStrava={() => {
+          setActiveTab('settings');
+          setTimeout(() => window.dispatchEvent(new CustomEvent('navigate-to-strava-sync')), 100);
+        }}
+      />
+      <FullTutorialFlow
+        open={showFullTutorial}
+        onClose={() => setShowFullTutorial(false)}
+        onNavigateTab={(tab) => { setActiveTab(tab as TabId); window.scrollTo({ top: 0 }); }}
+      />
+
+      {/* Report prompt & dialog */}
+      {reportPromptType && (
+        <ReportPrompt
+          open={true}
+          type={reportPromptType}
+          onView={() => handleReportView(reportPromptType)}
+          onLater={() => handleReportLater(reportPromptType)}
+          onDismiss={() => handleReportDismiss(reportPromptType)}
+        />
+      )}
+      <ReportDialog
+        open={showReport}
+        onClose={() => { setShowReport(false); setReportData(null); }}
+        data={reportData}
+        onRepeatGoal={async (goalId) => {
+          try {
+            await goalService.update(goalId, { repeating: true });
+            toast.success('Målet vil gjentas automatisk');
+          } catch {
+            toast.error('Kunne ikke oppdatere målet');
+          }
+        }}
+      />
+
+      {/* Challenge completion overlay */}
+      <ChallengeCompletionOverlay
+        challenge={completedChallenge}
+        open={!!completedChallenge}
+        onDismiss={() => setCompletedChallenge(null)}
+      />
+      {adminPreviewChallenge && (
+        <ChallengeCompletionOverlay
+          challenge={adminPreviewChallenge}
+          open={true}
+          onDismiss={() => setAdminPreviewChallenge(null)}
+          isPreview
+        />
+      )}
+    </div>
+  );
+};
+
+export default Index;

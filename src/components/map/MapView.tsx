@@ -1,0 +1,1900 @@
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
+import { Peak } from '@/data/peaks';
+import { PeakCheckin } from '@/services/peakCheckinService';
+import { PeakSuggestion } from '@/services/peakSuggestionService';
+import { useTranslation } from '@/i18n/useTranslation';
+import { useSettings } from '@/contexts/SettingsContext';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { decodePolyline } from '@/utils/polyline';
+import { addEnhancedTerrain } from '@/utils/mapTerrain';
+import { getPeakIcon, getCheckedPeakIcon } from '@/utils/peakIcons';
+import { hapticsService } from '@/services/hapticsService';
+import { Settings2, LocateFixed, Loader2 } from 'lucide-react';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { isNativePlatform } from '@/utils/capacitor';
+import { locationService } from '@/services/locationService';
+import { headingService } from '@/services/headingService';
+
+type HeatmapPeriod = 'year' | 'total';
+
+type AreaStatsMode = 'off' | 'kommune' | 'fylke';
+
+interface MapViewProps {
+  peaks: Peak[];
+  checkins: PeakCheckin[];
+  onSelectPeak: (peak: Peak) => void;
+  adminMode?: boolean;
+  addMode?: boolean;
+  onMapClick?: (lat: number, lng: number) => void;
+  onMarkerDrag?: (peakId: string, lat: number, lng: number) => void;
+  onEditPeak?: (peak: Peak) => void;
+  onDeletePeak?: (peakId: string) => void;
+  onLongPress?: (lat: number, lng: number) => void;
+  routeGeojson?: any;
+  routeFocus?: { latitude: number; longitude: number; requestId: number } | null;
+  suppressInitialGeolocate?: boolean;
+  onClearRoute?: () => void;
+  onMapReady?: () => void;
+  previewWaypoints?: { lat: number; lng: number }[] | null;
+  onWaypointClick?: (index: number) => void;
+  onWaypointDrag?: (index: number, lat: number, lng: number) => void;
+  showHeatmap?: boolean;
+  heatmapPeriod?: HeatmapPeriod;
+  showAreaStats?: boolean;
+  onlyReachedThisYear?: boolean;
+  suggestedPeaks?: PeakSuggestion[];
+  areaStatsMode?: AreaStatsMode;
+  onSettingsClick?: () => void;
+  /** When this counter changes, MapView starts GPS tracking (without recentering). */
+  gpsTrackTrigger?: number;
+}
+
+const MAPBOX_TOKEN =
+  (import.meta as any)?.env?.VITE_MAPBOX_ACCESS_TOKEN ??
+  (typeof process !== 'undefined'
+    ? (process as any)?.env?.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN
+    : undefined) ??
+  '';
+
+const MapView = ({ peaks, checkins, onSelectPeak, adminMode, addMode, onMapClick, onMarkerDrag, onEditPeak, onDeletePeak, onLongPress, routeGeojson, routeFocus, suppressInitialGeolocate, onClearRoute, onMapReady, previewWaypoints, onWaypointClick, onWaypointDrag, showHeatmap, heatmapPeriod, showAreaStats, onlyReachedThisYear, suggestedPeaks, areaStatsMode = 'off', onSettingsClick, gpsTrackTrigger }: MapViewProps) => {
+  const mapContainer = useRef<HTMLDivElement>(null);
+  const map = useRef<mapboxgl.Map | null>(null);
+  const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const waypointMarkersRef = useRef<mapboxgl.Marker[]>([]);
+  const routeStartMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const areaMarkersRef = useRef<mapboxgl.Marker[]>([]);
+  const { t } = useTranslation();
+  const { settings } = useSettings();
+  const { user } = useAuth();
+  const { isConstrainedDevice, isIOSDevice } = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return { isConstrainedDevice: false, isConstrainedDevice: false };
+    }
+
+    const nav = navigator as Navigator & { deviceMemory?: number };
+    const isIOSLike = /iPad|iPhone|iPod/.test(nav.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isTouchDevice =
+      window.matchMedia('(max-width: 768px)').matches ||
+      window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+    const hasLowMemory = (nav.deviceMemory ?? 8) <= 4;
+    const constrained = isTouchDevice || hasLowMemory;
+
+    return {
+      isConstrainedDevice: constrained || isIOSLike,
+      isIOSDevice: isIOSLike,
+    };
+  }, []);
+  
+  const [mapLoaded, setMapLoaded] = useState(false);
+  const [is3D, setIs3D] = useState(true);
+  type MapStyleId = 'satellite' | 'streets' | 'topo' | 'terrain';
+  const resolveStoredStyle = (): MapStyleId => {
+    const raw = (localStorage.getItem('treningslogg_default_map_style') as string) || 'satellite';
+    // Back-compat: legacy 'outdoors' was the Mapbox outdoors style → now 'terrain'.
+    if (raw === 'outdoors') return 'terrain';
+    if (raw === 'satellite' || raw === 'streets' || raw === 'topo' || raw === 'terrain') return raw as MapStyleId;
+    return 'satellite';
+  };
+  const [mapStyle, setMapStyle] = useState<MapStyleId>(resolveStoredStyle);
+  // Kartverket "Topografisk norgeskart" raster style (online only — not cacheable via Mapbox SDK).
+  const KARTVERKET_RASTER_STYLE: any = {
+    version: 8,
+    sources: {
+      'kartverket-topo': {
+        type: 'raster',
+        tiles: ['https://cache.kartverket.no/v1/wmts/1.0.0/topo/default/webmercator/{z}/{y}/{x}.png'],
+        tileSize: 256,
+        attribution: '© <a href="https://www.kartverket.no/">Kartverket</a>',
+        maxzoom: 18,
+      },
+    },
+    layers: [
+      { id: 'kartverket-topo-layer', type: 'raster', source: 'kartverket-topo' },
+    ],
+    glyphs: 'mapbox://fonts/mapbox/{fontstack}/{range}.pbf',
+  };
+  // STYLE_URLS — keys are internal IDs (kept stable so offline `_topo`/`_satellite`
+  // region suffixes remain valid).  User-facing labels are mapped in the UI:
+  //   internal `topo`     → "Terreng"      (Mapbox outdoors-v12, offline-capable)
+  //   internal `terrain`  → "Topografisk"  (Kartverket WMTS raster, online only)
+  //   internal `satellite`→ "Satellitt"    (Mapbox satellite-streets-v12, offline-capable)
+  //   internal `streets`  → "Standard"     (Mapbox streets-v12, online only)
+  const STYLE_URLS: Record<MapStyleId, string | any> = {
+    streets: 'mapbox://styles/mapbox/streets-v12',
+    topo: 'mapbox://styles/mapbox/outdoors-v12',
+    terrain: KARTVERKET_RASTER_STYLE,
+    satellite: 'mapbox://styles/mapbox/satellite-streets-v12',
+  };
+  const appliedStyleRef = useRef<MapStyleId>(resolveStoredStyle());
+  const [showStyleMenu, setShowStyleMenu] = useState(false);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressCoords = useRef<{ lat: number; lng: number } | null>(null);
+  const routeSourceId = 'peak-route-source';
+  const routeLayerId = 'peak-route-layer';
+  const onMapReadyRef = useRef(onMapReady);
+
+  useEffect(() => {
+    onMapReadyRef.current = onMapReady;
+  }, [onMapReady]);
+
+
+  const getMapboxColorFromToken = useCallback((tokenName: string, fallback = 'rgb(34, 197, 94)') => {
+    if (typeof window === 'undefined') return fallback;
+
+    const tokenValue = getComputedStyle(document.documentElement)
+      .getPropertyValue(tokenName)
+      .trim();
+
+    if (!tokenValue) return fallback;
+
+    if (/^(#|rgb\(|hsl\()/i.test(tokenValue)) return tokenValue;
+
+    const hslMatch = tokenValue.match(/^(-?\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)%\s+(\d+(?:\.\d+)?)%$/);
+    if (!hslMatch) return fallback;
+
+    const h = ((Number(hslMatch[1]) % 360) + 360) % 360;
+    const s = Math.min(100, Math.max(0, Number(hslMatch[2]))) / 100;
+    const l = Math.min(100, Math.max(0, Number(hslMatch[3]))) / 100;
+
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+    const m = l - c / 2;
+
+    let r1 = 0;
+    let g1 = 0;
+    let b1 = 0;
+
+    if (h < 60) {
+      r1 = c; g1 = x; b1 = 0;
+    } else if (h < 120) {
+      r1 = x; g1 = c; b1 = 0;
+    } else if (h < 180) {
+      r1 = 0; g1 = c; b1 = x;
+    } else if (h < 240) {
+      r1 = 0; g1 = x; b1 = c;
+    } else if (h < 300) {
+      r1 = x; g1 = 0; b1 = c;
+    } else {
+      r1 = c; g1 = 0; b1 = x;
+    }
+
+    const r = Math.round((r1 + m) * 255);
+    const g = Math.round((g1 + m) * 255);
+    const b = Math.round((b1 + m) * 255);
+
+    return `rgb(${r}, ${g}, ${b})`;
+  }, []);
+
+  // Helper: safely run map operations only when the current style can accept
+  // sources/layers. `style.load` can fire before React effects run after a tab
+  // remount, so we also retry briefly instead of waiting on one missed event.
+  const whenStyleReady = useCallback((m: mapboxgl.Map, fn: () => void) => {
+    let cancelled = false;
+    let attempts = 0;
+    let timer: number | null = null;
+
+    const cleanup = () => {
+      if (timer != null) window.clearTimeout(timer);
+      try {
+        m.off('style.load', run);
+        m.off('load', run);
+        m.off('idle', run);
+      } catch {}
+    };
+
+    const run = () => {
+      if (cancelled) return;
+
+      try {
+        // Calling the operation is the most reliable readiness check: after a
+        // tab remount Mapbox can miss/sequence `style.load` differently, while
+        // addSource/addLayer itself tells us if the style is still unavailable.
+        fn();
+        cancelled = true;
+        cleanup();
+        return;
+      } catch {
+        attempts += 1;
+        if (attempts <= 40) {
+          timer = window.setTimeout(run, 100);
+        } else {
+          cleanup();
+        }
+      }
+    };
+
+    m.on('style.load', run);
+    m.on('load', run);
+    m.on('idle', run);
+    run();
+
+    return () => {
+      cancelled = true;
+      cleanup();
+    };
+  }, []);
+
+
+  const ensureRouteLayer = useCallback((m: mapboxgl.Map) => {
+    const routeColor = getMapboxColorFromToken('--success');
+
+    if (!m.getSource(routeSourceId)) {
+      m.addSource(routeSourceId, {
+        type: 'geojson',
+        data: {
+          type: 'FeatureCollection',
+          features: [],
+        } as any,
+      });
+    }
+
+    if (!m.getLayer(routeLayerId)) {
+      m.addLayer({
+        id: routeLayerId,
+        type: 'line',
+        source: routeSourceId,
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: {
+          'line-color': routeColor,
+          'line-width': 6,
+          'line-opacity': 0.95,
+          'line-emissive-strength': 1,
+        },
+      });
+    } else {
+      m.setPaintProperty(routeLayerId, 'line-color', routeColor);
+    }
+  }, [getMapboxColorFromToken]);
+
+  const syncRouteLayer = useCallback((m: mapboxgl.Map, coordinates: [number, number][]) => {
+    ensureRouteLayer(m);
+
+    const source = m.getSource(routeSourceId) as mapboxgl.GeoJSONSource | undefined;
+    if (!source) return;
+
+    if (coordinates.length >= 2) {
+      source.setData({
+        type: 'Feature',
+        geometry: {
+          type: 'LineString',
+          coordinates,
+        },
+        properties: {},
+      } as any);
+
+      if (m.getLayer(routeLayerId)) {
+        m.setLayoutProperty(routeLayerId, 'visibility', 'visible');
+        try { m.moveLayer(routeLayerId); } catch {}
+      }
+    } else {
+      source.setData({ type: 'FeatureCollection', features: [] } as any);
+    }
+  }, [ensureRouteLayer]);
+
+  const checkedPeakIds = new Set(checkins.map(c => c.peak_id));
+
+  const extractRouteCoordinates = useCallback((rawRoute: any): [number, number][] => {
+    if (!rawRoute) return [];
+
+    let route = rawRoute;
+    if (typeof route === 'string') {
+      try {
+        route = JSON.parse(route);
+      } catch {
+        return [];
+      }
+    }
+
+    const sanitizeCoordinates = (coords: any): [number, number][] => {
+      if (!Array.isArray(coords)) return [];
+
+      const normalized = coords
+        .filter((coord) => Array.isArray(coord) && coord.length >= 2)
+        .map((coord) => [Number(coord[0]), Number(coord[1])] as [number, number])
+        .filter(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat))
+        .filter(([lng, lat]) => lng >= -180 && lng <= 180 && lat >= -90 && lat <= 90);
+
+      const deduped: [number, number][] = [];
+      normalized.forEach((coord) => {
+        const last = deduped[deduped.length - 1];
+        if (!last || last[0] !== coord[0] || last[1] !== coord[1]) {
+          deduped.push(coord);
+        }
+      });
+
+      return deduped;
+    };
+
+    if (route?.type === 'LineString') return sanitizeCoordinates(route.coordinates);
+
+    if (route?.type === 'Feature' && route?.geometry?.type === 'LineString') {
+      return sanitizeCoordinates(route.geometry.coordinates);
+    }
+
+    if (route?.type === 'FeatureCollection' && Array.isArray(route.features)) {
+      const firstLine = route.features.find((f: any) => f?.geometry?.type === 'LineString');
+      return sanitizeCoordinates(firstLine?.geometry?.coordinates);
+    }
+
+    if (Array.isArray(route?.coordinates)) return sanitizeCoordinates(route.coordinates);
+    if (Array.isArray(route?.geometry?.coordinates)) return sanitizeCoordinates(route.geometry.coordinates);
+
+    return [];
+  }, []);
+
+  const routeCoordinates = useMemo(() => extractRouteCoordinates(routeGeojson), [routeGeojson, extractRouteCoordinates]);
+  
+  // Checkins this year
+  const thisYearCheckedIds = new Set(
+    checkins
+      .filter(c => new Date(c.checked_in_at).getFullYear() === new Date().getFullYear())
+      .map(c => c.peak_id)
+  );
+  const suggestedMarkersRef = useRef<mapboxgl.Marker[]>([]);
+
+  // Map initialization
+  useEffect(() => {
+    if (!mapContainer.current || map.current) return;
+
+    if (MAPBOX_TOKEN) {
+      mapboxgl.accessToken = MAPBOX_TOKEN;
+    }
+
+    const lastCenterStr = localStorage.getItem('map_last_center');
+    const lastZoomStr = localStorage.getItem('map_last_zoom');
+    
+    let center: [number, number] = [5.7, 59.9];
+    let zoom = 11;
+    let hasStoredPos = false;
+
+    if (lastCenterStr && lastZoomStr) {
+      try {
+        center = JSON.parse(lastCenterStr);
+        zoom = parseFloat(lastZoomStr);
+        hasStoredPos = true;
+      } catch (e) {}
+    } else if (peaks.length > 0) {
+      center = [peaks[0].longitude, peaks[0].latitude];
+    }
+
+    let m: mapboxgl.Map;
+    try {
+      const initStyle = resolveStoredStyle();
+      m = new mapboxgl.Map({
+        container: mapContainer.current,
+        style: STYLE_URLS[initStyle],
+        center,
+        zoom,
+        pitch: isConstrainedDevice ? 40 : 60,
+        bearing: isConstrainedDevice ? 0 : -20,
+        // Smoother edges on lines/labels while panning; keep off on constrained
+        // devices to preserve battery / avoid WebGL pressure on iOS WKWebView.
+        antialias: !isConstrainedDevice,
+        failIfMajorPerformanceCaveat: false,
+        // Larger tile cache = fewer visible reloads when panning back to a
+        // recently-seen area. Kept small on constrained devices (iOS memory).
+        maxTileCacheSize: isConstrainedDevice ? 40 : 200,
+        // Removes the fade-in flicker of labels/symbols when zooming.
+        fadeDuration: 0,
+      });
+    } catch (err) {
+      console.error('Failed to initialize map:', err);
+      return;
+    }
+
+    m.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+    // Disable two-finger pitch gesture. When enabled together with pinch-zoom
+    // it causes the map to "jump" vertically the moment fingers lift, because
+    // Mapbox settles pitch- and zoom-inertia independently on touchend. Users
+    // can still change pitch via the NavigationControl / programmatic API.
+    try { m.touchPitch.disable(); } catch {}
+
+
+    // Expose a live center getter so callers (e.g. the "pick start on map"
+    // flow) can read the current visible center without relying on stale
+    // localStorage that only updates on moveend.
+    (window as any).__mapGetCenter = () => {
+      const c = m.getCenter();
+      return [c.lng, c.lat] as [number, number];
+    };
+
+    m.on('moveend', () => {
+      const c = m.getCenter();
+      localStorage.setItem('map_last_center', JSON.stringify([c.lng, c.lat]));
+      localStorage.setItem('map_last_zoom', m.getZoom().toString());
+    });
+
+    m.on('load', () => {
+      // Some Mapbox styles can finish their style phase before our `style.load`
+      // handler has a chance to drive React state on remount. Marking the map as
+      // loaded here too makes persisted route layers redraw reliably after tab
+      // switches.
+      setMapLoaded(true);
+      onMapReadyRef.current?.();
+
+      if (!hasStoredPos && !suppressInitialGeolocate) {
+        // Auto-start GPS on first mount if no stored center. Runs after mount effect
+        // has installed startWatching via ref.
+        setTimeout(() => startWatchingRef.current?.(true), 50);
+      }
+    });
+
+    m.on('error', (e: any) => {
+      console.warn('[MapView] Mapbox error', {
+        message: e.error?.message || String(e),
+        offline: !navigator.onLine,
+      });
+    });
+
+    m.on('style.load', () => {
+      addEnhancedTerrain(m, {
+        exaggeration: isConstrainedDevice ? 1.0 : 1.4,
+        lightweight: isConstrainedDevice,
+      });
+      setMapLoaded(true);
+      onMapReadyRef.current?.();
+    });
+
+    map.current = m;
+    return () => { m.remove(); map.current = null; };
+  }, [isConstrainedDevice, suppressInitialGeolocate]);
+
+  // ============================================================
+  //  LIVE GPS POSITION
+  //  - Web: navigator.geolocation.watchPosition (high accuracy, live updates).
+  //  - Native (Capacitor): navigator.geolocation is polyfilled by the
+  //    @capacitor/geolocation plugin when installed, so the same code path
+  //    works. Requires NSLocationWhenInUseUsageDescription in Info.plist.
+  //  TODO(native): if geolocation is unreliable on iOS WKWebView, wire the
+  //    Capacitor Geolocation plugin directly (Geolocation.watchPosition) here.
+  // ============================================================
+  const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const userMarkerArrowRef = useRef<HTMLDivElement | null>(null);
+  const lastGpsRef = useRef<{ lat: number; lng: number; heading: number | null } | null>(null);
+  const deviceHeadingRef = useRef<number | null>(null);
+  const headingUnsubRef = useRef<(() => void) | null>(null);
+  const watchIdRef = useRef<number | null>(null);
+  const hasCenteredOnGpsRef = useRef(false);
+  const [gpsRequesting, setGpsRequesting] = useState(false);
+  const [gpsTracking, setGpsTracking] = useState(false);
+  const startWatchingRef = useRef<((recenter: boolean) => void) | null>(null);
+  // --- Marker LERP (coordinate-space interpolation) ---
+  // Latest GPS coord we want the marker to move toward, and the currently
+  // rendered coord. A rAF loop nudges rendered → target so the marker glides
+  // between fixes WITHOUT drifting during pan (because we always call
+  // marker.setLngLat, letting Mapbox re-project every frame).
+  const markerTargetRef = useRef<{ lng: number; lat: number } | null>(null);
+  const markerRenderRef = useRef<{ lng: number; lat: number } | null>(null);
+  const markerTargetHeadingRef = useRef<number | null>(null);
+  const markerRenderHeadingRef = useRef<number | null>(null);
+  const markerRafRef = useRef<number | null>(null);
+
+  // Bearing (degrees, 0=N) between two lat/lng points
+  const computeBearing = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+    const toRad = (d: number) => (d * Math.PI) / 180;
+    const toDeg = (r: number) => (r * 180) / Math.PI;
+    const φ1 = toRad(lat1), φ2 = toRad(lat2);
+    const Δλ = toRad(lng2 - lng1);
+    const y = Math.sin(Δλ) * Math.cos(φ2);
+    const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+    return (toDeg(Math.atan2(y, x)) + 360) % 360;
+  };
+
+  const applyArrowRotation = useCallback((direction: number | null) => {
+    const arrow = userMarkerArrowRef.current;
+    if (!arrow) return;
+    if (direction == null || Number.isNaN(direction)) {
+      arrow.style.opacity = '0';
+      return;
+    }
+    arrow.style.opacity = '1';
+    arrow.style.transform = `translate(-50%, -50%) rotate(${direction}deg)`;
+  }, []);
+
+  const upsertUserMarker = useCallback((lat: number, lng: number, accuracy: number, heading: number | null) => {
+    if (!map.current) return;
+    const m = map.current;
+
+    // Resolve direction:
+    //   1. Live device compass heading (updates as the phone rotates).
+    //   2. GeolocationPosition.coords.heading (only valid while moving).
+    //   3. Bearing computed from previous GPS fix (fallback).
+    let direction: number | null = deviceHeadingRef.current;
+    if (direction == null && heading != null && !Number.isNaN(heading)) {
+      direction = heading;
+    }
+    const prev = lastGpsRef.current;
+    if (direction == null && prev) {
+      const dLat = Math.abs(prev.lat - lat);
+      const dLng = Math.abs(prev.lng - lng);
+      if (dLat > 0.00003 || dLng > 0.00003) {
+        direction = computeBearing(prev.lat, prev.lng, lat, lng);
+        console.log('[HEADING] fallback to GPS bearing', Math.round(direction));
+      } else {
+        direction = prev.heading;
+      }
+    }
+
+    if (!userMarkerRef.current) {
+      const el = document.createElement('div');
+      // IMPORTANT: no CSS transition on this element. Mapbox sets `transform: translate(...)`
+      // here every frame to anchor the marker to the correct pixel for the GPS coordinate.
+      // A transition on `transform` makes the marker lag behind pans/updates and appear to
+      // drift away from its true geographic position before easing back — we always want the
+      // marker locked to the coordinate the map projects it to.
+      el.style.cssText = `
+        width: 28px; height: 28px; position: relative;
+        pointer-events: none;
+        z-index: 80;
+      `;
+      // Outer pulse / accuracy dot
+      const pulse = document.createElement('div');
+      pulse.style.cssText = `
+        position: absolute; inset: 0; border-radius: 50%;
+        background: hsla(210, 100%, 55%, 0.18);
+        box-shadow: 0 0 0 4px hsla(210, 100%, 55%, 0.15);
+      `;
+      el.appendChild(pulse);
+      // Inner dot
+      const dot = document.createElement('div');
+      dot.style.cssText = `
+        position: absolute; left: 50%; top: 50%;
+        width: 14px; height: 14px; margin: -7px 0 0 -7px;
+        border-radius: 50%;
+        background: hsl(210, 100%, 55%);
+        border: 2px solid white;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      `;
+      el.appendChild(dot);
+      // Direction arrow (only inner element gets a short animation so rotation feels smooth
+      // without affecting the marker's positioning transform).
+      const arrow = document.createElement('div');
+      arrow.style.cssText = `
+        position: absolute; left: 50%; top: 50%;
+        width: 28px; height: 28px;
+        transform: translate(-50%, -50%) rotate(0deg);
+        transform-origin: center center;
+        transition: transform 150ms linear;
+        opacity: 0;
+        pointer-events: none;
+      `;
+      arrow.innerHTML = `
+        <svg viewBox="0 0 28 28" width="28" height="28" xmlns="http://www.w3.org/2000/svg">
+          <path d="M14 1 L18 9 L14 7 L10 9 Z"
+                fill="hsl(210, 100%, 55%)" stroke="white" stroke-width="1.2" stroke-linejoin="round"/>
+        </svg>
+      `;
+      el.appendChild(arrow);
+      userMarkerArrowRef.current = arrow;
+
+      userMarkerRef.current = new mapboxgl.Marker({ element: el, anchor: 'center' })
+        .setLngLat([lng, lat])
+        .addTo(m);
+      userMarkerRef.current.getElement().style.zIndex = '80';
+      // Seed the LERP state so the very first fix renders immediately
+      // without any glide from a stale origin.
+      markerRenderRef.current = { lng, lat };
+      markerRenderHeadingRef.current = direction;
+    } else {
+      userMarkerRef.current.getElement().style.zIndex = '80';
+    }
+
+    // Feed the LERP loop instead of snapping. The loop drives
+    // marker.setLngLat every frame so panning still projects correctly.
+    markerTargetRef.current = { lng, lat };
+    markerTargetHeadingRef.current = direction;
+    ensureMarkerLerpRunning();
+
+    lastGpsRef.current = { lat, lng, heading: direction };
+    void accuracy;
+  }, [applyArrowRotation]);
+
+  // Shortest-path angular interpolation (handles 359° → 1° wrap).
+  const lerpAngle = (from: number, to: number, t: number): number => {
+    let diff = ((to - from + 540) % 360) - 180;
+    return (from + diff * t + 360) % 360;
+  };
+
+  const ensureMarkerLerpRunning = useCallback(() => {
+    if (markerRafRef.current != null) return;
+    const step = () => {
+      const target = markerTargetRef.current;
+      const render = markerRenderRef.current;
+      const marker = userMarkerRef.current;
+      if (!target || !render || !marker) {
+        markerRafRef.current = null;
+        return;
+      }
+      // Coordinate-space LERP. ~15% per frame ≈ ~250ms to converge — smooth
+      // but never stale (each new fix retargets before this settles).
+      const t = 0.18;
+      const nextLng = render.lng + (target.lng - render.lng) * t;
+      const nextLat = render.lat + (target.lat - render.lat) * t;
+      const dLng = Math.abs(target.lng - nextLng);
+      const dLat = Math.abs(target.lat - nextLat);
+
+      // Rotation LERP (shortest path)
+      const targetH = markerTargetHeadingRef.current;
+      const renderH = markerRenderHeadingRef.current;
+      if (targetH != null) {
+        const nextH = renderH == null ? targetH : lerpAngle(renderH, targetH, 0.25);
+        markerRenderHeadingRef.current = nextH;
+        applyArrowRotation(nextH);
+      }
+
+      markerRenderRef.current = { lng: nextLng, lat: nextLat };
+      marker.setLngLat([nextLng, nextLat]);
+
+      // Snap-and-stop when close enough (avoid endless sub-pixel wiggle).
+      if (dLng < 1e-7 && dLat < 1e-7) {
+        markerRenderRef.current = { lng: target.lng, lat: target.lat };
+        marker.setLngLat([target.lng, target.lat]);
+        markerRafRef.current = null;
+        return;
+      }
+      markerRafRef.current = requestAnimationFrame(step);
+    };
+    markerRafRef.current = requestAnimationFrame(step);
+  }, [applyArrowRotation]);
+
+  const startWatching = useCallback((recenter: boolean) => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      console.warn('[GPS] navigator.geolocation not available');
+      toast.error('Enheten støtter ikke posisjonstjenester.');
+      return;
+    }
+
+    const native = isNativePlatform();
+    console.log('[GPS] startWatching invoked', { native, recenter, alreadyTracking: gpsTracking });
+
+    // If already tracking, just recenter on next fix.
+    if (watchIdRef.current != null) {
+      hasCenteredOnGpsRef.current = !recenter;
+      return;
+    }
+
+    setGpsRequesting(true);
+
+    const onSuccess = (pos: GeolocationPosition) => {
+      const { latitude, longitude, accuracy, heading } = pos.coords;
+      console.log('[GPS] position update', {
+        lat: Number(latitude.toFixed(5)),
+        lng: Number(longitude.toFixed(5)),
+        accuracy: Math.round(accuracy),
+        heading: heading != null ? Math.round(heading) : null,
+      });
+      setGpsRequesting(false);
+      setGpsTracking(true);
+      upsertUserMarker(latitude, longitude, accuracy, heading ?? null);
+      if (!hasCenteredOnGpsRef.current && map.current) {
+        hasCenteredOnGpsRef.current = true;
+        map.current.easeTo({
+          center: [longitude, latitude],
+          zoom: Math.max(map.current.getZoom(), 13),
+          duration: 800,
+        });
+      }
+    };
+
+    const onError = (err: GeolocationPositionError) => {
+      console.warn('[GPS] error', { code: err.code, message: err.message });
+      setGpsRequesting(false);
+      if (err.code === err.PERMISSION_DENIED) {
+        toast.error('Posisjonstillatelse er avslått. Aktiver plassering for appen i innstillingene.');
+      } else if (err.code === err.POSITION_UNAVAILABLE) {
+        toast.error('Fant ikke GPS-posisjon. Sjekk at plassering er på og prøv igjen.');
+      } else if (err.code === err.TIMEOUT) {
+        toast.error('Tidsavbrudd ved henting av GPS-posisjon. Prøv igjen.');
+      } else {
+        toast.error('Klarte ikke å hente GPS-posisjon.');
+      }
+    };
+
+    try {
+      hasCenteredOnGpsRef.current = !recenter;
+      watchIdRef.current = navigator.geolocation.watchPosition(onSuccess, onError, {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 20000,
+      });
+      console.log('[GPS] watchPosition started, watchId=', watchIdRef.current);
+    } catch (e) {
+      console.error('[GPS] watchPosition threw', e);
+      setGpsRequesting(false);
+      toast.error('Klarte ikke å starte GPS-sporing.');
+    }
+  }, [gpsTracking, upsertUserMarker]);
+
+  useEffect(() => { startWatchingRef.current = startWatching; }, [startWatching]);
+
+  // External trigger: start GPS tracking (e.g. when a custom route is created)
+  // so the user's own position marker is visible without them tapping the locate button.
+  useEffect(() => {
+    if (gpsTrackTrigger == null || gpsTrackTrigger === 0) return;
+    const start = () => startWatchingRef.current?.(false);
+    if (mapLoaded) start();
+    else {
+      const t = window.setTimeout(start, 400);
+      return () => window.clearTimeout(t);
+    }
+  }, [gpsTrackTrigger, mapLoaded]);
+
+  // Clean up watchPosition on unmount.
+  useEffect(() => {
+    return () => {
+      if (watchIdRef.current != null && navigator.geolocation) {
+        console.log('[GPS] clearWatch on unmount, watchId=', watchIdRef.current);
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+      if (headingUnsubRef.current) {
+        headingUnsubRef.current();
+        headingUnsubRef.current = null;
+      }
+      if (markerRafRef.current != null) {
+        cancelAnimationFrame(markerRafRef.current);
+        markerRafRef.current = null;
+      }
+      if (userMarkerRef.current) {
+        userMarkerRef.current.remove();
+        userMarkerRef.current = null;
+      }
+    };
+  }, []);
+
+  const handleGpsClick = useCallback(async () => {
+    console.log('[GPS] button clicked', {
+      native: isNativePlatform(),
+      alreadyTracking: watchIdRef.current != null,
+    });
+    hapticsService.impact('light');
+
+    // Request GPS permission first (native uses Capacitor plugin under the hood).
+    try {
+      const perm = await locationService.requestPermission();
+      console.log('[GPS] permission result', perm);
+      if (perm === 'denied') {
+        toast.error('Posisjonstillatelse er avslått. Aktiver plassering i innstillingene.');
+        return;
+      }
+    } catch (e) {
+      console.warn('[GPS] requestPermission threw', e);
+    }
+
+    // Request device orientation / compass heading. On iOS 13+ this MUST be triggered
+    // from a user gesture (this click handler) or the browser silently blocks it.
+    // Falls back to GPS-derived bearing when unavailable/denied.
+    if (!headingUnsubRef.current) {
+      try {
+        const headingPerm = await headingService.requestPermission();
+        if (headingPerm === 'granted') {
+          headingUnsubRef.current = headingService.subscribe((h) => {
+            deviceHeadingRef.current = h;
+            applyArrowRotation(h);
+          });
+        } else {
+          console.log('[HEADING] not started, permission=', headingPerm, '— will use GPS bearing fallback');
+        }
+      } catch (e) {
+        console.warn('[HEADING] request threw', e);
+      }
+    }
+
+    startWatching(true);
+  }, [startWatching, applyArrowRotation]);
+
+
+
+  // Admin: click to add peak or waypoint
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return;
+    const m = map.current;
+    const handler = (e: mapboxgl.MapMouseEvent) => {
+      if (onMapClick) {
+        onMapClick(e.lngLat.lat, e.lngLat.lng);
+      }
+    };
+    m.on('click', handler);
+    return () => { m.off('click', handler); };
+  }, [onMapClick, mapLoaded]);
+
+  // User: long press to suggest
+  useEffect(() => {
+    if (!map.current || !mapLoaded || adminMode) return;
+    const m = map.current;
+    const el = m.getCanvas();
+
+    const onDown = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      const point = m.unproject([e.touches[0].clientX - el.getBoundingClientRect().left, e.touches[0].clientY - el.getBoundingClientRect().top]);
+      longPressCoords.current = { lat: point.lat, lng: point.lng };
+      longPressTimer.current = setTimeout(() => {
+        if (longPressCoords.current && onLongPress) {
+          hapticsService.impact('heavy');
+          onLongPress(longPressCoords.current.lat, longPressCoords.current.lng);
+        }
+      }, 600);
+    };
+    const onMove = () => {
+      if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+    };
+    const onUp = () => {
+      if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+    };
+
+    // Also support right-click on desktop
+    const onContextMenu = (e: mapboxgl.MapMouseEvent) => {
+      e.originalEvent.preventDefault();
+      if (onLongPress) {
+        hapticsService.impact('heavy');
+        onLongPress(e.lngLat.lat, e.lngLat.lng);
+      }
+    };
+
+    el.addEventListener('touchstart', onDown, { passive: true });
+    el.addEventListener('touchmove', onMove, { passive: true });
+    el.addEventListener('touchend', onUp, { passive: true });
+    m.on('contextmenu', onContextMenu);
+
+    return () => {
+      el.removeEventListener('touchstart', onDown);
+      el.removeEventListener('touchmove', onMove);
+      el.removeEventListener('touchend', onUp);
+      m.off('contextmenu', onContextMenu);
+    };
+  }, [mapLoaded, adminMode, onLongPress]);
+
+  // Cursor style
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return;
+    map.current.getCanvas().style.cursor = addMode ? 'crosshair' : '';
+  }, [addMode, mapLoaded]);
+
+  // Toggle 2D/3D
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return;
+    const m = map.current;
+
+    if (is3D) {
+      m.easeTo({ pitch: isConstrainedDevice ? 40 : 60, bearing: isConstrainedDevice ? 0 : -20, duration: 600 });
+      whenStyleReady(m, () => {
+        if (!m.getTerrain()) {
+          if (!m.getSource('mapbox-dem')) {
+            m.addSource('mapbox-dem', { type: 'raster-dem', url: 'mapbox://mapbox.mapbox-terrain-dem-v1', tileSize: 512, maxzoom: 14 });
+          }
+          m.setTerrain({ source: 'mapbox-dem', exaggeration: isConstrainedDevice ? 1.0 : 1.5 });
+        }
+      });
+    } else {
+      m.easeTo({ pitch: 0, bearing: 0, duration: 600 });
+      m.setTerrain(null);
+    }
+  }, [is3D, isConstrainedDevice, mapLoaded, whenStyleReady]);
+
+  const { isOnline } = useNetworkStatus();
+
+  // Live viewport telemetry (used for internal state; overlay removed).
+  const [viewport, setViewport] = useState<{ zoom: number; lat: number; lng: number } | null>(null);
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return;
+    const m = map.current;
+    const update = () => {
+      const c = m.getCenter();
+      setViewport({ zoom: m.getZoom(), lat: c.lat, lng: c.lng });
+    };
+    update();
+    m.on('move', update);
+    m.on('zoom', update);
+    return () => { m.off('move', update); m.off('zoom', update); };
+  }, [mapLoaded]);
+
+
+
+  // Toggle map style. All styles require internet for tiles.
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return;
+    if (mapStyle === appliedStyleRef.current) return;
+
+    if (!isOnline) {
+      toast.error('Kartbakgrunn krever internett, men innsjekking med GPS fungerer fortsatt.');
+      setMapStyle(appliedStyleRef.current);
+      return;
+    }
+
+    const styleUrl = STYLE_URLS[mapStyle];
+    console.log('[MapView] style switch →', mapStyle, '|', styleUrl);
+    appliedStyleRef.current = mapStyle;
+    const m = map.current;
+
+    // Clean up any legacy Kartverket overlay (from older builds) before switch.
+    try {
+      if (m.getLayer('kartverket-topo')) m.removeLayer('kartverket-topo');
+      if (m.getSource('kartverket-topo')) m.removeSource('kartverket-topo');
+    } catch {}
+
+    setMapLoaded(false);
+    m.setStyle(styleUrl);
+    m.once('style.load', () => {
+      addEnhancedTerrain(m, {
+        exaggeration: isConstrainedDevice ? 1.0 : 1.4,
+        lightweight: isConstrainedDevice,
+      });
+      if (is3D) m.setTerrain({ source: 'mapbox-dem', exaggeration: isConstrainedDevice ? 1.0 : 1.5 });
+      setMapLoaded(true);
+    });
+  }, [is3D, isConstrainedDevice, mapStyle, mapLoaded, whenStyleReady, isOnline]);
+
+
+  // Route focus (especially important when opening route from Topper tab)
+  useEffect(() => {
+    if (!map.current || !mapLoaded || !routeFocus) return;
+    const m = map.current;
+
+    whenStyleReady(m, () => {
+      m.resize();
+      m.easeTo({
+        center: [routeFocus.longitude, routeFocus.latitude],
+        zoom: Math.max(m.getZoom(), 12.5),
+        duration: 700,
+      });
+    });
+  }, [routeFocus, mapLoaded, whenStyleReady]);
+
+  // Draw route if provided
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return;
+    const m = map.current;
+    const fitTimers: number[] = [];
+    const redrawTimers: number[] = [];
+    let idleHandled = false;
+
+    const redrawRoute = () => {
+      if (routeCoordinates.length < 2) return;
+      try {
+        syncRouteLayer(m, routeCoordinates);
+      } catch {
+        // The style can be between reload phases right after tab remount; the
+        // scheduled retries below will apply the route as soon as it is ready.
+      }
+    };
+
+    m.on('style.load', redrawRoute);
+    m.on('idle', redrawRoute);
+    [80, 260, 650, 1200, 2200].forEach((delay) => {
+      redrawTimers.push(window.setTimeout(redrawRoute, delay));
+    });
+
+    const cancelStyleReady = whenStyleReady(m, () => {
+      if (routeCoordinates.length >= 2) {
+        syncRouteLayer(m, routeCoordinates);
+
+        const bounds = new mapboxgl.LngLatBounds();
+        routeCoordinates.forEach((coord) => bounds.extend(coord));
+
+        if (routeFocus) {
+          bounds.extend([routeFocus.longitude, routeFocus.latitude]);
+        }
+
+        const fitRoute = () => {
+          if (!mapContainer.current || idleHandled) return;
+          if (mapContainer.current.offsetWidth === 0 || mapContainer.current.offsetHeight === 0) return;
+
+          m.resize();
+          m.fitBounds(bounds, {
+            padding: { top: 92, right: 60, bottom: 76, left: 60 },
+            duration: 650,
+            maxZoom: 15,
+          });
+        };
+
+        window.requestAnimationFrame(() => fitRoute());
+        [220, 700, 1300].forEach((delay) => {
+          fitTimers.push(window.setTimeout(() => fitRoute(), delay));
+        });
+
+        m.once('idle', () => {
+          idleHandled = true;
+          m.resize();
+          m.fitBounds(bounds, {
+            padding: { top: 92, right: 60, bottom: 76, left: 60 },
+            duration: 0,
+            maxZoom: 15,
+          });
+        });
+      } else {
+        syncRouteLayer(m, []);
+      }
+    });
+
+    return () => {
+      cancelStyleReady?.();
+      fitTimers.forEach((timer) => window.clearTimeout(timer));
+      redrawTimers.forEach((timer) => window.clearTimeout(timer));
+      m.off('style.load', redrawRoute);
+      m.off('idle', redrawRoute);
+    };
+  }, [routeCoordinates, routeFocus, mapLoaded, whenStyleReady, syncRouteLayer]);
+
+  // Handle preview waypoints
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return;
+
+    // Clear existing waypoint markers
+    waypointMarkersRef.current.forEach(m => m.remove());
+    waypointMarkersRef.current = [];
+
+    if (previewWaypoints && previewWaypoints.length > 0) {
+      previewWaypoints.forEach((wp, index) => {
+        const el = document.createElement('div');
+        el.className = 'route-waypoint-marker';
+        el.style.cssText = `
+          width: 16px; height: 16px; cursor: pointer;
+          background: hsl(220, 90%, 56%);
+          border: 2px solid white;
+          border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        `;
+        el.title = 'Trykk for å fjerne waypoint. Dra for å flytte.';
+        
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (onWaypointClick) onWaypointClick(index);
+        });
+
+        const marker = new mapboxgl.Marker({ element: el, draggable: true })
+          .setLngLat([wp.lng, wp.lat])
+          .addTo(map.current!);
+          
+        marker.on('dragend', () => {
+          const lngLat = marker.getLngLat();
+          if (onWaypointDrag) onWaypointDrag(index, lngLat.lat, lngLat.lng);
+        });
+          
+        waypointMarkersRef.current.push(marker);
+      });
+    }
+
+    // Handle route start marker (if we have a route, put a green dot at the start)
+    if (routeCoordinates.length > 0) {
+      if (!routeStartMarkerRef.current) {
+        const el = document.createElement('div');
+        el.className = 'route-start-marker';
+        el.style.cssText = `
+          width: 20px; height: 20px;
+          background: hsl(152, 60%, 42%);
+          border: 3px solid white;
+          border-radius: 50%; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+          z-index: 20;
+        `;
+        routeStartMarkerRef.current = new mapboxgl.Marker({ element: el })
+          .setLngLat(routeCoordinates[0])
+          .addTo(map.current);
+        routeStartMarkerRef.current.getElement().style.zIndex = '20';
+      } else {
+        routeStartMarkerRef.current.setLngLat(routeCoordinates[0]);
+        routeStartMarkerRef.current.getElement().style.zIndex = '20';
+      }
+    } else if (routeStartMarkerRef.current) {
+      routeStartMarkerRef.current.remove();
+      routeStartMarkerRef.current = null;
+    }
+
+  }, [previewWaypoints, routeCoordinates, mapLoaded, onWaypointClick]);
+
+  // Add/update markers
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return;
+
+    markersRef.current.forEach(m => m.remove());
+    markersRef.current = [];
+
+    peaks.forEach(peak => {
+      const isTaken = checkedPeakIds.has(peak.id);
+      const isUnpublished = peak.isPublished === false;
+      const isYearFiltered = onlyReachedThisYear && !thisYearCheckedIds.has(peak.id);
+      // When year-filtered: show as normal unchecked marker (not green, not dimmed)
+      const effectivelyTaken = isTaken && !isYearFiltered;
+
+      const el = document.createElement('div');
+      const peakIcon = getPeakIcon(peak.heightMoh, peak.id);
+      const markerBackground = effectivelyTaken
+          ? 'hsl(var(--success) / 0.88)'
+          : isUnpublished
+            ? 'hsl(var(--warning) / 0.26)'
+            : 'hsl(0 0% 98% / 0.78)'; // Light color in both modes
+      const markerBorder = effectivelyTaken
+          ? 'hsl(var(--success) / 0.85)'
+          : isUnpublished
+            ? 'hsl(var(--warning) / 0.45)'
+            : 'hsl(0 0% 88% / 0.85)'; // Light border in both modes
+      const markerShadow = isConstrainedDevice
+        ? effectivelyTaken
+          ? '0 4px 10px hsl(var(--success) / 0.18)'
+          : '0 3px 8px hsl(0 0% 0% / 0.12)'
+        : effectivelyTaken
+          ? '0 10px 24px hsl(var(--success) / 0.24), inset 0 1px 0 hsl(0 0% 100% / 0.18)'
+          : '0 10px 24px hsl(0 0% 0% / 0.14)';
+      const markerFilters = isConstrainedDevice
+        ? ''
+        : `
+         backdrop-filter: ${effectivelyTaken ? 'blur(6px) saturate(1.04)' : 'blur(10px) saturate(1.12)'};
+         -webkit-backdrop-filter: ${effectivelyTaken ? 'blur(6px) saturate(1.04)' : 'blur(10px) saturate(1.12)'};
+        `;
+      
+      el.style.cssText = `
+        width: 36px; height: 36px; cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        background: ${markerBackground};
+        border: 1.5px solid ${markerBorder};
+        border-radius: 50%;
+        box-shadow: ${markerShadow};
+        ${markerFilters}
+        ${isUnpublished ? 'opacity: 0.8;' : ''}
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+      `;
+        const isHighTier = peak.heightMoh >= 650;
+        const isTier3 = peak.heightMoh >= 650 && peak.heightMoh < 1000;
+        const imgSize = isHighTier ? 28 : 24;
+        const nudgeUp = isTier3 ? 'position: relative; top: -1.5px;' : '';
+        
+        const imgOpacity = !effectivelyTaken ? 'opacity: 0.8;' : '';
+        el.innerHTML = `
+          <img src="${peakIcon}" alt="" width="${imgSize}" height="${imgSize}" style="object-fit: contain; pointer-events: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; ${imgOpacity} ${nudgeUp}" draggable="false" />
+        `;
+
+      let buttonsHtml = `<button class="peak-popup-btn primary" id="peak-btn-${peak.id}">${t('map.viewPeak')}</button>`;
+      
+      if (adminMode) {
+        buttonsHtml = `
+          <div class="peak-popup-actions">
+            <button class="peak-popup-btn secondary" id="peak-btn-${peak.id}">Vis</button>
+            <button class="peak-popup-btn edit" id="peak-edit-${peak.id}">Redigér</button>
+            <button class="peak-popup-btn delete" id="peak-del-${peak.id}">Slett</button>
+          </div>
+        `;
+      }
+
+      const popup = new mapboxgl.Popup({
+        offset: 25,
+        closeButton: false,
+        maxWidth: '280px',
+        className: 'peak-popup',
+      });
+      
+      const statusHtml = isTaken 
+        ? `<span class="flex items-center gap-1.5" style="color: hsl(152, 60%, 42%); font-size: 18px; font-weight: 800;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>${peak.heightMoh} moh</span>`
+        : `<span style="font-size: 18px; font-weight: 800; color: hsl(var(--foreground));">${peak.heightMoh} moh</span>`;
+
+      popup.setHTML(`
+        <div class="peak-popup-inner">
+          <div class="peak-popup-header">
+            <div class="peak-popup-title">${peak.name}${isUnpublished ? '<br><span class="peak-popup-unpublished">(upublisert)</span>' : ''}</div>
+          </div>
+          <div class="peak-popup-area" style="margin-bottom: 2px;">${peak.area}</div>
+          <div style="text-align: center; padding: 2px 0; margin-bottom: 4px;">
+            ${statusHtml}
+          </div>
+          ${buttonsHtml}
+        </div>
+      `);
+
+      popup.on('open', () => {
+        setTimeout(() => {
+          document.getElementById(`peak-btn-${peak.id}`)?.addEventListener('click', () => {
+            popup.remove();
+            onSelectPeak(peak);
+          });
+          if (adminMode) {
+            document.getElementById(`peak-edit-${peak.id}`)?.addEventListener('click', () => {
+              popup.remove();
+              onEditPeak?.(peak);
+            });
+            document.getElementById(`peak-del-${peak.id}`)?.addEventListener('click', () => {
+              popup.remove();
+              onDeletePeak?.(peak.id);
+            });
+          }
+        }, 10);
+      });
+
+      const draggable = false; // Start som false, krever long press i admin
+      const marker = new mapboxgl.Marker({ element: el, anchor: 'center', draggable })
+        .setLngLat([peak.longitude, peak.latitude])
+        .setPopup(popup)
+        .addTo(map.current!);
+
+      if (adminMode && onMarkerDrag) {
+        let isUnlocked = false;
+        let unlockTimer: ReturnType<typeof setTimeout>;
+
+        const handleStart = () => {
+          if (isUnlocked) return;
+          unlockTimer = setTimeout(() => {
+            isUnlocked = true;
+            marker.setDraggable(true);
+            // NOTE: do NOT set `el.style.transform` here — Mapbox writes a
+            // `translate3d(...)` transform to the marker element on every
+            // frame to position it. Overwriting it makes the marker vanish
+            // until the next map move restores the transform. Scale the
+            // inner icon instead.
+            const inner = el.firstElementChild as HTMLElement | null;
+            if (inner) inner.style.transform = 'scale(1.25)';
+            el.style.boxShadow = '0 0 0 4px rgba(56, 189, 248, 0.5)';
+            toast.info('Markør ulåst for flytting. Dra for å plassere.', { duration: 3000 });
+          }, 600);
+        };
+
+        const handleCancel = () => {
+          clearTimeout(unlockTimer);
+        };
+
+        el.addEventListener('mousedown', handleStart);
+        el.addEventListener('touchstart', handleStart, { passive: true });
+        el.addEventListener('mouseup', handleCancel);
+        el.addEventListener('mouseleave', handleCancel);
+        el.addEventListener('touchend', handleCancel);
+        el.addEventListener('touchmove', handleCancel);
+
+        marker.on('dragend', () => {
+          isUnlocked = false;
+          marker.setDraggable(false);
+          const inner = el.firstElementChild as HTMLElement | null;
+          if (inner) inner.style.transform = '';
+          el.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+          const lngLat = marker.getLngLat();
+          onMarkerDrag(peak.id, lngLat.lat, lngLat.lng);
+        });
+
+      }
+
+      markersRef.current.push(marker);
+    });
+  }, [peaks, checkins, mapLoaded, t, adminMode, onlyReachedThisYear]);
+
+  // === SUGGESTED PEAKS: Show pending suggestions with different icon ===
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return;
+    suggestedMarkersRef.current.forEach(m => m.remove());
+    suggestedMarkersRef.current = [];
+
+    if (!suggestedPeaks?.length) return;
+
+    suggestedPeaks.forEach(suggestion => {
+      const el = document.createElement('div');
+      el.style.cssText = `
+        width: 32px; height: 32px; cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        background: hsl(0, 0%, 88%);
+        border: 2px dashed hsl(0, 0%, 60%);
+        border-radius: 50%; box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        opacity: 0.8;
+      `;
+      el.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="hsl(0, 0%, 45%)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 3 4 8 5-5 2 15H2L8 3z"/></svg>
+      `;
+
+      const popup = new mapboxgl.Popup({
+        offset: 20,
+        closeButton: false,
+        maxWidth: '260px',
+        className: 'peak-popup',
+      });
+
+      popup.setHTML(`
+        <div class="peak-popup-inner">
+          <div class="peak-popup-header">
+            <div class="peak-popup-title">${suggestion.name}</div>
+          </div>
+          ${suggestion.elevation_moh ? `<div style="text-align: center; font-size: 16px; font-weight: 700; margin: 4px 0;">${suggestion.elevation_moh} moh</div>` : ''}
+          <div style="text-align: center; padding: 4px 8px; margin: 4px 0; background: hsl(38, 80%, 92%); border-radius: 8px; font-size: 12px; color: hsl(38, 70%, 30%); font-weight: 500;">
+            ⏳ Denne toppen er ikke godkjent enda, men du kan sjekke inn
+          </div>
+          <button class="peak-popup-btn primary" id="suggestion-btn-${suggestion.id}">Sjekk inn</button>
+        </div>
+      `);
+
+      popup.on('open', () => {
+        setTimeout(() => {
+          document.getElementById(`suggestion-btn-${suggestion.id}`)?.addEventListener('click', () => {
+            popup.remove();
+            // Create a temporary Peak object for check-in
+            const tempPeak: Peak = {
+              id: suggestion.id,
+              name: suggestion.name,
+              heightMoh: suggestion.elevation_moh || 0,
+              latitude: suggestion.latitude,
+              longitude: suggestion.longitude,
+              area: '',
+              description: '',
+              isPublished: false,
+            };
+            onSelectPeak(tempPeak);
+          });
+        }, 10);
+      });
+
+      const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+        .setLngLat([suggestion.longitude, suggestion.latitude])
+        .setPopup(popup)
+        .addTo(map.current!);
+
+      suggestedMarkersRef.current.push(marker);
+    });
+  }, [suggestedPeaks, mapLoaded, onSelectPeak]);
+
+  // === HEATMAP: Lines from summary_polyline, thicker/redder where more overlap ===
+  useEffect(() => {
+    if (!map.current || !mapLoaded || !user) return;
+    const m = map.current;
+    const sourceId = 'heatmap-source';
+    const layerId = 'heatmap-layer';
+
+    if (!showHeatmap) {
+      whenStyleReady(m, () => {
+        if (m.getLayer(layerId)) m.removeLayer(layerId);
+        if (m.getSource(sourceId)) m.removeSource(sourceId);
+      });
+      return;
+    }
+
+    const loadHeatmapData = async () => {
+      try {
+        let query = supabase
+          .from('workout_sessions')
+          .select('summary_polyline, date')
+          .eq('user_id', user.id)
+          .not('summary_polyline', 'is', null);
+
+        if (heatmapPeriod === 'year') {
+          const startOfYear = new Date(new Date().getFullYear(), 0, 1).toISOString();
+          query = query.gte('date', startOfYear);
+        }
+
+        let allSessions: any[] = [];
+        let page = 0;
+        const pageSize = 1000;
+        while (true) {
+          const { data } = await query.range(page * pageSize, (page + 1) * pageSize - 1);
+          if (!data || data.length === 0) break;
+          allSessions = allSessions.concat(data);
+          if (data.length < pageSize) break;
+          page++;
+        }
+
+        if (allSessions.length === 0) {
+          if (m.getLayer(layerId)) m.removeLayer(layerId);
+          if (m.getSource(sourceId)) m.removeSource(sourceId);
+          return;
+        }
+
+        // Build a grid to count segment frequency
+        const segmentCounts = new Map<string, number>();
+        const gridSize = 0.0005; // ~50m grid cells
+        const gridKey = (lat: number, lng: number) =>
+          `${Math.round(lat / gridSize)},${Math.round(lng / gridSize)}`;
+        const segKey = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+          const k1 = gridKey(lat1, lng1);
+          const k2 = gridKey(lat2, lng2);
+          return k1 < k2 ? `${k1}|${k2}` : `${k2}|${k1}`;
+        };
+
+        // First pass: count segment frequency
+        allSessions.forEach((session: any) => {
+          if (!session.summary_polyline) return;
+          try {
+            const points = decodePolyline(session.summary_polyline);
+            for (let i = 0; i < points.length - 1; i++) {
+              const key = segKey(points[i][0], points[i][1], points[i + 1][0], points[i + 1][1]);
+              segmentCounts.set(key, (segmentCounts.get(key) || 0) + 1);
+            }
+          } catch {}
+        });
+
+        // Find max frequency for normalization
+        let maxFreq = 1;
+        segmentCounts.forEach(v => { if (v > maxFreq) maxFreq = v; });
+
+        // Build line features with frequency property
+        const features: any[] = [];
+        allSessions.forEach((session: any) => {
+          if (!session.summary_polyline) return;
+          try {
+            const points = decodePolyline(session.summary_polyline);
+            if (points.length < 2) return;
+            // Build segments with frequency
+            for (let i = 0; i < points.length - 1; i++) {
+              const key = segKey(points[i][0], points[i][1], points[i + 1][0], points[i + 1][1]);
+              const freq = segmentCounts.get(key) || 1;
+              features.push({
+                type: 'Feature',
+                geometry: {
+                  type: 'LineString',
+                  coordinates: [
+                    [points[i][1], points[i][0]],
+                    [points[i + 1][1], points[i + 1][0]],
+                  ],
+                },
+                properties: { freq, normFreq: freq / maxFreq },
+              });
+            }
+          } catch {}
+        });
+
+        // Deduplicate: keep only unique grid segments with max frequency
+        const dedupMap = new Map<string, any>();
+        features.forEach(f => {
+          const coords = f.geometry.coordinates;
+          const key = segKey(coords[0][1], coords[0][0], coords[1][1], coords[1][0]);
+          if (!dedupMap.has(key) || dedupMap.get(key).properties.freq < f.properties.freq) {
+            dedupMap.set(key, f);
+          }
+        });
+
+        const geojson = { type: 'FeatureCollection', features: Array.from(dedupMap.values()) };
+
+        whenStyleReady(m, () => {
+          if (m.getSource(sourceId)) {
+            (m.getSource(sourceId) as mapboxgl.GeoJSONSource).setData(geojson as any);
+          } else {
+            m.addSource(sourceId, { type: 'geojson', data: geojson as any });
+          }
+
+          if (!m.getLayer(layerId)) {
+            m.addLayer({
+              id: layerId,
+              type: 'line',
+              source: sourceId,
+              paint: {
+                'line-color': [
+                  'interpolate', ['linear'], ['get', 'normFreq'],
+                  0, 'hsla(0, 80%, 60%, 0.7)',
+                  0.15, 'hsla(0, 85%, 55%, 0.85)',
+                  0.4, 'hsla(0, 90%, 48%, 0.9)',
+                  1, 'hsla(0, 95%, 40%, 1)',
+                ],
+                'line-width': [
+                  'interpolate', ['linear'], ['get', 'normFreq'],
+                  0, 4,
+                  0.2, 6,
+                  0.5, 9,
+                  1, 13,
+                ],
+                'line-opacity': 1,
+              },
+              layout: {
+                'line-cap': 'round',
+                'line-join': 'round',
+              },
+            });
+          }
+        });
+      } catch (e) {
+        console.error('Heatmap load error:', e);
+      }
+    };
+
+    loadHeatmapData();
+  }, [showHeatmap, heatmapPeriod, mapLoaded, user]);
+
+  // === AREA STATS: Show municipality or county boundaries + labels ===
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return;
+    const m = map.current;
+
+    // Cleanup
+    areaMarkersRef.current.forEach(mk => mk.remove());
+    areaMarkersRef.current = [];
+    whenStyleReady(m, () => {
+      const existingSources = Object.keys((m.getStyle()?.sources) || {}).filter(s => s.startsWith('kommune-boundary-') || s.startsWith('fylke-boundary-'));
+      existingSources.forEach(sid => {
+        const lid = sid.replace('boundary', 'fill');
+        const lidOutline = sid.replace('boundary', 'outline');
+        if (m.getLayer(lid)) m.removeLayer(lid);
+        if (m.getLayer(lidOutline)) m.removeLayer(lidOutline);
+        if (m.getSource(sid)) m.removeSource(sid);
+      });
+    });
+
+    if (!showAreaStats || areaStatsMode === 'off') return;
+
+    const checkedIds = new Set(checkins.map(c => c.peak_id));
+
+    if (areaStatsMode === 'fylke') {
+      // === FYLKE MODE ===
+      const fetchFylkeBoundaries = async () => {
+        // Group peaks by county
+        const fylkeMap = new Map<string, { peaks: Peak[]; checked: number; total: number }>();
+        peaks.forEach(peak => {
+          const county = peak.county?.trim();
+          if (!county) return;
+          if (!fylkeMap.has(county)) fylkeMap.set(county, { peaks: [], checked: 0, total: 0 });
+          const entry = fylkeMap.get(county)!;
+          entry.peaks.push(peak);
+          entry.total++;
+          if (checkedIds.has(peak.id)) entry.checked++;
+        });
+
+        // Map county names to fylkesnummer via API
+        const fylkeNumbers = new Map<string, string>();
+        try {
+          const res = await fetch('https://ws.geonorge.no/kommuneinfo/v1/fylker');
+          if (res.ok) {
+            const fylker = await res.json();
+            for (const f of fylker) {
+              fylkeNumbers.set(f.fylkesnavn, f.fylkesnummer);
+            }
+          }
+        } catch {}
+
+        const colorPalette = [
+          { fill: 'hsla(152, 65%, 40%, 0.30)', outline: 'hsla(152, 65%, 35%, 0.75)' },
+          { fill: 'hsla(210, 70%, 50%, 0.25)', outline: 'hsla(210, 70%, 45%, 0.65)' },
+          { fill: 'hsla(280, 55%, 55%, 0.23)', outline: 'hsla(280, 55%, 50%, 0.55)' },
+          { fill: 'hsla(35, 80%, 50%, 0.25)', outline: 'hsla(35, 80%, 45%, 0.65)' },
+          { fill: 'hsla(340, 60%, 50%, 0.23)', outline: 'hsla(340, 60%, 45%, 0.55)' },
+        ];
+
+        let colorIdx = 0;
+        for (const [county, entry] of fylkeMap.entries()) {
+          if (!map.current) return;
+          const fylkeNr = fylkeNumbers.get(county);
+          if (!fylkeNr) continue;
+
+          try {
+            const boundaryRes = await fetch(`https://ws.geonorge.no/kommuneinfo/v1/fylker/${fylkeNr}/omrade`);
+            if (!boundaryRes.ok) continue;
+            const boundaryData = await boundaryRes.json();
+
+            const sourceId = `fylke-boundary-${fylkeNr}`;
+            const fillLayerId = `fylke-fill-${fylkeNr}`;
+            const outlineLayerId = `fylke-outline-${fylkeNr}`;
+            const pct = entry.total > 0 ? Math.round((entry.checked / entry.total) * 100) : 0;
+            const colors = colorPalette[colorIdx % colorPalette.length];
+            colorIdx++;
+
+            whenStyleReady(m, () => {
+              if (!m.getSource(sourceId)) {
+                m.addSource(sourceId, { type: 'geojson', data: boundaryData.omrade as any });
+              }
+              if (!m.getLayer(fillLayerId)) {
+                m.addLayer({ id: fillLayerId, type: 'fill', source: sourceId, paint: { 'fill-color': colors.fill, 'fill-opacity': 1 } });
+              }
+              if (!m.getLayer(outlineLayerId)) {
+                m.addLayer({ id: outlineLayerId, type: 'line', source: sourceId, paint: { 'line-color': colors.outline, 'line-width': 3 } });
+              }
+            });
+
+            // Label marker - larger for fylke
+            const avgLat = entry.peaks.reduce((s, p) => s + p.latitude, 0) / entry.peaks.length;
+            const avgLng = entry.peaks.reduce((s, p) => s + p.longitude, 0) / entry.peaks.length;
+
+            const el = document.createElement('div');
+            el.className = 'area-stats-label';
+            el.style.cssText = 'pointer-events: none; text-align: center; white-space: nowrap; z-index: 5;';
+            el.innerHTML = `
+              <div style="
+                background: hsl(var(--background) / 0.92);
+                backdrop-filter: blur(8px);
+                border: 1.5px solid hsl(var(--border));
+                border-radius: 16px;
+                padding: 14px 22px;
+                box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+                transform-origin: center center;
+              ">
+                <div style="font-size: 20px; font-weight: 800; color: hsl(var(--foreground)); letter-spacing: -0.02em;">${county}</div>
+                <div style="font-size: 16px; color: hsl(var(--muted-foreground)); margin-top: 4px; font-weight: 500;">
+                  ${entry.checked} / ${entry.total} topper
+                </div>
+                <div style="font-size: 22px; font-weight: 800; margin-top: 3px; color: ${pct >= 50 ? 'hsl(152, 60%, 42%)' : 'hsl(var(--muted-foreground))'};">
+                  ${pct}%
+                </div>
+              </div>
+            `;
+
+            const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+              .setLngLat([avgLng, avgLat])
+              .addTo(map.current!);
+            areaMarkersRef.current.push(marker);
+          } catch (e) {
+            console.error('Failed to load county boundary for', county, e);
+          }
+        }
+
+        // Zoom-based scaling
+        const updateScale = () => {
+          if (!map.current) return;
+          const zoom = map.current.getZoom();
+          const scale = Math.max(0.5, Math.min(1, (zoom - 5) / 5));
+          areaMarkersRef.current.forEach(mk => {
+            const el = mk.getElement();
+            const inner = el.querySelector('div > div') as HTMLElement;
+            if (inner) {
+              inner.style.transform = `scale(${scale})`;
+              inner.style.display = zoom < 5 ? 'none' : '';
+            }
+          });
+        };
+        map.current.on('zoom', updateScale);
+        updateScale();
+      };
+
+      fetchFylkeBoundaries();
+    } else {
+      // === KOMMUNE MODE (existing logic) ===
+      const fetchBoundaries = async () => {
+        const areaKommuneMap = new Map<string, Peak>();
+        const uniqueAreas = new Map<string, Peak>();
+        peaks.forEach(peak => {
+          const area = peak.area?.trim();
+          if (area && !uniqueAreas.has(area)) uniqueAreas.set(area, peak);
+        });
+
+        await Promise.all(Array.from(uniqueAreas.entries()).map(async ([area, peak]) => {
+          try {
+            const res = await fetch(`https://ws.geonorge.no/kommuneinfo/v1/punkt?nord=${peak.latitude}&ost=${peak.longitude}&koordsys=4326`);
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data.kommunenummer) {
+              areaKommuneMap.set(area, { kommuneNr: data.kommunenummer, kommuneNavn: data.kommunenavn || area });
+            }
+          } catch {}
+        }));
+
+        const kommuneMap = new Map<string, { kommuneNavn: string; peaks: Peak[]; checked: number; total: number }>();
+        peaks.forEach(peak => {
+          const area = peak.area?.trim();
+          if (!area) return;
+          const info = areaKommuneMap.get(area);
+          if (!info) return;
+          const { kommuneNr, kommuneNavn } = info;
+          if (!kommuneMap.has(kommuneNr)) kommuneMap.set(kommuneNr, { kommuneNavn, peaks: [], checked: 0, total: 0 });
+          const entry = kommuneMap.get(kommuneNr)!;
+          entry.peaks.push(peak);
+          entry.total++;
+          if (checkedIds.has(peak.id)) entry.checked++;
+        });
+
+        const colorPalette = [
+          { fill: 'hsla(152, 65%, 40%, 0.35)', outline: 'hsla(152, 65%, 35%, 0.85)' },
+          { fill: 'hsla(210, 70%, 50%, 0.30)', outline: 'hsla(210, 70%, 45%, 0.75)' },
+          { fill: 'hsla(280, 55%, 55%, 0.28)', outline: 'hsla(280, 55%, 50%, 0.65)' },
+          { fill: 'hsla(35, 80%, 50%, 0.30)', outline: 'hsla(35, 80%, 45%, 0.75)' },
+          { fill: 'hsla(340, 60%, 50%, 0.28)', outline: 'hsla(340, 60%, 45%, 0.65)' },
+          { fill: 'hsla(180, 60%, 40%, 0.30)', outline: 'hsla(180, 60%, 35%, 0.75)' },
+          { fill: 'hsla(60, 70%, 45%, 0.30)', outline: 'hsla(60, 70%, 40%, 0.75)' },
+          { fill: 'hsla(120, 50%, 45%, 0.28)', outline: 'hsla(120, 50%, 40%, 0.65)' },
+        ];
+
+        // Greedy graph coloring: assign colors so no two adjacent municipalities share the same color
+        const kommuneNrs = Array.from(kommuneMap.keys());
+        const colorAssignment = new Map<string, number>();
+        
+        // Sort by kommune number for deterministic results
+        kommuneNrs.sort((a, b) => (parseInt(a, 10) || 0) - (parseInt(b, 10) || 0));
+        
+        for (const nr of kommuneNrs) {
+          // Find colors used by neighboring municipalities (within ~30km proximity)
+          const entry = kommuneMap.get(nr)!;
+          const avgLat = entry.peaks.reduce((s, p) => s + p.latitude, 0) / entry.peaks.length;
+          const avgLng = entry.peaks.reduce((s, p) => s + p.longitude, 0) / entry.peaks.length;
+          
+          const usedColors = new Set<number>();
+          for (const otherNr of kommuneNrs) {
+            if (otherNr === nr || !colorAssignment.has(otherNr)) continue;
+            const otherEntry = kommuneMap.get(otherNr)!;
+            const oLat = otherEntry.peaks.reduce((s, p) => s + p.latitude, 0) / otherEntry.peaks.length;
+            const oLng = otherEntry.peaks.reduce((s, p) => s + p.longitude, 0) / otherEntry.peaks.length;
+            const dLat = (avgLat - oLat) * 111;
+            const dLng = (avgLng - oLng) * 111 * Math.cos(avgLat * Math.PI / 180);
+            if (Math.sqrt(dLat * dLat + dLng * dLng) < 50) {
+              usedColors.add(colorAssignment.get(otherNr)!);
+            }
+          }
+          
+          let colorIdx = 0;
+          while (usedColors.has(colorIdx)) colorIdx++;
+          colorAssignment.set(nr, colorIdx % colorPalette.length);
+        }
+
+        for (const [kommuneNr, entry] of kommuneMap.entries()) {
+          if (!map.current) return;
+          try {
+            const boundaryRes = await fetch(`https://ws.geonorge.no/kommuneinfo/v1/kommuner/${kommuneNr}/omrade`);
+            if (!boundaryRes.ok) continue;
+            const boundaryData = await boundaryRes.json();
+
+            if (!map.current) return;
+            const sourceId = `kommune-boundary-${kommuneNr}`;
+            const fillLayerId = `kommune-fill-${kommuneNr}`;
+            const outlineLayerId = `kommune-outline-${kommuneNr}`;
+            const pct = entry.total > 0 ? Math.round((entry.checked / entry.total) * 100) : 0;
+            const colorIdx = colorAssignment.get(kommuneNr) || 0;
+            const fillColor = colorPalette[colorIdx].fill;
+            const outlineColor = colorPalette[colorIdx].outline;
+
+            whenStyleReady(m, () => {
+              if (!m.getSource(sourceId)) {
+                m.addSource(sourceId, { type: 'geojson', data: boundaryData.omrade as any });
+              }
+              if (!m.getLayer(fillLayerId)) {
+                m.addLayer({ id: fillLayerId, type: 'fill', source: sourceId, paint: { 'fill-color': fillColor, 'fill-opacity': 1 } });
+              }
+              if (!m.getLayer(outlineLayerId)) {
+                m.addLayer({ id: outlineLayerId, type: 'line', source: sourceId, paint: { 'line-color': outlineColor, 'line-width': 3 } });
+              }
+            });
+
+            const avgLat = entry.peaks.reduce((s, p) => s + p.latitude, 0) / entry.peaks.length;
+            const avgLng = entry.peaks.reduce((s, p) => s + p.longitude, 0) / entry.peaks.length;
+
+            const el = document.createElement('div');
+            el.className = 'area-stats-label';
+            el.style.cssText = 'pointer-events: none; text-align: center; white-space: nowrap; z-index: 5;';
+            el.innerHTML = `
+              <div style="
+                background: hsl(var(--background) / 0.92);
+                backdrop-filter: blur(8px);
+                border: 1.5px solid hsl(var(--border));
+                border-radius: 14px;
+                padding: 10px 16px;
+                box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+                transform-origin: center center;
+              ">
+                <div style="font-size: 16px; font-weight: 800; color: hsl(var(--foreground)); letter-spacing: -0.02em;">${entry.kommuneNavn}</div>
+                <div style="font-size: 14px; color: hsl(var(--muted-foreground)); margin-top: 3px; font-weight: 500;">
+                  ${entry.checked} / ${entry.total} topper
+                </div>
+                <div style="font-size: 18px; font-weight: 800; margin-top: 2px; color: ${pct >= 50 ? 'hsl(152, 60%, 42%)' : 'hsl(var(--muted-foreground))'};">
+                  ${pct}%
+                </div>
+              </div>
+            `;
+
+            const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+              .setLngLat([avgLng, avgLat])
+              .addTo(map.current!);
+            areaMarkersRef.current.push(marker);
+          } catch (e) {
+            console.error('Failed to load municipality boundary for', kommuneNr, e);
+          }
+        }
+
+        const updateScale = () => {
+          if (!map.current) return;
+          const zoom = map.current.getZoom();
+          const scale = Math.max(0.55, Math.min(1, (zoom - 7) / 5));
+          areaMarkersRef.current.forEach(mk => {
+            const el = mk.getElement();
+            const inner = el.querySelector('div > div') as HTMLElement;
+            if (inner) {
+              inner.style.transform = `scale(${scale})`;
+              inner.style.display = zoom < 7 ? 'none' : '';
+            }
+          });
+        };
+        map.current.on('zoom', updateScale);
+        updateScale();
+      };
+
+      fetchBoundaries();
+    }
+  }, [showAreaStats, areaStatsMode, peaks, checkins, mapLoaded]);
+
+  return (
+    <div className={`relative w-full h-full ${is3D ? 'map-is-3d' : ''}`}>
+      <div ref={mapContainer} className="w-full h-full" />
+
+      {!isOnline && (
+        <div className="absolute top-14 right-2 z-20 max-w-[240px] px-3 py-2 rounded-lg text-[11px] leading-tight font-medium shadow-md border border-border bg-background/95 text-foreground backdrop-blur-sm">
+          Kartbakgrunn krever internett, men innsjekking med GPS fungerer fortsatt.
+        </div>
+      )}
+
+      {/* Top-left controls: 2D/3D toggle + style menu — pushed below sub-tab bar */}
+      <div className="absolute top-14 left-2 z-10 flex items-center gap-2">
+        <button
+          onClick={() => setIs3D(prev => !prev)}
+          className="px-3 py-1.5 rounded-lg text-xs font-semibold shadow-md border border-border bg-background text-foreground hover:bg-muted transition-colors h-[34px]"
+        >
+          {is3D ? '2D' : '3D'}
+        </button>
+        <div className="relative">
+          <button
+            onClick={() => setShowStyleMenu(prev => !prev)}
+            className="p-2 rounded-lg shadow-md border border-border bg-background text-foreground hover:bg-muted transition-colors h-[34px] w-[34px] flex items-center justify-center"
+            title="Endre karttype"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
+              <line x1="8" y1="2" x2="8" y2="18" />
+              <line x1="16" y1="6" x2="16" y2="22" />
+            </svg>
+          </button>
+          {showStyleMenu && (
+            <div className="absolute top-full left-0 mt-1 bg-background border border-border rounded-lg shadow-lg overflow-hidden min-w-[140px]">
+              <button
+                onClick={() => { setMapStyle('streets'); setShowStyleMenu(false); }}
+                className={`w-full px-3 py-2 text-xs font-medium text-left hover:bg-muted transition-colors flex items-center gap-2 ${mapStyle === 'streets' ? 'bg-muted' : ''}`}
+              >
+                🗺️ Standard
+              </button>
+              <button
+                onClick={() => { setMapStyle('terrain'); setShowStyleMenu(false); }}
+                className={`w-full px-3 py-2 text-xs font-medium text-left hover:bg-muted transition-colors flex items-center gap-2 ${mapStyle === 'terrain' ? 'bg-muted' : ''}`}
+              >
+                🥾 Topografisk
+              </button>
+              <button
+                onClick={() => { setMapStyle('topo'); setShowStyleMenu(false); }}
+                className={`w-full px-3 py-2 text-xs font-medium text-left hover:bg-muted transition-colors flex items-center gap-2 ${mapStyle === 'topo' ? 'bg-muted' : ''}`}
+              >
+                🏔️ Terreng
+              </button>
+              <button
+                onClick={() => { setMapStyle('satellite'); setShowStyleMenu(false); }}
+                className={`w-full px-3 py-2 text-xs font-medium text-left hover:bg-muted transition-colors flex items-center gap-2 ${mapStyle === 'satellite' ? 'bg-muted' : ''}`}
+              >
+                🛰️ Satellitt
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Bottom-left controls: GPS + Settings */}
+      <div className="absolute bottom-20 left-2 z-10 flex flex-col gap-2">
+        <button
+          onClick={handleGpsClick}
+          disabled={gpsRequesting}
+          className={`p-2.5 rounded-lg shadow-md border transition-colors ${
+            gpsTracking
+              ? 'bg-primary text-primary-foreground border-primary'
+              : 'bg-background text-foreground border-border hover:bg-muted'
+          } ${gpsRequesting ? 'opacity-70' : ''}`}
+          title={gpsTracking ? 'Live GPS-sporing er aktiv' : 'Finn min posisjon'}
+          aria-label="GPS"
+        >
+          {gpsRequesting ? <Loader2 className="w-5 h-5 animate-spin" /> : <LocateFixed className="w-5 h-5" />}
+        </button>
+        {onSettingsClick && (
+          <button
+            onClick={onSettingsClick}
+            className="p-2.5 rounded-lg shadow-md border border-border bg-background text-foreground hover:bg-muted transition-colors"
+          >
+            <Settings2 className="w-5 h-5" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default MapView;
