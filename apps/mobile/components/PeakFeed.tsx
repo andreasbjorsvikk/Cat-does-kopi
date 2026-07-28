@@ -113,9 +113,9 @@ export function PeakFeed() {
       // Query peaks
       const { data: peaks } = await supabase
         .from('peaks_db')
-        .select('id, name, height_moh')
+        .select('id, name_no, elevation_moh')
         .in('id', peakIds);
-      const peakMap = new Map((peaks || []).map(p => [String(p.id), p]));
+      const peakMap = new Map((peaks || []).map(p => [String(p.id), p as any]));
 
       // Query profiles
       const { data: profiles } = await supabase
@@ -184,8 +184,8 @@ export function PeakFeed() {
           }
         } else {
           const peak = peakMap.get(String(checkin.peak_id));
-          const peakName = peak?.name || 'Ukjent Topp';
-          const peakElevation = peak?.height_moh || 0;
+          const peakName = peak?.name_no || 'Ukjent Topp';
+          const peakElevation = peak?.elevation_moh || 0;
 
           const parentProfile = profileMap.get(parentUserId);
           const parentName = parentProfile?.username || 'Fjellvandrer';
@@ -321,8 +321,8 @@ export function PeakFeed() {
 
   return (
     <View style={styles.container}>
-      <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 12 }}>
+      <View style={{ paddingHorizontal: 16, paddingTop: 16, height: 60 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 8, alignItems: 'center' }}>
           {filters.map((filter) => {
             const isActive = activeFilter === filter.key;
             return (

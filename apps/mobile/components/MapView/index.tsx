@@ -990,22 +990,12 @@ export default function MapScreen() {
 
       {selectedPeak && activeTab === "kart" && (
         <View style={flattenStyle([styles.bottomSheet, { backgroundColor: isDark ? "#111827" : "#FFFFFF" }])}>
-          <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
-            <HStack style={styles.sheetHeader}>
-              <VStack style={{ flex: 1 }}>
-                <Heading className={`text-xl font-bold ${themeClasses.text}`}>{selectedPeak.name}</Heading>
-                <Text className={`text-xs ${themeClasses.textMuted}`}>{selectedPeak.heightMoh} moh • {selectedPeak.municipality}, {selectedPeak.county}</Text>
-              </VStack>
-              <TouchableOpacity onPress={() => setSelectedPeak(null)} style={styles.closeBtn}>
-                <X size={20} color={isDark ? "#FFFFFF" : "#000000"} />
-              </TouchableOpacity>
-            </HStack>
-
-            {/* Distance and history stats row */}
+          <ScrollView style={{ maxHeight: 450 }} showsVerticalScrollIndicator={false}>
+            {/* Stats and Button moved to top */}
             <HStack style={{ justifyContent: "space-between", marginBottom: 12 }}>
               <View style={flattenStyle([
                 styles.statCard, 
-                { backgroundColor: isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.03)" }
+                { backgroundColor: isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.05)" }
               ])}>
                 <Text style={styles.statLabel}>Avstand</Text>
                 <Text style={flattenStyle([
@@ -1017,7 +1007,7 @@ export default function MapScreen() {
               </View>
               <View style={flattenStyle([
                 styles.statCard, 
-                { backgroundColor: isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.03)" }
+                { backgroundColor: isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.05)" }
               ])}>
                 <Text style={styles.statLabel}>Historikk</Text>
                 <Text style={flattenStyle([styles.statValue, { color: isDark ? "#E5E7EB" : "#1F2937" }])} numberOfLines={1} adjustsFontSizeToFit>
@@ -1025,12 +1015,6 @@ export default function MapScreen() {
                 </Text>
               </View>
             </HStack>
-            
-            {lastCheckinDateStr && (
-              <Text className={`text-xs ${themeClasses.textMuted}`} style={{ marginBottom: 12, textAlign: "right" }}>
-                Sist besøkt: {lastCheckinDateStr}
-              </Text>
-            )}
 
             <TouchableOpacity 
               style={flattenStyle([
@@ -1042,18 +1026,34 @@ export default function MapScreen() {
               onPress={handleCheckinPress}
             >
               <HStack style={styles.checkinBtnContent}>
-                <CheckCircle size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <CheckCircle size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
                 <Text style={styles.checkinBtnText}>
                   {checkinLoading 
                     ? "Sjekker inn..." 
                     : (canCheckin 
                       ? "Sjekk inn" 
-                      : "Du må være innenfor 100 meter for å sjekke inn"
+                      : "For langt unna toppen"
                     )
                   }
                 </Text>
               </HStack>
             </TouchableOpacity>
+
+            {lastCheckinDateStr && (
+              <Text className={`text-xs mt-2 ${themeClasses.textMuted}`} style={{ marginBottom: 12, textAlign: "right" }}>
+                Sist besøkt: {lastCheckinDateStr}
+              </Text>
+            )}
+
+            <HStack style={flattenStyle([styles.sheetHeader, { marginTop: 4 }])}>
+              <VStack style={{ flex: 1 }}>
+                <Heading className={`text-xl font-bold ${themeClasses.text}`}>{selectedPeak.name}</Heading>
+                <Text className={`text-xs ${themeClasses.textMuted}`}>{selectedPeak.heightMoh} moh • {selectedPeak.municipality}, {selectedPeak.county}</Text>
+              </VStack>
+              <TouchableOpacity onPress={() => setSelectedPeak(null)} style={styles.closeBtn}>
+                <X size={20} color={isDark ? "#FFFFFF" : "#000000"} />
+              </TouchableOpacity>
+            </HStack>
 
             <Image 
               source={{ uri: selectedPeak.imageUrl || "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b" }} 
@@ -1486,8 +1486,21 @@ const styles = StyleSheet.create({
   },
   sheetHeader: { alignItems: "flex-start", marginBottom: 16 },
   closeBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: "#F3F4F620", alignItems: "center", justifyContent: "center" },
-  sheetImage: { width: "100%", height: 160, borderRadius: 16 },
-  checkinBtn: { backgroundColor: "#10B981", height: 50, borderRadius: 14, justifyContent: "center", alignItems: "center" },
+  sheetImage: { width: "100%", height: 130, borderRadius: 16 },
+  checkinBtn: { 
+    backgroundColor: "#10B981", 
+    height: 56, 
+    minHeight: 56,
+    borderRadius: 16, 
+    justifyContent: "center", 
+    alignItems: "center",
+    paddingHorizontal: 16,
+    shadowColor: "#10B981",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
   checkinBtnContent: { alignItems: "center", justifyContent: "center" },
   checkinBtnText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
   checkinBtnDisabled: { backgroundColor: "#9CA3AF" },
