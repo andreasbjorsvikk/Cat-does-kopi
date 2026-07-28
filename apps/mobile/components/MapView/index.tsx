@@ -174,17 +174,13 @@ export default function MapScreen() {
       const timer = setTimeout(async () => {
         try {
           if (mapboxMapRef.current) {
-            console.log("[Mapbox] Querying terrain elevation for Galdhøpiggen area [8.31, 61.63]...");
-            const elevation = await mapboxMapRef.current.queryTerrainElevation([8.31, 61.63]);
-            console.log(`[Mapbox] Query elevation result for Jotunheimen [8.31, 61.63]: ${elevation} meters`);
+            const result = await mapboxMapRef.current.queryTerrainElevation([8.31, 61.63]);
+            const elevation = (result && typeof result === "object" && result.data !== undefined) ? result.data : result;
             if (elevation && elevation > 0) {
-              console.log("[Mapbox] Verified: Terrain is working! Galdhøpiggen elevation is > 0.");
-            } else {
-              console.log("[Mapbox] Terrain query returned 0 or null. Terrain tiles may still be loading.");
+              // Terrain verified
             }
           }
         } catch (err) {
-          console.warn("[Mapbox] Error querying terrain elevation:", err);
         }
       }, 1500);
       return () => clearTimeout(timer);
@@ -326,35 +322,11 @@ export default function MapScreen() {
     }
   };
 
-  const handleDidFinishLoadingStyle = async () => {
+  const handleDidFinishLoadingStyle = () => {
     setIsStyleLoaded(true);
-    try {
-      console.log("[Mapbox] Style loaded successfully");
-      if (mapboxMapRef.current) {
-        const style = await mapboxMapRef.current.getStyle();
-        if (style && style.layers) {
-          const layerIds = style.layers.map((l: any) => l.id);
-          console.log("[Mapbox] All Layers in current style:", layerIds);
-
-          const expectedLayers = ["mountain_peak", "mountain_peak-label", "natural-point-label"];
-          expectedLayers.forEach((layerId) => {
-            const exists = layerIds.includes(layerId);
-            console.log(`[Mapbox] Layer '${layerId}' exists in style: ${exists}`);
-          });
-        } else {
-          console.log("[Mapbox] Could not retrieve layers from style. getStyle() returned:", style);
-        }
-      } else {
-        console.warn("[Mapbox] mapboxMapRef is null when style finished loading.");
-      }
-    } catch (err) {
-      console.error("[Mapbox] Error in onDidFinishLoadingStyle:", err);
-    }
-    
-    // Log the terrain configuration
-    console.log("[Mapbox] Terrain enabled:", is3DEnabled);
+    console.log("Style loaded");
     if (is3DEnabled) {
-      console.log("[Mapbox] Terrain config: sourceID='mapbox-dem', exaggeration=1.2");
+      console.log("Terrain enabled");
     }
   };
 
@@ -390,7 +362,7 @@ export default function MapScreen() {
               />
               <Mapbox.Terrain
                 sourceID="mapbox-dem"
-                exaggeration={1.2}
+                style={{ exaggeration: 1.2 }}
               />
             </>
           )}
