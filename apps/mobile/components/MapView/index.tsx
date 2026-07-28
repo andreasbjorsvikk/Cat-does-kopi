@@ -42,36 +42,29 @@ import { Input, InputField } from "@/components/ui/input";
 import { Button, ButtonText } from "@/components/ui/button";
 import Constants from "expo-constants";
 
-const isMapboxAvailable = (() => {
-  if (Platform.OS === "web") return false;
-  try {
-    // Checks if the native Mapbox view manager is actually compiled into the app
-    return !!UIManager.getViewManagerConfig?.("RNMBXMapView");
-  } catch (e) {
-    return false;
-  }
-})();
-
 let Mapbox: any = null;
 let MapboxMapView: any = null;
 let MapboxCamera: any = null;
 let MapboxMarkerView: any = null;
 
-if (isMapboxAvailable) {
-  try {
-    Mapbox = require("@rnmapbox/maps").default;
-    MapboxMapView = require("@rnmapbox/maps").MapView;
-    MapboxCamera = require("@rnmapbox/maps").Camera;
-    MapboxMarkerView = require("@rnmapbox/maps").MarkerView;
+try {
+  if (Platform.OS !== "web") {
+    const RNMapbox = require("@rnmapbox/maps");
+    Mapbox = RNMapbox.default;
+    MapboxMapView = RNMapbox.MapView;
+    MapboxCamera = RNMapbox.Camera;
+    MapboxMarkerView = RNMapbox.MarkerView;
 
     const token = Constants.expoConfig?.extra?.mapboxAccessToken;
     if (token) {
       Mapbox.setAccessToken(token);
     }
-  } catch (err) {
-    console.warn("Failed to load @rnmapbox/maps:", err);
   }
+} catch (err) {
+  console.warn("Failed to load @rnmapbox/maps native modules:", err);
 }
+
+const isMapboxAvailable = !!MapboxMapView;
 
 const TABS = [
   { id: "kart", label: "Kart", icon: Map },
@@ -310,18 +303,6 @@ export default function MapScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Warning banner if Terrain is selected but native Mapbox is missing */}
-      {mapType === "terrain" && !isMapboxAvailable && (
-        <View style={styles.mapboxWarningBanner}>
-          <HStack style={{ alignItems: "center", gap: 8 }}>
-            <Info size={16} color="#D97706" />
-            <Text style={styles.mapboxWarningText}>
-              3D Terreng krever en ny development build (eas build). Viser satellitt-fallback.
-            </Text>
-          </HStack>
-        </View>
-      )}
-
       {isMapboxAvailable && isMapboxLayer ? (
         <MapboxMapView
           style={styles.map}
@@ -402,20 +383,6 @@ export default function MapScreen() {
             maxPitch: 90,
           } as any)}
         >
-          {(mapType === "standard" || mapType === "satellite" || mapType === "satellite2") && mapboxToken && (
-            <UrlTile
-              key={`mapbox-fallback-${mapType}`}
-              urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/${
-                mapType === "standard" ? "streets-v12" : 
-                mapType === "satellite" ? "satellite-streets-v12" : 
-                "satellite-v9"
-              }/tiles/256/{z}/{x}/{y}@2x?access_token=${mapboxToken}`}
-              tileSize={256}
-              maximumZ={19}
-              zIndex={98}
-              shouldReplaceMapContent={Platform.OS === "ios"}
-            />
-          )}
           {mapType === "norgeskart" && (
             <UrlTile
               key="norgeskart-tile"
