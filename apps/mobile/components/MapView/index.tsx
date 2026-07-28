@@ -92,7 +92,7 @@ export default function MapScreen() {
   // Map settings
   const [mapType, setMapType] = useState<"standard" | "satellite" | "terrain" | "norgeskart" | "satellite2">("satellite");
 
-  const isMapboxLayer = mapType === "standard" || mapType === "satellite" || mapType === "satellite2" || mapType === "terrain";
+  const isMapboxLayer = mapType === "standard" || mapType === "satellite" || mapType === "satellite2" || mapType === "terrain" || mapType === "norgeskart";
 
   const mapboxStyleURL = React.useMemo(() => {
     switch(mapType) {
@@ -235,10 +235,10 @@ export default function MapScreen() {
   const toggle3D = () => {
     const next3D = !is3DEnabled;
     setIs3DEnabled(next3D);
-    if (mapType === "terrain" && isMapboxAvailable) {
+    if (isMapboxAvailable && isMapboxLayer) {
       try {
         mapboxCameraRef.current?.setCamera({
-          pitch: next3D ? 45 : 0,
+          pitch: next3D ? 65 : 0,
           duration: 600,
         });
       } catch (e) {
@@ -313,19 +313,32 @@ export default function MapScreen() {
           logoEnabled={false}
           attributionEnabled={false}
           onLongPress={handleMapboxLongPress}
-          {...(mapType === "terrain" ? {
+          {...(is3DEnabled ? {
             terrain: {
               sourceID: "mapbox-dem",
-              exaggeration: 1.5
+              exaggeration: 2.5
             }
           } : {})}
         >
-          {mapType === "terrain" && (
+          {is3DEnabled && (
             <Mapbox.RasterDemSource
               id="mapbox-dem"
               url="mapbox://mapbox.mapbox-terrain-dem-v1"
               tileSize={512}
             />
+          )}
+          {mapType === "norgeskart" && (
+            <Mapbox.RasterSource
+              id="norgeskart-source"
+              tileUrlTemplates={["https://cache.kartverket.no/v1/wmts/1.0.0/topo/default/webmercator/{z}/{y}/{x}.png"]}
+              tileSize={256}
+            >
+              <Mapbox.RasterLayer
+                id="norgeskart-layer"
+                sourceID="norgeskart-source"
+                style={{ rasterOpacity: 1 }}
+              />
+            </Mapbox.RasterSource>
           )}
           <MapboxCamera
             ref={mapboxCameraRef}
@@ -334,7 +347,7 @@ export default function MapScreen() {
                 ? [selectedPeak.longitude, selectedPeak.latitude] 
                 : [8.5, 61.2],
               zoomLevel: selectedPeak ? 12 : 6,
-              pitch: is3DEnabled ? 45 : 0,
+              pitch: is3DEnabled ? 65 : 0,
             }}
           />
           {peaks.map((peak) => (
