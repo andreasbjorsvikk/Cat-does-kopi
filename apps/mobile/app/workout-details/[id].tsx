@@ -622,8 +622,8 @@ export default function WorkoutDetailsPage() {
               <ActivityIcon type={session.type} size={28} color={activityColors?.text || "#FFFFFF"} />
             </View>
             <VStack style={{ flex: 1 }}>
-              <HStack space="sm" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
-                <Heading size="xl">
+              <HStack space="sm" style={{ alignItems: 'center', justifyContent: 'space-between' }}>
+                <Heading size="xl" style={{ flex: 1 }}>
                   {session.title || session.type.charAt(0).toUpperCase() + session.type.slice(1)}
                 </Heading>
                 <Badge 
