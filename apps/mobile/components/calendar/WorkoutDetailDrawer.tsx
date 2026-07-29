@@ -412,9 +412,10 @@ const styles = StyleSheet.create({
   },
   statItem: {
     width: '32%',
-    padding: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
     borderRadius: 20,
-    minHeight: 90,
+    minHeight: 80,
     justifyContent: 'center',
     alignItems: 'center',
     gap: 2,

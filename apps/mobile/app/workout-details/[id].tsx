@@ -321,6 +321,9 @@ export default function WorkoutDetailsPage() {
 
   const [session, setSession] = useState<WorkoutSession | null>(null);
   const [streams, setStreams] = useState<WorkoutStreams | null>(null);
+  const [loadingStreams, setLoadingStreams] = useState(false);
+  const [showHRChart, setShowHRChart] = useState(false);
+  const [showAltChart, setShowAltChart] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isStyleLoaded, setIsStyleLoaded] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -332,17 +335,21 @@ export default function WorkoutDetailsPage() {
     const data = await workoutService.getById(id);
     setSession(data);
 
-    // If it's a Strava activity, fetch real streams
-    if (data && data.stravaActivityId) {
-      try {
-        const streamData = await stravaService.fetchStreams(data.id, data.stravaActivityId);
-        setStreams(streamData);
-      } catch (err) {
-        console.warn("Failed to fetch real streams from Strava:", err);
-      }
-    }
-
     setLoading(false);
+  };
+
+  const loadRealStreams = async () => {
+    if (!session || !session.stravaActivityId || streams || loadingStreams) return;
+    
+    setLoadingStreams(true);
+    try {
+      const streamData = await stravaService.fetchStreams(session.id, session.stravaActivityId);
+      setStreams(streamData);
+    } catch (err) {
+      console.warn("Failed to fetch real streams from Strava:", err);
+    } finally {
+      setLoadingStreams(false);
+    }
   };
 
   useEffect(() => {
@@ -387,31 +394,29 @@ export default function WorkoutDetailsPage() {
       const minLng = Math.min(...lngs);
       const maxLng = Math.max(...lngs);
 
-      const focusOnRoute = () => {
+      const focusOnRoute = (padding: number = 40) => {
         if (mapboxCameraRef.current) {
           mapboxCameraRef.current.setCamera({
             bounds: {
               ne: [maxLng, maxLat],
               sw: [minLng, minLat],
-              paddingTop: 80,
-              paddingRight: 80,
-              paddingBottom: 80,
-              paddingLeft: 80,
+              paddingTop: padding,
+              paddingRight: padding,
+              paddingBottom: padding,
+              paddingLeft: padding,
             },
             pitch: 65,
-            animationDuration: 3000,
+            animationDuration: 2000,
           });
         }
       };
 
-      const timer1 = setTimeout(focusOnRoute, 800);
-      const timer2 = setTimeout(focusOnRoute, 2500);
-      const timer3 = setTimeout(focusOnRoute, 5000); // Final attempt
+      const timer1 = setTimeout(() => focusOnRoute(60), 800);
+      const timer2 = setTimeout(() => focusOnRoute(60), 3000);
       
       return () => {
         clearTimeout(timer1);
         clearTimeout(timer2);
-        clearTimeout(timer3);
       };
     }
   }, [session, decodedRoute]);
@@ -662,28 +667,62 @@ export default function WorkoutDetailsPage() {
           </View>
 
           {/* Charts */}
-          <Chart 
-            data={hrData} 
-            color="#EF4444" 
-            label="Puls" 
-            unit=" bpm" 
-            isDark={isDark}
-            avgValue={session.averageHeartrate}
-            maxValue={session.maxHeartrate}
-            durationMinutes={session.durationMinutes}
-            onInteractionChange={(interacting) => setScrollEnabled(!interacting)}
-          />
+          <VStack space="md">
+            {showHRChart ? (
+              <Chart 
+                data={hrData} 
+                color="#EF4444" 
+                label="Puls" 
+                unit=" bpm" 
+                isDark={isDark}
+                avgValue={session.averageHeartrate}
+                maxValue={session.maxHeartrate}
+                durationMinutes={session.durationMinutes}
+                onInteractionChange={(interacting) => setScrollEnabled(!interacting)}
+              />
+            ) : (
+              <TouchableOpacity 
+                style={flattenStyle([styles.loadChartBtn, isDark ? styles.cardDark : styles.cardLight])}
+                onPress={() => {
+                  setShowHRChart(true);
+                  loadRealStreams();
+                }}
+              >
+                <HStack space="sm" style={{ alignItems: 'center' }}>
+                  {loadingStreams ? <ActivityIndicator size="small" color="#EF4444" /> : <Heart size={16} color="#EF4444" />}
+                  <Text style={styles.loadChartText}>Vis pulsgraf</Text>
+                </HStack>
+              </TouchableOpacity>
+            )}
 
-          <Chart 
-            data={altitudeData} 
-            color="#10B981" 
-            label="Høydeprofil" 
-            unit="m" 
-            isDark={isDark}
-            avgValue={Math.round(altitudeData.reduce((acc, d) => acc + d.value, 0) / altitudeData.length)}
-            durationMinutes={session.durationMinutes}
-            onInteractionChange={(interacting) => setScrollEnabled(!interacting)}
-          />
+            {session.elevationGain && session.elevationGain > 0 ? (
+              showAltChart ? (
+                <Chart 
+                  data={altitudeData} 
+                  color="#10B981" 
+                  label="Høydeprofil" 
+                  unit="m" 
+                  isDark={isDark}
+                  avgValue={Math.round(altitudeData.reduce((acc, d) => acc + d.value, 0) / altitudeData.length)}
+                  durationMinutes={session.durationMinutes}
+                  onInteractionChange={(interacting) => setScrollEnabled(!interacting)}
+                />
+              ) : (
+                <TouchableOpacity 
+                  style={flattenStyle([styles.loadChartBtn, isDark ? styles.cardDark : styles.cardLight])}
+                  onPress={() => {
+                    setShowAltChart(true);
+                    loadRealStreams();
+                  }}
+                >
+                  <HStack space="sm" style={{ alignItems: 'center' }}>
+                    {loadingStreams ? <ActivityIndicator size="small" color="#10B981" /> : <Mountain size={16} color="#10B981" />}
+                    <Text style={styles.loadChartText}>Vis høydeprofil</Text>
+                  </HStack>
+                </TouchableOpacity>
+              )
+            ) : null}
+          </VStack>
 
           {session.notes && (
             <VStack space="sm">
@@ -850,5 +889,17 @@ const styles = StyleSheet.create({
   notesText: {
     fontSize: 15,
     lineHeight: 22,
-  }
+  },
+  loadChartBtn: {
+    width: '100%',
+    height: 56,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadChartText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
 });
