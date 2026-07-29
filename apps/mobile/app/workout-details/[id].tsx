@@ -116,7 +116,6 @@ const Chart = ({
   minValue,
   avgValue,
   durationMinutes = 60,
-  onInteractionChange,
   isDrawerMinimized
 }: { 
   data: { x: number; value: number }[]; 
@@ -128,7 +127,6 @@ const Chart = ({
   minValue?: number;
   avgValue?: number;
   durationMinutes?: number,
-  onInteractionChange?: (isInteracting: boolean) => void;
   isDrawerMinimized?: boolean;
 }) => {
   const chartHeight = 200;
@@ -190,20 +188,18 @@ const Chart = ({
     
     if (index >= 0 && index < data.length) {
       setActiveIndex(index);
-      onInteractionChange?.(true);
     }
-  }, [isEnabled, data, padding, chartWidth, onInteractionChange]);
+  }, [isEnabled, data, padding, chartWidth]);
 
   const handleRelease = useCallback(() => {
     if (!isEnabled) return;
     setActiveIndex(null);
-    onInteractionChange?.(false);
-  }, [isEnabled, onInteractionChange]);
+  }, [isEnabled]);
 
   const panGesture = useMemo(() => Gesture.Pan()
     .enabled(isEnabled)
-    .activeOffsetX([-10, 10])
-    .failOffsetY([-10, 10])
+    .activeOffsetX([-15, 15])
+    .failOffsetY([-5, 5])
     .onStart((evt) => {
       runOnJS(handleInteraction)(evt.x);
     })
@@ -409,11 +405,10 @@ export default function WorkoutDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [isStyleLoaded, setIsStyleLoaded] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [scrollEnabled, setScrollEnabled] = useState(true);
 
   const scrollContentStyle = useMemo(() => ({ 
-    paddingBottom: 100 
-  }), []);
+    paddingBottom: SCREEN_HEIGHT * 0.4
+  }), [SCREEN_HEIGHT]);
 
   const fetchSession = async () => {
     if (!id) return;
@@ -609,7 +604,6 @@ export default function WorkoutDetailsPage() {
                 logoEnabled={false}
                 attributionEnabled={false}
                 onDidFinishLoadingStyle={() => setIsStyleLoaded(true)}
-                onCameraChanged={runOnJS(snapToMinimized)}
               >
                 <MapboxCamera 
                   ref={mapboxCameraRef}
@@ -674,7 +668,6 @@ export default function WorkoutDetailsPage() {
                 scrollEnabled={true}
                 zoomEnabled={true}
                 mapType="satellite"
-                onPanDrag={runOnJS(snapToMinimized)}
               >
                 {decodedRoute.length > 0 && (
                   <Polyline
@@ -699,7 +692,7 @@ export default function WorkoutDetailsPage() {
           isDark ? styles.drawerDark : styles.drawerLight,
           rDrawerStyle
         ])}>
-          <VStack>
+          <VStack style={{ flex: 1 }}>
             <GestureDetector gesture={panGesture}>
               <VStack>
                 <View style={styles.drawerHandle} />
@@ -751,11 +744,10 @@ export default function WorkoutDetailsPage() {
                 </TouchableOpacity>
               </VStack>
             </GestureDetector>
-          </VStack>
 
           <ScrollView
             key="workout-details-scroll"
-            scrollEnabled={scrollEnabled && !isMinimized}
+            scrollEnabled={!isMinimized}
             showsVerticalScrollIndicator={false} 
             style={{ flex: 1 }}
             contentContainerStyle={scrollContentStyle}
@@ -835,7 +827,6 @@ export default function WorkoutDetailsPage() {
                       avgValue={session.averageHeartrate}
                       maxValue={session.maxHeartrate}
                       durationMinutes={session.durationMinutes}
-                      onInteractionChange={(interacting) => setScrollEnabled(!interacting)}
                       isDrawerMinimized={isMinimized}
                     />
                   ) : (
@@ -865,7 +856,6 @@ export default function WorkoutDetailsPage() {
                       isDark={isDark}
                       avgValue={Math.round(altitudeData.reduce((acc, d) => acc + d.value, 0) / altitudeData.length)}
                       durationMinutes={session.durationMinutes}
-                      onInteractionChange={(interacting) => setScrollEnabled(!interacting)}
                       isDrawerMinimized={isMinimized}
                     />
                   ) : (
@@ -905,6 +895,7 @@ export default function WorkoutDetailsPage() {
               )}
             </VStack>
           </ScrollView>
+          </VStack>
         </Animated.View>
 
         <WorkoutModal 
