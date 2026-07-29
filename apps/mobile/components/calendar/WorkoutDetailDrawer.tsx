@@ -43,19 +43,28 @@ interface WorkoutDetailDrawerProps {
   onAddHealthEvent: () => void;
 }
 
-const StatsBox = ({ 
-  label, 
-  value, 
-  icon: Icon, 
-  isDark 
-}: { 
-  label: string; 
-  value: string; 
-  icon: any; 
+const StatsBox = ({
+  label,
+  value,
+  icon: Icon,
+  isDark,
+}: {
+  label: string;
+  value: string;
+  icon: any;
   isDark: boolean;
 }) => (
-  <VStack style={[styles.statItem, isDark ? styles.statItemDark : styles.statItemLight]}>
-    <HStack space="xs" style={styles.statLabel}>
+  <VStack
+    style={flattenStyle([
+      styles.statItem,
+      isDark ? styles.statItemDark : styles.statItemLight,
+      { alignItems: "center" },
+    ])}
+  >
+    <HStack
+      space="xs"
+      style={flattenStyle([styles.statLabel, { justifyContent: "center" }])}
+    >
       <Icon size={14} color="#6B7280" />
       <Text style={styles.statLabelText}>{label}</Text>
     </HStack>
@@ -73,6 +82,7 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
 }) => {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const mapRef = React.useRef<MapView | null>(null);
 
   if (!session || !isOpen) return null;
 
@@ -110,6 +120,19 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
         longitudeDelta: 0.1,
       };
 
+  React.useEffect(() => {
+    if (isOpen && session && decodedRoute.length > 0 && mapRef.current) {
+      // Use a small timeout to ensure map is ready
+      const timer = setTimeout(() => {
+        mapRef.current?.fitToCoordinates(decodedRoute, {
+          edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+          animated: false,
+        });
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, session, decodedRoute]);
+
   return (
     <Actionsheet isOpen={isOpen} onClose={onClose}>
       <ActionsheetBackdrop />
@@ -128,13 +151,20 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
             <View style={styles.mapContainer}>
               {Platform.OS !== 'web' ? (
                 <MapView
+                  ref={mapRef}
                   style={styles.map}
-                  initialRegion={initialRegion}
+                  initialCamera={{
+                    center: initialRegion,
+                    pitch: 50,
+                    heading: 0,
+                    altitude: 1000,
+                    zoom: 12,
+                  }}
                   scrollEnabled={false}
                   zoomEnabled={false}
                   rotateEnabled={false}
-                  pitchEnabled={false}
-                  mapType="mutedStandard"
+                  pitchEnabled={true}
+                  mapType="satellite"
                 >
                   {decodedRoute.length > 0 && (
                     <Polyline
@@ -191,7 +221,11 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
               />
               <StatsBox 
                 label="Puls" 
-                value={session.averageHeartrate ? `${session.averageHeartrate} / ${session.maxHeartrate || '--'}` : '-- / --'} 
+                value={
+                  session.averageHeartrate
+                    ? `Snitt: ${session.averageHeartrate} / Maks: ${session.maxHeartrate || "--"}`
+                    : "-- / --"
+                }
                 icon={Heart} 
                 isDark={isDark} 
               />

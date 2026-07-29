@@ -313,6 +313,7 @@ export default function MapScreen() {
   const [pendingCoordinate, setPendingCoordinate] = useState<{ latitude: number; longitude: number } | null>(null);
   const [newPeakName, setNewPeakName] = useState("");
   const [newPeakMoh, setNewPeakMoh] = useState("");
+  const screenHeight = Dimensions.get("window").height;
 
   const [region, setRegion] = useState({
     latitude: 59.9139,
@@ -501,28 +502,48 @@ export default function MapScreen() {
       setActiveTab("kart");
     }
 
-    // Manual latitude offset to position the peak at 15% (2D mode) or 15% ABOVE the top of the screen (3D mode)
-    const latOffset = is3DEnabled ? 0.012 : 0.0053;
-
     // Zoom to peak if using Mapbox
     if (isMapboxAvailable && isMapboxLayer && mapboxCameraRef.current) {
       try {
         mapboxCameraRef.current.setCamera({
-          centerCoordinate: [peak.longitude, peak.latitude - latOffset],
+          centerCoordinate: [peak.longitude, peak.latitude],
           zoomLevel: 14,
           pitch: is3DEnabled ? 60 : 0,
           animationDuration: 1000,
+          padding: {
+            bottom: is3DEnabled ? screenHeight * 1.15 : screenHeight * 0.85,
+            top: 0,
+            left: 0,
+            right: 0,
+          },
         } as any);
       } catch (err) {
         console.warn("Failed to set Mapbox camera center to selected peak:", err);
       }
     } else if (mapRef.current) {
-      mapRef.current.animateToRegion({
-        latitude: peak.latitude - latOffset,
-        longitude: peak.longitude,
-        latitudeDelta: 0.015,
-        longitudeDelta: 0.015,
-      }, 1000);
+      try {
+        const camera = {
+          center: {
+            latitude: peak.latitude,
+            longitude: peak.longitude,
+          },
+          zoom: 14,
+          pitch: is3DEnabled ? 60 : 0,
+          heading: 0,
+        };
+
+        // The user explicitly requested using the padding property in animateCamera
+        (camera as any).padding = {
+          bottom: is3DEnabled ? screenHeight * 1.15 : screenHeight * 0.85,
+          top: 0,
+          left: 0,
+          right: 0,
+        };
+
+        mapRef.current.animateCamera(camera, { duration: 1000 });
+      } catch (err) {
+        console.warn("Failed to animate Google Maps camera:", err);
+      }
     }
   };
 
@@ -853,6 +874,7 @@ export default function MapScreen() {
           rotateEnabled={true}
           logoEnabled={false}
           attributionEnabled={false}
+          onPress={() => setSelectedPeak(null)}
           onLongPress={handleMapboxLongPress}
           onDidFinishLoadingStyle={handleDidFinishLoadingStyle}
           onCameraChanged={handleMapboxCameraChanged}
@@ -1041,6 +1063,7 @@ export default function MapScreen() {
           followsUserLocation={false}
           onLongPress={handleMapLongPress}
           onMapReady={handleMapReady}
+          onPress={() => setSelectedPeak(null)}
           onRegionChangeComplete={handleRegionChangeComplete}
           userInterfaceStyle={colorScheme as any}
           {...({
