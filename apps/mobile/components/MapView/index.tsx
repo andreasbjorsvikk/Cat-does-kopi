@@ -272,10 +272,10 @@ export default function MapScreen() {
   const [newPeakMoh, setNewPeakMoh] = useState("");
 
   const [region, setRegion] = useState({
-    latitude: 61.63,
-    longitude: 8.31,
-    latitudeDelta: 0.1,
-    longitudeDelta: 0.1,
+    latitude: 59.9139,
+    longitude: 10.7522,
+    latitudeDelta: 0.2,
+    longitudeDelta: 0.2,
   });
 
   const loadPeaks = async () => {
@@ -355,24 +355,6 @@ export default function MapScreen() {
                 longitude: loc.coords.longitude,
               };
               setUserLocation(newLocation);
-
-              // Auto-center once on initial load
-              if (!hasInitialRegionSet.current) {
-                if (isMapboxAvailable && isMapboxLayer && mapboxCameraRef.current) {
-                  mapboxCameraRef.current.setCamera({
-                    centerCoordinate: [newLocation.longitude, newLocation.latitude],
-                    zoomLevel: 12,
-                    animationDuration: 1000,
-                  });
-                } else if (mapRef.current) {
-                  mapRef.current.animateToRegion({
-                    ...newLocation,
-                    latitudeDelta: 0.05,
-                    longitudeDelta: 0.05,
-                  }, 1000);
-                }
-                hasInitialRegionSet.current = true;
-              }
             }
             
             subscription = await Location.watchPositionAsync(
@@ -407,6 +389,35 @@ export default function MapScreen() {
     };
   }, []);
 
+  // Auto-center reliably on user location once it's available
+  useEffect(() => {
+    if (userLocation && !hasInitialRegionSet.current) {
+      let attempted = false;
+      if (isMapboxAvailable && isMapboxLayer) {
+        if (mapboxCameraRef.current) {
+          mapboxCameraRef.current.setCamera({
+            centerCoordinate: [userLocation.longitude, userLocation.latitude],
+            zoomLevel: 12,
+            animationDuration: 1000,
+          });
+          attempted = true;
+        }
+      } else if (mapRef.current) {
+        mapRef.current.animateToRegion({
+          latitude: userLocation.latitude,
+          longitude: userLocation.longitude,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
+        }, 1000);
+        attempted = true;
+      }
+
+      if (attempted) {
+        hasInitialRegionSet.current = true;
+      }
+    }
+  }, [userLocation, isMapboxLayer, isStyleLoaded]);
+
   useEffect(() => {
     setIsStyleLoaded(false);
   }, [mapboxStyleURL]);
@@ -417,7 +428,7 @@ export default function MapScreen() {
       const timer = setTimeout(async () => {
         try {
           if (mapboxMapRef.current) {
-            const result = await mapboxMapRef.current.queryTerrainElevation([8.31, 61.63]);
+            const result = await mapboxMapRef.current.queryTerrainElevation([10.7522, 59.9139]);
             const elevation = (result && typeof result === "object" && result.data !== undefined) ? result.data : result;
             if (elevation && elevation > 0) {
               // Terrain verified
@@ -918,7 +929,7 @@ export default function MapScreen() {
             defaultSettings={{
               centerCoordinate: selectedPeak 
                 ? [selectedPeak.longitude, selectedPeak.latitude] 
-                : [8.31, 61.63],
+                : [10.7522, 59.9139],
               zoomLevel: 12,
               pitch: is3DEnabled ? 60 : 0,
             }}
