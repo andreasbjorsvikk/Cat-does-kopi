@@ -63,8 +63,10 @@ const StatsBox = ({
     style={flattenStyle([styles.statItem, isDark ? styles.statItemDark : styles.statItemLight])}
   >
     <View style={styles.statLabel}>
-      <Icon size={14} color="#6B7280" />
-      <Text style={styles.statLabelText}>{label}</Text>
+      <Icon size={14} color={isDark ? "#9CA3AF" : "#6B7280"} />
+      <Text style={flattenStyle([styles.statLabelText, isDark ? styles.textMutedDark : styles.textMutedLight])}>
+        {label}
+      </Text>
     </View>
     <Text style={flattenStyle([styles.statValue, isDark ? styles.statValueDark : styles.statValueLight])}>
       {value}
@@ -148,20 +150,7 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
       onClose={onClose}
     >
       <ActionsheetBackdrop />
-      <ActionsheetContent
-        {...({
-          drag: "y",
-          dragConstraints: { top: 0 },
-          onDragEnd: (e: any, info: any) => {
-            // Use 25% of screen height as threshold for dismissal
-            if (info.offset.y > screenHeight * 0.25) {
-              onClose();
-            }
-          },
-          dragElastic: 0.1 // Low elasticity for bounce back below threshold
-        } as any)}
-        style={flattenStyle([styles.sheetContent, { paddingHorizontal: 0 }])}
-      >
+      <ActionsheetContent style={flattenStyle([styles.sheetContent, { paddingHorizontal: 0 }])}>
         <ActionsheetDragIndicatorWrapper style={styles.dragWrapper}>
           <ActionsheetDragIndicator />
         </ActionsheetDragIndicatorWrapper>
@@ -444,8 +433,13 @@ const styles = StyleSheet.create({
   },
   statLabelText: {
     fontSize: 11,
-    color: '#6B7280',
     fontWeight: '600',
+  },
+  textMutedLight: {
+    color: '#6B7280',
+  },
+  textMutedDark: {
+    color: '#9CA3AF',
   },
   statValue: {
     fontSize: 16,

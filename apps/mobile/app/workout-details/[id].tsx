@@ -111,7 +111,7 @@ const Chart = ({
   const chartWidth = width - 32;
   const padding = 15;
   const bottomPadding = 30;
-  const topPadding = 30; // Reduced space for tooltip at top
+  const topPadding = 25; // Even tighter space for tooltip at top
   
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const interactionTimerRef = useRef<any>(null);
@@ -251,24 +251,24 @@ const Chart = ({
               
               {/* Tooltip always at top of line */}
               <Rect
-                x={Math.max(padding, Math.min(chartWidth - padding - 100, getX(activeIndex) - 50))}
+                x={Math.max(padding, Math.min(chartWidth - padding - 75, getX(activeIndex) - 37.5))}
                 y={2}
-                width="100"
-                height="28"
+                width="75"
+                height="24"
                 rx="8"
                 fill={isDark ? "#1F2937" : "#FFFFFF"}
                 stroke={color}
                 strokeWidth="2"
               />
               <SvgText
-                x={Math.max(padding + 50, Math.min(chartWidth - padding - 50, getX(activeIndex)))}
-                y={21}
-                fontSize="13"
+                x={Math.max(padding + 37.5, Math.min(chartWidth - padding - 37.5, getX(activeIndex)))}
+                y={19}
+                fontSize="12"
                 fontWeight="bold"
                 fill={isDark ? "#FFFFFF" : "#111827"}
                 textAnchor="middle"
               >
-                {data[activeIndex].value}    {unit.trim()}
+                {data[activeIndex].value} {unit.trim()}
               </SvgText>
             </>
           )}
