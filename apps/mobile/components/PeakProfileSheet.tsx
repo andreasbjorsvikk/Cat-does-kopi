@@ -241,7 +241,7 @@ export function PeakProfileSheet({
                     <Cloud size={24} color="#3B82F6" />
                   </View>
                   <VStack>
-                    <Text className={`font-semibold ${themeClasses.text} dark:text-typography-50`}>Været nå</Text>
+                    <Text className={`font-semibold text-typography-900 dark:text-typography-50`}>Været nå</Text>
                     <Text size="xs" className={themeClasses.textMuted}>{weatherData?.description || "Laster..."}</Text>
                   </VStack>
                 </HStack>
@@ -279,7 +279,7 @@ export function PeakProfileSheet({
                 <Sun size={20} color="#EAB308" />
                 <VStack>
                   <Text style={{ fontSize: 10 }} className="text-yellow-700 dark:text-yellow-500 font-bold uppercase tracking-wider">Soloppgang</Text>
-                  <Text className={`text-xl font-bold ${themeClasses.text}`}>{astronomy?.sunrise || "--:--"}</Text>
+                  <Text className={`text-xl font-bold text-typography-900 dark:text-typography-50`}>{astronomy?.sunrise || "--:--"}</Text>
                 </VStack>
               </View>
               <View 
@@ -291,14 +291,14 @@ export function PeakProfileSheet({
                 <Moon size={20} color="#8B5CF6" />
                 <VStack>
                   <Text style={{ fontSize: 10 }} className="text-violet-700 dark:text-violet-500 font-bold uppercase tracking-wider">Solnedgang</Text>
-                  <Text className={`text-xl font-bold ${themeClasses.text}`}>{astronomy?.sunset || "--:--"}</Text>
+                  <Text className={`text-xl font-bold text-typography-900 dark:text-typography-50`}>{astronomy?.sunset || "--:--"}</Text>
                 </VStack>
               </View>
             </HStack>
 
             {/* Description */}
             <VStack space="xs" className="mt-2">
-              <Heading size="xs" className="text-typography-500 dark:text-typography-400 uppercase tracking-widest font-bold">Beskrivelse</Heading>
+              <Heading size="xs" className="text-typography-500 dark:text-typography-50 uppercase tracking-widest font-bold">Beskrivelse</Heading>
               <Text className={`text-sm leading-relaxed ${themeClasses.textMuted}`}>
                 {peak.description || "Ingen beskrivelse tilgjengelig for denne toppen ennå."}
               </Text>
@@ -351,19 +351,41 @@ function PeakSpecificFeed({ peakId }: { peakId: string }) {
     const fetchFeed = async () => {
       setLoading(true);
       try {
+        // Fetch check-ins first
         const { data: checkins, error } = await supabase
           .from("peak_checkins")
-          .select(`
-            *,
-            profiles:user_id (username, avatar_url),
-            child_profiles:user_id (name, avatar_url, emoji)
-          `)
+          .select("*")
           .eq("peak_id", peakId)
           .order("checked_in_at", { ascending: false })
           .limit(20);
 
         if (error) throw error;
-        setFeed(checkins || []);
+        
+        if (!checkins || checkins.length === 0) {
+          setFeed([]);
+          return;
+        }
+
+        // Collect unique user IDs
+        const userIds = [...new Set(checkins.map(c => c.user_id))];
+
+        // Fetch profiles and child profiles separately
+        const [profilesRes, childrenRes] = await Promise.all([
+          supabase.from("profiles").select("id, username, avatar_url").in("id", userIds),
+          supabase.from("child_profiles").select("id, name, avatar_url, emoji").in("id", userIds)
+        ]);
+
+        const profileMap = new Map(profilesRes.data?.map(p => [p.id, p]) || []);
+        const childMap = new Map(childrenRes.data?.map(c => [c.id, c]) || []);
+
+        // Merge data
+        const enrichedCheckins = checkins.map(item => ({
+          ...item,
+          profiles: profileMap.get(item.user_id),
+          child_profiles: childMap.get(item.user_id)
+        }));
+
+        setFeed(enrichedCheckins);
       } catch (err) {
         console.error("Failed to fetch peak specific feed", err);
       } finally {

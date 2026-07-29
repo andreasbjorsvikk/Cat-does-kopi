@@ -460,7 +460,7 @@ export default function MapScreen() {
     }
 
     const screenHeight = Dimensions.get("window").height;
-    const bottomPadding = screenHeight * 0.6; // Account for the sheet covering 60% of screen (top: 40%)
+    const bottomPadding = screenHeight * 0.75; // Account for the sheet covering 60% of screen, center in top 25%
 
     // Zoom to peak if using Mapbox
     if (isMapboxAvailable && isMapboxLayer && mapboxCameraRef.current) {
@@ -963,7 +963,7 @@ export default function MapScreen() {
                   styles.customMarkerCircle,
                   !checkedPeakIds.has(peak.id) ? { backgroundColor: "#FFFFFF", borderColor: "#10B981" } : null
                 ])}>
-                  <Mountain size={16} color={checkedPeakIds.has(peak.id) ? "#FFFFFF" : "#10B981"} strokeWidth={2} />
+                  <Mountain size={18} color={checkedPeakIds.has(peak.id) ? "#FFFFFF" : "#10B981"} strokeWidth={2.5} />
                 </View>
                 <View style={styles.customMarkerPill}>
                   <Text style={styles.customMarkerLabel} numberOfLines={1}>
@@ -1022,7 +1022,7 @@ export default function MapScreen() {
                     styles.customMarkerCircle,
                     !isChecked ? { backgroundColor: "#FFFFFF", borderColor: "#10B981" } : null
                   ])}>
-                    <Mountain size={16} color={isChecked ? "#FFFFFF" : "#10B981"} strokeWidth={2} />
+                    <Mountain size={18} color={isChecked ? "#FFFFFF" : "#10B981"} strokeWidth={2.5} />
                   </View>
                   <View style={styles.customMarkerPill}>
                     <Text style={styles.customMarkerLabel} numberOfLines={1}>
