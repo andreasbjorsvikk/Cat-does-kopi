@@ -830,9 +830,9 @@ export default function MapScreen() {
               />
               <Mapbox.Atmosphere
                 style={{
-                  range: ['interpolate', ['linear'], ['zoom'], 10, [8, 12], 13.527, [8, 14], 15, [12, 20]],
-                  horizonBlend: 0.1,
-                  color: 'rgba(135, 206, 235, 0.5)',
+                  range: [0, 15],
+                  horizonBlend: 0.05,
+                  color: 'rgba(135, 206, 235, 0.7)',
                   highColor: '#245cdf',
                   spaceColor: '#0b1026',
                 }}

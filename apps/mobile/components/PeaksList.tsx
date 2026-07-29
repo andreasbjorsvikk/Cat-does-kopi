@@ -132,7 +132,7 @@ export const PeaksList = ({ peaks, checkins, userLocation, onSelectPeak, loading
           <LinearGradient
             colors={isReached 
               ? ["#10B981", "#059669"] 
-              : (isDark ? ["#B0B8C1", "#828F9F"] : ["#9CA3AF", "#6B7280"])
+              : (isDark ? ["#525252", "#404040"] : ["#9CA3AF", "#6B7280"])
             }
             style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' }}
           >

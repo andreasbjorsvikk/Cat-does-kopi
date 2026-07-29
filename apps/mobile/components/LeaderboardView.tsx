@@ -4,7 +4,7 @@ import { VStack } from '@/components/ui/vstack';
 import { HStack } from '@/components/ui/hstack';
 import { Text } from '@/components/ui/text';
 import { Heading } from '@/components/ui/heading';
-import { Trophy, ChevronDown, Users, Globe } from 'lucide-react-native';
+import { Trophy, Users, Globe } from 'lucide-react-native';
 import { useAuth } from '@/hooks/useAuth';
 import useColorScheme from '@/hooks/useColorScheme';
 import { 
@@ -15,7 +15,6 @@ import {
   LeaderboardMetric 
 } from '@/services/leaderboardService';
 import { hapticsService } from '@/services/hapticsService';
-import { Select, SelectTrigger, SelectInput, SelectIcon, SelectPortal, SelectBackdrop, SelectContent, SelectDragIndicatorWrapper, SelectDragIndicator, SelectItem } from '@/components/ui/select';
 
 export const LeaderboardView = () => {
   const { user } = useAuth();
@@ -57,20 +56,24 @@ export const LeaderboardView = () => {
 
   const renderEntry = ({ item, index }: { item: LeaderboardEntry; index: number }) => {
     const rank = index + 1;
+    const isFirst = rank === 1;
     const value = metric === 'unique' ? item.uniquePeaks : item.totalTrips;
     const label = metric === 'unique' ? (value === 1 ? 'topp' : 'topper') : (value === 1 ? 'tur' : 'turer');
     
     const isTop3 = rank <= 3;
     const trophyColor = rank === 1 ? '#FBBF24' : rank === 2 ? '#9CA3AF' : '#D97706';
 
+    let containerClasses = "px-4 py-3 mx-4 mb-2 rounded-2xl border ";
+    if (isFirst) {
+      containerClasses += "bg-emerald-500/10 dark:bg-emerald-500/20 border-emerald-500/50";
+    } else if (item.isMe) {
+      containerClasses += "bg-emerald-50 dark:bg-emerald-900/50 border-emerald-500/30";
+    } else {
+      containerClasses += "bg-background-50 dark:bg-background-950 border-outline-100 dark:border-outline-900";
+    }
+
     return (
-      <View 
-        className={`px-4 py-3 mx-4 mb-2 rounded-2xl border ${
-          item.isMe 
-            ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-500/50' 
-            : 'bg-background-50 dark:bg-background-900 border-outline-100 dark:border-outline-800'
-        }`}
-      >
+      <View className={containerClasses}>
         <HStack className="items-center" style={{ gap: 12 }}>
           <View className="w-8 items-center">
             {isTop3 ? (
@@ -101,14 +104,14 @@ export const LeaderboardView = () => {
           </View>
 
           <VStack className="flex-1" style={{ gap: 0 }}>
-            <Text className={`font-semibold text-sm ${item.isMe ? 'text-emerald-900 dark:text-emerald-50' : 'text-typography-900 dark:text-typography-50'}`} numberOfLines={1}>
+            <Text className={`font-semibold text-sm ${item.isMe ? 'text-emerald-900 dark:text-white' : 'text-typography-900 dark:text-white'}`} numberOfLines={1}>
               {item.name}
             </Text>
           </VStack>
 
           <HStack className="items-baseline" style={{ gap: 4 }}>
-            <Text className="font-bold text-base text-typography-900 dark:text-typography-50">{value}</Text>
-            <Text size="xs" className="text-typography-500 dark:text-typography-400">{label}</Text>
+            <Text className="font-bold text-base text-typography-900 dark:text-white">{value}</Text>
+            <Text size="xs" className="text-typography-500 dark:text-typography-200">{label}</Text>
           </HStack>
         </HStack>
       </View>
@@ -123,42 +126,35 @@ export const LeaderboardView = () => {
         <HStack className="bg-background-100 dark:bg-background-900 p-1 rounded-xl">
           <TouchableOpacity 
             onPress={() => { hapticsService.impact('light'); setScope('global'); }}
-            className={`flex-1 flex-row items-center justify-center py-2 rounded-lg ${scope === 'global' ? 'bg-white dark:bg-background-800 shadow-sm' : ''}`}
+            className={`flex-1 flex-row items-center justify-center py-2 rounded-lg ${scope === 'global' ? 'bg-white dark:bg-emerald-600 shadow-sm' : ''}`}
           >
-            <Globe size={14} color={scope === 'global' ? '#10B981' : (isDark ? '#9CA3AF' : '#6B7280')} className="mr-2" />
-            <Text size="sm" className={`font-semibold ${scope === 'global' ? 'text-typography-900 dark:text-typography-50' : 'text-typography-500'}`}>Global</Text>
+            <Globe size={14} color={scope === 'global' ? (isDark ? '#FFFFFF' : '#10B981') : (isDark ? '#9CA3AF' : '#6B7280')} />
+            <Text size="sm" className={`font-semibold ml-2 ${scope === 'global' ? 'text-typography-900 dark:text-white' : 'text-typography-500'}`}>Global</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             onPress={() => { hapticsService.impact('light'); setScope('friends'); }}
-            className={`flex-1 flex-row items-center justify-center py-2 rounded-lg ${scope === 'friends' ? 'bg-white dark:bg-background-800 shadow-sm' : ''}`}
+            className={`flex-1 flex-row items-center justify-center py-2 rounded-lg ${scope === 'friends' ? 'bg-white dark:bg-emerald-600 shadow-sm' : ''}`}
           >
-            <Users size={14} color={scope === 'friends' ? '#10B981' : (isDark ? '#9CA3AF' : '#6B7280')} className="mr-2" />
-            <Text size="sm" className={`font-semibold ${scope === 'friends' ? 'text-typography-900 dark:text-typography-50' : 'text-typography-500'}`}>Venner</Text>
+            <Users size={14} color={scope === 'friends' ? (isDark ? '#FFFFFF' : '#10B981') : (isDark ? '#9CA3AF' : '#6B7280')} />
+            <Text size="sm" className={`font-semibold ml-2 ${scope === 'friends' ? 'text-typography-900 dark:text-white' : 'text-typography-500'}`}>Venner</Text>
           </TouchableOpacity>
         </HStack>
 
-        {/* Metric Selector */}
-        <Select
-          selectedValue={metric}
-          onValueChange={(val) => { hapticsService.impact('light'); setMetric(val as LeaderboardMetric); }}
-        >
-          <SelectTrigger variant="outline" size="md" className="rounded-xl border-outline-100 dark:border-outline-800 bg-background-50 dark:bg-background-900">
-            <SelectInput placeholder="Velg metrikk" className="flex-1" />
-            <SelectIcon className="mr-3">
-              <ChevronDown size={18} color={isDark ? '#9CA3AF' : '#6B7280'} />
-            </SelectIcon>
-          </SelectTrigger>
-          <SelectPortal>
-            <SelectBackdrop />
-            <SelectContent className={isDark ? 'bg-background-900' : 'bg-background-0'}>
-              <SelectDragIndicatorWrapper>
-                <SelectDragIndicator />
-              </SelectDragIndicatorWrapper>
-              <SelectItem label="Unike topper" value="unique" />
-              <SelectItem label="Totalt antall turer" value="trips" />
-            </SelectContent>
-          </SelectPortal>
-        </Select>
+        {/* Metric Selector Toggle Buttons */}
+        <HStack className="bg-background-100 dark:bg-background-900 p-1 rounded-xl">
+          <TouchableOpacity 
+            onPress={() => { hapticsService.impact('light'); setMetric('unique'); }}
+            className={`flex-1 items-center justify-center py-2 rounded-lg ${metric === 'unique' ? 'bg-white dark:bg-emerald-600 shadow-sm' : ''}`}
+          >
+            <Text size="sm" className={`font-semibold ${metric === 'unique' ? 'text-typography-900 dark:text-white' : 'text-typography-500'}`}>Unike topper</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            onPress={() => { hapticsService.impact('light'); setMetric('trips'); }}
+            className={`flex-1 items-center justify-center py-2 rounded-lg ${metric === 'trips' ? 'bg-white dark:bg-emerald-600 shadow-sm' : ''}`}
+          >
+            <Text size="sm" className={`font-semibold ${metric === 'trips' ? 'text-typography-900 dark:text-white' : 'text-typography-500'}`}>Totalt antall turer</Text>
+          </TouchableOpacity>
+        </HStack>
 
         {/* Period Selector */}
         <HStack className="bg-background-100 dark:bg-background-900 p-1 rounded-xl">
@@ -169,9 +165,9 @@ export const LeaderboardView = () => {
               <TouchableOpacity 
                 key={p}
                 onPress={() => { hapticsService.impact('light'); setPeriod(p); }}
-                className={`flex-1 items-center justify-center py-1.5 rounded-lg ${isActive ? 'bg-white dark:bg-background-800 shadow-sm' : ''}`}
+                className={`flex-1 items-center justify-center py-1.5 rounded-lg ${isActive ? 'bg-white dark:bg-emerald-600 shadow-sm' : ''}`}
               >
-                <Text size="xs" className={`font-semibold ${isActive ? 'text-typography-900 dark:text-typography-50' : 'text-typography-500'}`}>{label}</Text>
+                <Text size="xs" className={`font-semibold ${isActive ? 'text-typography-900 dark:text-white' : 'text-typography-500'}`}>{label}</Text>
               </TouchableOpacity>
             );
           })}
