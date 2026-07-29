@@ -7,12 +7,14 @@ import { Heading } from '@/components/ui/heading';
 import { Trophy } from 'lucide-react-native';
 import { getPeakLeaderboardData, LeaderboardEntry } from '@/services/leaderboardService';
 import { useAuth } from '@/hooks/useAuth';
+import useColorScheme from '@/hooks/useColorScheme';
 
 interface PeakLeaderboardProps {
   peakId: string;
 }
 
 export const PeakLeaderboard = ({ peakId }: PeakLeaderboardProps) => {
+  const isDark = useColorScheme() === 'dark';
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
@@ -45,7 +47,11 @@ export const PeakLeaderboard = ({ peakId }: PeakLeaderboardProps) => {
 
   return (
     <VStack className="mt-8 mb-4" style={{ gap: 12 }}>
-      <Heading size="xs" className="text-typography-600 uppercase tracking-wider font-semibold">
+      <Heading 
+        size="xs" 
+        className="uppercase tracking-wider font-semibold"
+        style={{ color: isDark ? "#9CA3AF" : "#4B5563" }}
+      >
         Topp 10 på denne toppen
       </Heading>
       
@@ -54,7 +60,7 @@ export const PeakLeaderboard = ({ peakId }: PeakLeaderboardProps) => {
           const rank = index + 1;
           const isTop3 = rank <= 3;
           const trophyColor = rank === 1 ? '#FBBF24' : rank === 2 ? '#9CA3AF' : '#D97706';
-          const isMe = item.userId === user?.id;
+          const isMe = user && item.userId === user.id;
 
           return (
             <HStack 

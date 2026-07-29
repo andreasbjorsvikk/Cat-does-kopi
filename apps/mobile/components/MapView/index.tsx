@@ -453,14 +453,14 @@ export default function MapScreen() {
   const handlePeakSelect = (peak: Peak) => {
     console.log("Peak selected:", peak.name);
     setSelectedPeak(peak);
-    
+
     // Ensure we are on the map tab when a peak is selected
     if (activeTab !== "kart") {
       setActiveTab("kart");
     }
 
     const screenHeight = Dimensions.get("window").height;
-    const bottomPadding = screenHeight * 0.75; // Account for the sheet covering 60% of screen, center in top 25%
+    const bottomPadding = screenHeight * 0.82; // Position even higher to ensure it's in the top section
 
     // Zoom to peak if using Mapbox
     if (isMapboxAvailable && isMapboxLayer && mapboxCameraRef.current) {
@@ -957,13 +957,16 @@ export default function MapScreen() {
               id={peak.id}
               coordinate={[peak.longitude, peak.latitude]}
               onSelected={() => handlePeakSelect(peak)}
+              anchor={{ x: 0.5, y: 0.5 }}
             >
               <View style={styles.customMarkerContainer}>
                 <View style={flattenStyle([
                   styles.customMarkerCircle,
                   !checkedPeakIds.has(peak.id) ? { backgroundColor: "#FFFFFF", borderColor: "#10B981" } : null
                 ])}>
-                  <Mountain size={18} color={checkedPeakIds.has(peak.id) ? "#FFFFFF" : "#10B981"} strokeWidth={2.5} />
+                  <View style={{ zIndex: 10, elevation: 10 }}>
+                    <Mountain size={18} color={checkedPeakIds.has(peak.id) ? "#FFFFFF" : "#10B981"} strokeWidth={2.5} />
+                  </View>
                 </View>
                 <View style={styles.customMarkerPill}>
                   <Text style={styles.customMarkerLabel} numberOfLines={1}>
@@ -1016,13 +1019,16 @@ export default function MapScreen() {
                 key={peak.id}
                 coordinate={{ latitude: peak.latitude, longitude: peak.longitude }}
                 onPress={() => handlePeakSelect(peak)}
+                anchor={{ x: 0.5, y: 0.5 }}
               >
                 <View style={styles.customMarkerContainer}>
                   <View style={flattenStyle([
                     styles.customMarkerCircle,
                     !isChecked ? { backgroundColor: "#FFFFFF", borderColor: "#10B981" } : null
                   ])}>
-                    <Mountain size={18} color={isChecked ? "#FFFFFF" : "#10B981"} strokeWidth={2.5} />
+                    <View style={{ zIndex: 10, elevation: 10 }}>
+                      <Mountain size={18} color={isChecked ? "#FFFFFF" : "#10B981"} strokeWidth={2.5} />
+                    </View>
                   </View>
                   <View style={styles.customMarkerPill}>
                     <Text style={styles.customMarkerLabel} numberOfLines={1}>

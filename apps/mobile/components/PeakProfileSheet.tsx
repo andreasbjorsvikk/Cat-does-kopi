@@ -164,11 +164,20 @@ export function PeakProfileSheet({
   };
 
   return (
-    <View style={flattenStyle([styles.container, { backgroundColor: isDark ? "#111827" : "#FFFFFF" }])}>
+    <View style={flattenStyle([
+      styles.container, 
+      { 
+        backgroundColor: isDark ? "#111827" : "#FFFFFF",
+        top: Dimensions.get("window").height * 0.4
+      }
+    ])}>
       {/* Header */}
       <HStack style={styles.header}>
         <VStack style={{ flex: 1, alignItems: "center" }}>
-          <Heading className={`text-2xl font-bold ${themeClasses.text} dark:text-typography-50`}>
+          <Heading 
+            className="text-2xl font-bold"
+            style={{ color: isDark ? "#F9FAFB" : "#111827" }}
+          >
             {peak.name}
           </Heading>
           <HStack space="sm" className="items-center mt-1">
@@ -241,7 +250,12 @@ export function PeakProfileSheet({
                     <Cloud size={24} color="#3B82F6" />
                   </View>
                   <VStack>
-                    <Text className={`font-semibold text-typography-900 dark:text-typography-50`}>Været nå</Text>
+                    <Text 
+                      className="font-semibold"
+                      style={{ color: isDark ? "#F9FAFB" : "#111827" }}
+                    >
+                      Været nå
+                    </Text>
                     <Text size="xs" className={themeClasses.textMuted}>{weatherData?.description || "Laster..."}</Text>
                   </VStack>
                 </HStack>
@@ -255,7 +269,10 @@ export function PeakProfileSheet({
                       )}
                     </View>
                   )}
-                  <Text className={`text-2xl font-bold ${themeClasses.text} dark:text-typography-50`}>
+                  <Text 
+                    className="text-2xl font-bold"
+                    style={{ color: isDark ? "#F9FAFB" : "#111827" }}
+                  >
                     {weatherData ? `${weatherData.temp}°` : "--"}
                   </Text>
                   <VStack className="items-end ml-1">
@@ -279,7 +296,12 @@ export function PeakProfileSheet({
                 <Sun size={20} color="#EAB308" />
                 <VStack>
                   <Text style={{ fontSize: 10 }} className="text-yellow-700 dark:text-yellow-500 font-bold uppercase tracking-wider">Soloppgang</Text>
-                  <Text className={`text-xl font-bold text-typography-900 dark:text-typography-50`}>{astronomy?.sunrise || "--:--"}</Text>
+                  <Text 
+                    className="text-xl font-bold"
+                    style={{ color: isDark ? "#F9FAFB" : "#111827" }}
+                  >
+                    {astronomy?.sunrise || "--:--"}
+                  </Text>
                 </VStack>
               </View>
               <View 
@@ -291,14 +313,25 @@ export function PeakProfileSheet({
                 <Moon size={20} color="#8B5CF6" />
                 <VStack>
                   <Text style={{ fontSize: 10 }} className="text-violet-700 dark:text-violet-500 font-bold uppercase tracking-wider">Solnedgang</Text>
-                  <Text className={`text-xl font-bold text-typography-900 dark:text-typography-50`}>{astronomy?.sunset || "--:--"}</Text>
+                  <Text 
+                    className="text-xl font-bold"
+                    style={{ color: isDark ? "#F9FAFB" : "#111827" }}
+                  >
+                    {astronomy?.sunset || "--:--"}
+                  </Text>
                 </VStack>
               </View>
             </HStack>
 
             {/* Description */}
             <VStack space="xs" className="mt-2">
-              <Heading size="xs" className="text-typography-500 dark:text-typography-50 uppercase tracking-widest font-bold">Beskrivelse</Heading>
+              <Heading 
+                size="xs" 
+                className="uppercase tracking-widest font-bold"
+                style={{ color: isDark ? "#F9FAFB" : "#6B7280" }}
+              >
+                Beskrivelse
+              </Heading>
               <Text className={`text-sm leading-relaxed ${themeClasses.textMuted}`}>
                 {peak.description || "Ingen beskrivelse tilgjengelig for denne toppen ennå."}
               </Text>
@@ -317,12 +350,23 @@ export function PeakProfileSheet({
         {activeTab === "vær" && (
           <VStack style={{ gap: 16 }}>
              <View style={flattenStyle([styles.infoCard, { backgroundColor: isDark ? "#1F2937" : "#F8FAFC" }])}>
-                <Heading size="sm" className={`mb-4 ${themeClasses.text}`}>Time for time</Heading>
+                <Heading 
+                  size="sm" 
+                  className="mb-4"
+                  style={{ color: isDark ? "#F9FAFB" : "#111827" }}
+                >
+                  Time for time
+                </Heading>
                 {[...Array(5)].map((_, i) => (
                   <HStack key={i} className="justify-between items-center py-3 border-b border-outline-50 dark:border-outline-800 last:border-0">
                     <Text className={themeClasses.textMuted}>{String(12 + i).padStart(2, "0")}:00</Text>
                     <Cloud size={20} color="#3B82F6" />
-                    <Text className={`font-bold ${themeClasses.text}`}>{14 - i}°</Text>
+                    <Text 
+                      className="font-bold"
+                      style={{ color: isDark ? "#F9FAFB" : "#111827" }}
+                    >
+                      {14 - i}°
+                    </Text>
                     <HStack space="xs" className="items-center w-16 justify-end">
                       <Wind size={14} color={isDark ? "#9CA3AF" : "#64748B"} />
                       <Text size="xs" className={themeClasses.textMuted}>{4 + i} m/s</Text>
@@ -442,7 +486,12 @@ function PeakSpecificFeed({ peakId }: { peakId: string }) {
                 )}
               </View>
               <VStack>
-                <Text className="font-bold text-typography-900 dark:text-typography-50">{username}</Text>
+                <Text 
+                  className="font-bold"
+                  style={{ color: isDark ? "#F9FAFB" : "#111827" }}
+                >
+                  {username}
+                </Text>
                 <Text size="xs" className="text-typography-500 dark:text-typography-400">
                   {new Date(item.checked_in_at).toLocaleDateString("no-NO", {
                     day: "2-digit",
@@ -478,7 +527,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    top: "40%",
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     zIndex: 100,
