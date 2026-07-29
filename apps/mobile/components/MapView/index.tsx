@@ -64,6 +64,7 @@ import { ChildCheckinSheet } from "../ChildCheckinSheet";
 import { PeaksList } from "../PeaksList";
 import { LeaderboardView } from "../LeaderboardView";
 import { PeakLeaderboard } from "../leaderboard/PeakLeaderboard";
+import { PeakProfileSheet } from "../PeakProfileSheet";
 import { fetchBoundary } from "@/services/boundaryService";
 import KOMMUNER_DATA from "@/data/kommuner.json";
 
@@ -1289,136 +1290,14 @@ export default function MapScreen() {
       )}
 
       {selectedPeak && activeTab === "kart" && (
-        <View style={flattenStyle([styles.bottomSheet, { backgroundColor: isDark ? "#111827" : "#FFFFFF" }])}>
-          <ScrollView style={{ maxHeight: 450 }} showsVerticalScrollIndicator={false}>
-            {/* Stats and Button moved to top */}
-            <HStack style={{ justifyContent: "space-between", marginBottom: 12 }}>
-              <View style={flattenStyle([
-                styles.statCard, 
-                { backgroundColor: isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.05)" }
-              ])}>
-                <Text style={styles.statLabel}>Avstand</Text>
-                <Text style={flattenStyle([
-                  styles.statValue, 
-                  { color: canCheckin ? "#10B981" : (isDark ? "#E5E7EB" : "#1F2937") }
-                ])}>
-                  {formattedDistance}
-                </Text>
-              </View>
-              <View style={flattenStyle([
-                styles.statCard, 
-                { backgroundColor: isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.05)" }
-              ])}>
-                <Text style={styles.statLabel}>Historikk</Text>
-                <Text style={flattenStyle([styles.statValue, { color: isDark ? "#E5E7EB" : "#1F2937" }])} numberOfLines={1} adjustsFontSizeToFit>
-                  {selectedPeakCheckins.length} {selectedPeakCheckins.length === 1 ? "innsjekk" : "innsjekkinger"}
-                </Text>
-              </View>
-            </HStack>
-
-            <TouchableOpacity 
-              style={flattenStyle([
-                styles.checkinBtn, 
-                !canCheckin ? styles.checkinBtnDisabled : null
-              ])} 
-              activeOpacity={0.8}
-              disabled={!canCheckin || checkinLoading}
-              onPress={handleCheckinPress}
-            >
-              <HStack style={styles.checkinBtnContent}>
-                <CheckCircle size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-                <Text style={styles.checkinBtnText}>
-                  {checkinLoading 
-                    ? "Sjekker inn..." 
-                    : (canCheckin 
-                      ? "Sjekk inn" 
-                      : "For langt unna toppen"
-                    )
-                  }
-                </Text>
-              </HStack>
-            </TouchableOpacity>
-
-            {lastCheckinDateStr && (
-              <Text className={`text-xs mt-2 ${themeClasses.textMuted}`} style={{ marginBottom: 12, textAlign: "right" }}>
-                Sist besøkt: {lastCheckinDateStr}
-              </Text>
-            )}
-
-            <HStack style={flattenStyle([styles.sheetHeader, { marginTop: 4 }])}>
-              <VStack style={{ flex: 1 }}>
-                <Heading className={`text-xl font-bold ${themeClasses.text}`}>{selectedPeak.name}</Heading>
-                <Text className={`text-xs ${themeClasses.textMuted}`}>{selectedPeak.heightMoh} moh • {selectedPeak.municipality}, {selectedPeak.county}</Text>
-              </VStack>
-              <TouchableOpacity onPress={() => setSelectedPeak(null)} style={styles.closeBtn}>
-                <X size={20} color={isDark ? "#FFFFFF" : "#000000"} />
-              </TouchableOpacity>
-            </HStack>
-
-            <Image 
-              source={{ uri: selectedPeak.imageUrl || "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b" }} 
-              style={flattenStyle([styles.sheetImage, { marginTop: 16 }])} 
-            />
-            <Text className={`text-sm mt-3 ${themeClasses.textMuted}`} style={{ paddingBottom: 16 }}>
-              {selectedPeak.description}
-            </Text>
-
-            {/* Recent check-ins list with edit/delete options */}
-            {selectedPeakCheckins.length > 0 && (
-              <View style={{ marginTop: 20 }}>
-                <Heading size="xs" className="text-typography-600 mb-2 uppercase tracking-wider font-semibold">
-                  Dine innsjekker på denne toppen
-                </Heading>
-                {selectedPeakCheckins.map((checkin) => {
-                  const isRecent = (Date.now() - new Date(checkin.checked_in_at).getTime()) < 24 * 60 * 60 * 1000;
-                  return (
-                    <View 
-                      key={checkin.id} 
-                      style={{ 
-                        flexDirection: 'row', 
-                        alignItems: 'center', 
-                        justifyContent: 'space-between', 
-                        paddingVertical: 10, 
-                        borderBottomWidth: 0.5, 
-                        borderColor: isDark ? '#374151' : '#E5E7EB' 
-                      }}
-                    >
-                      <VStack style={{ flex: 1, gap: 4 }}>
-                        <Text size="sm" className="text-typography-900 font-medium">
-                          {new Date(checkin.checked_in_at).toLocaleDateString("no-NO", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit"
-                          })}
-                        </Text>
-                        {checkin.image_url && (
-                          <Image 
-                            source={{ uri: checkin.image_url }} 
-                            style={{ width: 80, height: 60, borderRadius: 8, marginTop: 4 }} 
-                          />
-                        )}
-                      </VStack>
-                      {isRecent && (
-                        <HStack style={{ gap: 16 }}>
-                          <TouchableOpacity onPress={() => handleEditImagePress(checkin.id)} style={{ padding: 4 }}>
-                            <Pencil size={18} color="#10B981" />
-                          </TouchableOpacity>
-                          <TouchableOpacity onPress={() => handleDeleteCheckinPress(checkin.id)} style={{ padding: 4 }}>
-                            <Trash2 size={18} color="#EF4444" />
-                          </TouchableOpacity>
-                        </HStack>
-                      )}
-                    </View>
-                  );
-                })}
-              </View>
-            )}
-
-            <PeakLeaderboard peakId={selectedPeak.id} />
-          </ScrollView>
-        </View>
+        <PeakProfileSheet
+          peak={selectedPeak}
+          userLocation={userLocation}
+          canCheckin={canCheckin}
+          checkinLoading={checkinLoading}
+          onCheckin={handleCheckinPress}
+          onClose={() => setSelectedPeak(null)}
+        />
       )}
 
       {/* Add Peak Modal */}
