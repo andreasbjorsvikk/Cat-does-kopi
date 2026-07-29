@@ -16,6 +16,7 @@ import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { HStack } from '@/components/ui/hstack';
 import { VStack } from '@/components/ui/vstack';
+import { Badge, BadgeText } from '@/components/ui/badge';
 import { 
   ChevronLeft, 
   Pencil, 
@@ -410,8 +411,8 @@ export default function WorkoutDetailsPage() {
           
           // Smart padding: base + a factor of the span to ensure large routes aren't cut off
           // while small routes don't zoom out too far.
-          const basePadding = 60;
-          const topPadding = latSpan > 0.05 ? 140 : 100; // More room at top for large routes due to pitch
+          const basePadding = 30;
+          const topPadding = latSpan > 0.05 ? 80 : 50; // More room at top for large routes due to pitch
 
           mapboxCameraRef.current.setCamera({
             bounds: {
@@ -540,7 +541,7 @@ export default function WorkoutDetailsPage() {
                   centerCoordinate: routeBounds 
                     ? [(routeBounds.minLng + routeBounds.maxLng) / 2, (routeBounds.minLat + routeBounds.maxLat) / 2] 
                     : [10.7522, 59.9139],
-                  zoomLevel: 14,
+                  zoomLevel: 16,
                   pitch: 65,
                 }}
               />
@@ -622,9 +623,25 @@ export default function WorkoutDetailsPage() {
               <ActivityIcon type={session.type} size={28} color={activityColors?.text || "#FFFFFF"} />
             </View>
             <VStack style={{ flex: 1 }}>
-              <Heading size="xl">
-                {session.title || session.type.charAt(0).toUpperCase() + session.type.slice(1)}
-              </Heading>
+              <HStack space="sm" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+                <Heading size="xl">
+                  {session.title || session.type.charAt(0).toUpperCase() + session.type.slice(1)}
+                </Heading>
+                <Badge 
+                  size="md" 
+                  variant="solid" 
+                  style={flattenStyle([{ 
+                    backgroundColor: activityColors?.badge,
+                    borderRadius: 12,
+                    paddingHorizontal: 10,
+                    paddingVertical: 2
+                  }])}
+                >
+                  <BadgeText style={{ color: activityColors?.text, fontSize: 12, fontWeight: '700' }}>
+                    {session.type.charAt(0).toUpperCase() + session.type.slice(1)}
+                  </BadgeText>
+                </Badge>
+              </HStack>
               <Text style={styles.dateText}>{displayDate}</Text>
             </VStack>
           </HStack>
