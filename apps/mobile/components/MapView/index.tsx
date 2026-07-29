@@ -116,6 +116,48 @@ const KOMMUNE_PALETTE = FYLKE_PALETTE.map(p => ({
   fill: p.fill.replace("0.30)", "0.32)").replace("0.25)", "0.32)").replace("0.28)", "0.32)").replace("0.32)", "0.35)")
 }));
 
+const CustomMountainIcon = ({ isChecked }: { isChecked: boolean }) => {
+  const color = isChecked ? "#FFFFFF" : "#10B981";
+  return (
+    <View style={{ width: 22, height: 16, position: "relative" }}>
+      {/* Main peak */}
+      <View
+        style={{
+          position: "absolute",
+          bottom: 0,
+          left: 1,
+          width: 0,
+          height: 0,
+          borderStyle: "solid",
+          borderLeftWidth: 8,
+          borderRightWidth: 8,
+          borderBottomWidth: 14,
+          borderLeftColor: "transparent",
+          borderRightColor: "transparent",
+          borderBottomColor: color,
+        }}
+      />
+      {/* Sub peak */}
+      <View
+        style={{
+          position: "absolute",
+          bottom: 0,
+          left: 10,
+          width: 0,
+          height: 0,
+          borderStyle: "solid",
+          borderLeftWidth: 6,
+          borderRightWidth: 6,
+          borderBottomWidth: 10,
+          borderLeftColor: "transparent",
+          borderRightColor: "transparent",
+          borderBottomColor: color,
+        }}
+      />
+    </View>
+  );
+};
+
 export default function MapScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
@@ -459,8 +501,8 @@ export default function MapScreen() {
       setActiveTab("kart");
     }
 
-    // Manual latitude offset to position the peak at 15% (2D mode) or 1% (3D mode) of screen height
-    const latOffset = is3DEnabled ? 0.0085 : 0.006;
+    // Manual latitude offset to position the peak at 15% (2D mode) or 15% ABOVE the top of the screen (3D mode)
+    const latOffset = is3DEnabled ? 0.0098 : 0.0053;
 
     // Zoom to peak if using Mapbox
     if (isMapboxAvailable && isMapboxLayer && mapboxCameraRef.current) {
@@ -968,7 +1010,7 @@ export default function MapScreen() {
                       ? { backgroundColor: "#10B981", borderColor: "#FFFFFF" }
                       : { backgroundColor: "#FFFFFF", borderColor: "#10B981" }
                   ])}>
-                    <Mountain size={18} color={isChecked ? "#FFFFFF" : "#10B981"} strokeWidth={3} />
+                    <CustomMountainIcon isChecked={isChecked} />
                   </View>
                   <View style={styles.customMarkerPill}>
                     <Text style={styles.customMarkerLabel} numberOfLines={1}>
@@ -1031,7 +1073,7 @@ export default function MapScreen() {
                       ? { backgroundColor: "#10B981", borderColor: "#FFFFFF" }
                       : { backgroundColor: "#FFFFFF", borderColor: "#10B981" }
                   ])}>
-                    <Mountain size={18} color={isChecked ? "#FFFFFF" : "#10B981"} strokeWidth={3} />
+                    <CustomMountainIcon isChecked={isChecked} />
                   </View>
                   <View style={styles.customMarkerPill}>
                     <Text style={styles.customMarkerLabel} numberOfLines={1}>
