@@ -321,6 +321,7 @@ export default function TrainingScreen() {
   // Chart UI state
   const [chartMetric, setChartMetric] = useState<"minutes" | "sessions" | "distance" | "elevation" | "steps">("minutes");
   const [chartType, setChartType] = useState<"bar" | "line">("bar");
+  const [tooltipIndex, setTooltipIndex] = useState<number | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1072,13 +1073,13 @@ export default function TrainingScreen() {
             </View>
 
             {/* Date navigation bar (chevron indicators) */}
-            <HStack style={styles.dateSelectorContainer}>
+            <HStack style={flattenStyle([styles.dateSelectorContainer, { marginBottom: 16 }])}>
               {period !== "total" ? (
                 <>
                   <TouchableOpacity onPress={handlePrevDate} style={styles.dateSelectorArrow}>
                     <ChevronLeft size={18} color={isDark ? "#FFFFFF" : "#111827"} />
                   </TouchableOpacity>
-                  <Text style={flattenStyle([styles.dateSelectorLabel, { color: isDark ? "#FFFFFF" : "#111827" }])}>
+                  <Text style={flattenStyle([styles.dateSelectorLabel, { color: isDark ? "#FFFFFF" : "#111827", fontSize: 20 }])}>
                     {period === "month" ? `${MONTH_NAMES[selectedMonth]} ${selectedYear}` : selectedYear.toString()}
                   </Text>
                   <TouchableOpacity onPress={handleNextDate} style={styles.dateSelectorArrow}>
@@ -1086,17 +1087,17 @@ export default function TrainingScreen() {
                   </TouchableOpacity>
                 </>
               ) : (
-                <Text style={flattenStyle([styles.dateSelectorLabel, { color: isDark ? "#FFFFFF" : "#111827" }])}>
+                <Text style={flattenStyle([styles.dateSelectorLabel, { color: isDark ? "#FFFFFF" : "#111827", fontSize: 20 }])}>
                   Total livstidsfremgang
                 </Text>
               )}
             </HStack>
 
-            {/* Metric Tiles 2x2 Grid */}
-            <View style={styles.gridContainer}>
+            {/* Metric Tiles Single Row */}
+            <View style={flattenStyle([styles.gridContainer, { flexWrap: 'nowrap' }])}>
               
               {/* ØKTER */}
-              <View style={flattenStyle([styles.metricCard, dynamicCardStyle])}>
+              <View style={flattenStyle([styles.metricCard, dynamicCardStyle, { width: (Dimensions.get("window").width - 48) / 4 }])}>
                 <VStack style={{ alignItems: "center" }}>
                   <Activity size={18} color="#10B981" style={{ marginBottom: 4 }} />
                   <Text style={styles.metricCardLabel}>ØKTER</Text>
@@ -1107,7 +1108,7 @@ export default function TrainingScreen() {
               </View>
 
               {/* TOTAL TID */}
-              <View style={flattenStyle([styles.metricCard, dynamicCardStyle])}>
+              <View style={flattenStyle([styles.metricCard, dynamicCardStyle, { width: (Dimensions.get("window").width - 48) / 4 }])}>
                 <VStack style={{ alignItems: "center" }}>
                   <Clock size={18} color="#A855F7" style={{ marginBottom: 4 }} />
                   <Text style={styles.metricCardLabel}>TOTAL TID</Text>
@@ -1118,7 +1119,7 @@ export default function TrainingScreen() {
               </View>
 
               {/* DISTANSE */}
-              <View style={flattenStyle([styles.metricCard, dynamicCardStyle])}>
+              <View style={flattenStyle([styles.metricCard, dynamicCardStyle, { width: (Dimensions.get("window").width - 48) / 4 }])}>
                 <VStack style={{ alignItems: "center" }}>
                   <MapPin size={18} color="#3B82F6" style={{ marginBottom: 4 }} />
                   <Text style={styles.metricCardLabel}>DISTANSE</Text>
@@ -1129,7 +1130,7 @@ export default function TrainingScreen() {
               </View>
 
               {/* HØYDEMETER */}
-              <View style={flattenStyle([styles.metricCard, dynamicCardStyle])}>
+              <View style={flattenStyle([styles.metricCard, dynamicCardStyle, { width: (Dimensions.get("window").width - 48) / 4 }])}>
                 <VStack style={{ alignItems: "center" }}>
                   <TrendingUp size={18} color="#F59E0B" style={{ marginBottom: 4 }} />
                   <Text style={styles.metricCardLabel}>HØYDEMETER</Text>
@@ -1210,7 +1211,7 @@ export default function TrainingScreen() {
               <ScrollView 
                 horizontal 
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 4 }}
+                contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 4, flexGrow: 1, justifyContent: 'center' }}
               >
                 <HStack style={{ gap: 16 }}>
                   {([
@@ -1245,8 +1246,10 @@ export default function TrainingScreen() {
               </ScrollView>
             </View>
 
-            {/* Premium Custom Chart Component Area */}
-            <View 
+            {/* Interactive Graphic: Stacked Bars or Smooth Line */}
+            <TouchableOpacity 
+              activeOpacity={1}
+              onPress={() => setTooltipIndex(null)}
               style={flattenStyle([styles.chartCard, dynamicCardStyle, { marginHorizontal: 16, marginTop: 8, padding: 16 }])}
             >
               <View style={styles.chartContainer}>
@@ -1280,7 +1283,7 @@ export default function TrainingScreen() {
                   horizontal 
                   showsHorizontalScrollIndicator={isScrollEnabled}
                   scrollEnabled={isScrollEnabled}
-                  contentContainerStyle={{ paddingLeft: 40, paddingRight: 10, height: 185 }}
+                  contentContainerStyle={{ paddingLeft: 40, paddingRight: 10, height: 185, overflow: 'visible' }}
                   bounces={false}
                   overScrollMode="never"
                 >
@@ -1292,8 +1295,10 @@ export default function TrainingScreen() {
                       <HStack style={{ alignItems: "flex-end", height: 150, gap: barGap }}>
                         {chartData.map((bucket, bIdx) => {
                           return (
-                            <View 
+                            <TouchableOpacity 
                               key={bIdx} 
+                              activeOpacity={0.8}
+                              onPress={() => setTooltipIndex(tooltipIndex === bIdx ? null : bIdx)}
                               style={flattenStyle([
                                 styles.chartBarColumn,
                                 { 
@@ -1318,9 +1323,48 @@ export default function TrainingScreen() {
                                   />
                                 );
                               })}
-                            </View>
+                            </TouchableOpacity>
                           );
                         })}
+
+                        {/* Tooltip Overlay */}
+                        {tooltipIndex !== null && chartData[tooltipIndex] && (
+                          <View 
+                            pointerEvents="none"
+                            style={flattenStyle([
+                              {
+                                position: 'absolute',
+                                bottom: 160,
+                                left: Math.max(0, tooltipIndex * (barWidth + barGap) + 40 - 50),
+                                width: 100,
+                                backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
+                                borderRadius: 8,
+                                padding: 8,
+                                shadowColor: '#000',
+                                shadowOffset: { width: 0, height: 2 },
+                                shadowOpacity: 0.25,
+                                shadowRadius: 3.84,
+                                elevation: 5,
+                                borderWidth: 1,
+                                borderColor: isDark ? '#374151' : '#E5E7EB',
+                                zIndex: 100,
+                              }
+                            ])}
+                          >
+                            <Text style={{ fontSize: 10, fontWeight: 'bold', color: isDark ? '#FFFFFF' : '#111827', marginBottom: 2 }}>
+                              Total: {chartMetric === 'minutes' ? formatMinutes(Number(chartData[tooltipIndex]._total)) : chartData[tooltipIndex]._total}
+                            </Text>
+                            {WORKOUT_TYPES.map(type => {
+                              const val = Number(chartData[tooltipIndex][type.id] || 0);
+                              if (val === 0) return null;
+                              return (
+                                <Text key={type.id} style={{ fontSize: 9, color: isDark ? '#9CA3AF' : '#6B7280' }}>
+                                  {type.label}: {chartMetric === 'minutes' ? formatMinutes(val) : val}
+                                </Text>
+                              );
+                            })}
+                          </View>
+                        )}
                       </HStack>
 
                       {/* X Axis Labels Area (placed strictly under the baseline in the 35px bottom area) */}
@@ -1412,7 +1456,7 @@ export default function TrainingScreen() {
                   )}
                 </ScrollView>
               </View>
-            </View>
+            </TouchableOpacity>
 
             {/* Floating Style Bar / Line Chart Toggles at Bottom of Stats */}
             <HStack style={styles.chartTypeToggleContainer}>
