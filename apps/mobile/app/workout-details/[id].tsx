@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import MapView, { Polyline } from 'react-native-maps';
-import Svg, { Path, Defs, LinearGradient, Stop, Text as SvgText, Circle } from 'react-native-svg';
+import Svg, { Path, Defs, LinearGradient, Stop, Text as SvgText, Circle, Rect } from 'react-native-svg';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { HStack } from '@/components/ui/hstack';
@@ -69,7 +69,8 @@ const Chart = ({
   isDark, 
   maxValue, 
   minValue,
-  avgValue
+  avgValue,
+  durationMinutes = 60
 }: { 
   data: { x: number; value: number }[]; 
   color: string; 
@@ -79,18 +80,22 @@ const Chart = ({
   maxValue?: number;
   minValue?: number;
   avgValue?: number;
+  durationMinutes?: number;
 }) => {
-  const chartHeight = 150;
+  const chartHeight = 180;
   const chartWidth = width - 32;
   const padding = 20;
+  const bottomPadding = 40;
+  
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
   
   const values = data.map(d => d.value);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
+  const min = minValue !== undefined ? Math.min(minValue, ...values) : Math.min(...values);
+  const max = maxValue !== undefined ? Math.max(maxValue, ...values) : Math.max(...values);
   const range = max - min || 1;
 
   const getX = (index: number) => (index / (data.length - 1)) * (chartWidth - padding * 2) + padding;
-  const getY = (value: number) => chartHeight - padding - ((value - min) / range) * (chartHeight - padding * 2);
+  const getY = (value: number) => (chartHeight - bottomPadding - padding) - ((value - min) / range) * (chartHeight - bottomPadding - padding * 2) + padding;
 
   const points = data.map((d, i) => ({ x: getX(i), y: getY(d.value) }));
   
@@ -98,7 +103,36 @@ const Chart = ({
     acc + (i === 0 ? `M ${p.x} ${p.y}` : ` L ${p.x} ${p.y}`), ""
   );
 
-  const areaData = `${pathData} L ${getX(data.length - 1)} ${chartHeight - padding} L ${getX(0)} ${chartHeight - padding} Z`;
+  const areaData = `${pathData} L ${getX(data.length - 1)} ${chartHeight - bottomPadding} L ${getX(0)} ${chartHeight - bottomPadding} Z`;
+
+  const xLabels = useMemo(() => {
+    let interval = 5;
+    if (durationMinutes < 60) interval = 5;
+    else if (durationMinutes < 120) interval = 15;
+    else if (durationMinutes < 180) interval = 30;
+    else interval = 60;
+
+    const labels = [];
+    for (let i = 0; i <= durationMinutes; i += interval) {
+      labels.push(i);
+    }
+    return labels;
+  }, [durationMinutes]);
+
+  const formatTime = (minutes: number) => {
+    if (minutes < 60) return `${minutes}m`;
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return m === 0 ? `${h}t` : `${h}:${m.toString().padStart(2, '0')}`;
+  };
+
+  const handleTouch = (evt: any) => {
+    const x = evt.nativeEvent.locationX;
+    const index = Math.round(((x - padding) / (chartWidth - padding * 2)) * (data.length - 1));
+    if (index >= 0 && index < data.length) {
+      setActiveIndex(index);
+    }
+  };
 
   return (
     <VStack space="sm" style={styles.chartWrapper}>
@@ -110,7 +144,12 @@ const Chart = ({
         </HStack>
       </HStack>
       
-      <View style={flattenStyle([styles.chartContainer, isDark ? styles.cardDark : styles.cardLight])}>
+      <View 
+        style={flattenStyle([styles.chartContainer, isDark ? styles.cardDark : styles.cardLight])}
+        onStartShouldSetResponder={() => true}
+        onResponderMove={handleTouch}
+        onResponderRelease={() => setActiveIndex(null)}
+      >
         <Svg width={chartWidth} height={chartHeight}>
           <Defs>
             <LinearGradient id={`grad-${label}`} x1="0" y1="0" x2="0" y2="1">
@@ -123,19 +162,77 @@ const Chart = ({
           <Path 
             d={`M ${padding} ${getY(min)} L ${chartWidth - padding} ${getY(min)}`} 
             stroke={isDark ? "#374151" : "#E5E7EB"} 
-            strokeWidth="1" 
+            strokeWidth="1"
+            strokeDasharray="4 4"
           />
           <Path 
             d={`M ${padding} ${getY(max)} L ${chartWidth - padding} ${getY(max)}`} 
             stroke={isDark ? "#374151" : "#E5E7EB"} 
-            strokeWidth="1" 
+            strokeWidth="1"
+            strokeDasharray="4 4"
           />
 
           <Path d={areaData} fill={`url(#grad-${label})`} />
           <Path d={pathData} fill="none" stroke={color} strokeWidth="2" />
           
+          {/* X Labels */}
+          {xLabels.map((m, i) => {
+            const x = (m / durationMinutes) * (chartWidth - padding * 2) + padding;
+            return (
+              <SvgText 
+                key={i} 
+                x={x} 
+                y={chartHeight - 10} 
+                fontSize="10" 
+                fill="#9CA3AF" 
+                textAnchor="middle"
+              >
+                {formatTime(m)}
+              </SvgText>
+            );
+          })}
+
+          {/* Active Indicator */}
+          {activeIndex !== null && data[activeIndex] && (
+            <>
+              <Path 
+                d={`M ${getX(activeIndex)} ${padding} L ${getX(activeIndex)} ${chartHeight - bottomPadding}`} 
+                stroke={isDark ? "#9CA3AF" : "#6B7280"} 
+                strokeWidth="1" 
+              />
+              <Circle 
+                cx={getX(activeIndex)} 
+                cy={getY(data[activeIndex].value)} 
+                r="4" 
+                fill={color} 
+                stroke="#FFF" 
+                strokeWidth="2" 
+              />
+              <Rect
+                x={Math.max(padding, Math.min(chartWidth - padding - 60, getX(activeIndex) - 30))}
+                y={Math.max(padding, getY(data[activeIndex].value) - 35)}
+                width="60"
+                height="22"
+                rx="6"
+                fill={isDark ? "#1F2937" : "#FFFFFF"}
+                stroke={color}
+                strokeWidth="1"
+              />
+              <SvgText
+                x={Math.max(padding + 30, Math.min(chartWidth - padding - 30, getX(activeIndex)))}
+                y={Math.max(padding + 15, getY(data[activeIndex].value) - 20)}
+                fontSize="12"
+                fontWeight="bold"
+                fill={isDark ? "#FFFFFF" : "#111827"}
+                textAnchor="middle"
+              >
+                {data[activeIndex].value}{unit}
+              </SvgText>
+            </>
+          )}
+
           {/* Min/Max values */}
-          <SvgText x={padding} y={getY(min) + 12} fontSize="10" fill="#9CA3AF">{min}{unit}</SvgText>
+          <SvgText x={padding} y={getY(min) + 14} fontSize="10" fill="#9CA3AF">{min}{unit}</SvgText>
           <SvgText x={padding} y={getY(max) - 4} fontSize="10" fill="#9CA3AF">{max}{unit}</SvgText>
         </Svg>
       </View>
@@ -355,6 +452,7 @@ export default function WorkoutDetailsPage() {
             isDark={isDark}
             avgValue={session.averageHeartrate}
             maxValue={session.maxHeartrate}
+            durationMinutes={session.durationMinutes}
           />
 
           <Chart 
@@ -364,6 +462,7 @@ export default function WorkoutDetailsPage() {
             unit="m" 
             isDark={isDark}
             avgValue={Math.round(altitudeData.reduce((acc, d) => acc + d.value, 0) / altitudeData.length)}
+            durationMinutes={session.durationMinutes}
           />
 
           {session.notes && (
@@ -463,13 +562,16 @@ const styles = StyleSheet.create({
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 8,
+    justifyContent: 'space-between',
   },
   statCard: {
-    width: (width - 44) / 2,
-    padding: 16,
+    width: (width - 56) / 3,
+    padding: 12,
     borderRadius: 20,
     gap: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cardLight: {
     backgroundColor: '#FFFFFF',
@@ -480,13 +582,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#111827',
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 10,
     color: '#6B7280',
     fontWeight: '600',
+    textAlign: 'center',
   },
   statValue: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '800',
+    textAlign: 'center',
   },
   chartWrapper: {
     marginTop: 8,

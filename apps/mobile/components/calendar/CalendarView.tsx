@@ -492,10 +492,11 @@ export const CalendarView: React.FC = () => {
         isOpen={isWorkoutModalOpen}
         onClose={() => {
           setIsWorkoutModalOpen(false);
-          setSelectedSession(null);
           if (wasDetailDrawerOpen) {
             setIsDetailDrawerOpen(true);
             setWasDetailDrawerOpen(false);
+          } else {
+            setSelectedSession(null);
           }
         }}
         initialDate={selectedDate}
@@ -506,6 +507,8 @@ export const CalendarView: React.FC = () => {
             // (refresh is async, but this is a quick fix to keep the drawer open)
             setIsDetailDrawerOpen(true);
             setWasDetailDrawerOpen(false);
+          } else {
+            setSelectedSession(null);
           }
         }}
         sessionToEdit={selectedSession}

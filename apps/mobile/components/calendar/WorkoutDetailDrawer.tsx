@@ -109,7 +109,7 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
       // Use a small timeout to ensure map is ready
       const timer = setTimeout(() => {
         mapRef.current?.fitToCoordinates(decodedRoute, {
-          edgePadding: { top: 80, right: 80, bottom: 80, left: 80 },
+          edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
           animated: true,
         });
       }, 800);
@@ -391,11 +391,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 8,
+    gap: 6,
   },
   statItem: {
-    width: '48.5%',
-    padding: 12,
+    width: '32%',
+    padding: 10,
     borderRadius: 16,
     minHeight: 90,
     justifyContent: 'center',
