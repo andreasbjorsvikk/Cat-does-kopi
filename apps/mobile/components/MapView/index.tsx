@@ -9,8 +9,9 @@ import {
   Platform,
   ScrollView,
   UIManager,
-  Alert
+  Alert,
 } from "react-native";
+import Svg, { Path } from "react-native-svg";
 import MapView, { Marker, UrlTile } from "react-native-maps";
 import { Heading } from "@/components/ui/heading";
 import { Text } from "@/components/ui/text";
@@ -460,7 +461,6 @@ export default function MapScreen() {
     }
 
     const screenHeight = Dimensions.get("window").height;
-    const bottomPadding = screenHeight * 0.6; // Center at top 20%
 
     // Zoom to peak if using Mapbox
     if (isMapboxAvailable && isMapboxLayer && mapboxCameraRef.current) {
@@ -469,18 +469,22 @@ export default function MapScreen() {
           centerCoordinate: [peak.longitude, peak.latitude],
           zoomLevel: 14,
           animationDuration: 1000,
-          padding: { bottom: bottomPadding, top: 0, left: 0, right: 0 }
+          padding: { bottom: screenHeight * 0.6, top: 0, left: 0, right: 0 }
         } as any);
       } catch (err) {
         console.warn("Failed to set Mapbox camera center to selected peak:", err);
       }
     } else if (mapRef.current) {
-      // Zoom to peak if using standard MapView
-      mapRef.current.animateCamera({
-        center: { latitude: peak.latitude, longitude: peak.longitude },
-        zoom: 14,
-        padding: { bottom: bottomPadding, top: 0, left: 0, right: 0 }
-      } as any, { duration: 1000 });
+      // Manually offset latitude to center the peak at 20% from the top
+      // At zoom 14, 0.008 is a good approximation for the latitudinal span that puts the point at 20%
+      const latOffset = 0.004; 
+      
+      mapRef.current.animateToRegion({
+        latitude: peak.latitude - latOffset,
+        longitude: peak.longitude,
+        latitudeDelta: 0.015,
+        longitudeDelta: 0.015,
+      }, 1000);
     }
   };
 
@@ -960,20 +964,7 @@ export default function MapScreen() {
               anchor={{ x: 0.5, y: 0.5 }}
             >
               <View style={styles.customMarkerContainer}>
-                <View 
-                  style={flattenStyle([
-                    styles.customMarkerCircle,
-                    !checkedPeakIds.has(peak.id) ? { backgroundColor: "#FFFFFF", borderColor: "#10B981" } : null,
-                    { alignItems: 'center', justifyContent: 'center' }
-                  ])} 
-                >
-                  <Mountain 
-                    size={18} 
-                    color={checkedPeakIds.has(peak.id) ? "#FFFFFF" : "#10B981"} 
-                    strokeWidth={3} 
-                    style={{ zIndex: 1000 }}
-                  />
-                </View>
+                <CustomMarkerIcon isChecked={checkedPeakIds.has(peak.id)} />
                 <View style={styles.customMarkerPill}>
                   <Text style={styles.customMarkerLabel} numberOfLines={1}>
                     {peak.name}
@@ -1028,20 +1019,7 @@ export default function MapScreen() {
                 anchor={{ x: 0.5, y: 0.5 }}
               >
                 <View style={styles.customMarkerContainer}>
-                  <View 
-                    style={flattenStyle([
-                      styles.customMarkerCircle,
-                      !isChecked ? { backgroundColor: "#FFFFFF", borderColor: "#10B981" } : null,
-                      { alignItems: 'center', justifyContent: 'center' }
-                    ])} 
-                  >
-                    <Mountain 
-                      size={18} 
-                      color={isChecked ? "#FFFFFF" : "#10B981"} 
-                      strokeWidth={3} 
-                      style={{ zIndex: 1000 }}
-                    />
-                  </View>
+                  <CustomMarkerIcon isChecked={isChecked} />
                   <View style={styles.customMarkerPill}>
                     <Text style={styles.customMarkerLabel} numberOfLines={1}>
                       {peak.name}
@@ -1497,6 +1475,28 @@ export default function MapScreen() {
           onSuccess={handleCheckinSuccess}
         />
       )}
+    </View>
+  );
+}
+
+/**
+ * Refactored CustomMarkerIcon for better visibility and consistency across platforms.
+ * Uses fixed dimensions and an SVG mountain icon for guaranteed visibility.
+ */
+function CustomMarkerIcon({ isChecked }: { isChecked: boolean }) {
+  const iconColor = isChecked ? "#FFFFFF" : "#10B981";
+  return (
+    <View
+      style={flattenStyle([
+        styles.customMarkerCircle,
+        !isChecked
+          ? { backgroundColor: "#FFFFFF", borderColor: "#10B981" }
+          : { backgroundColor: "#10B981", borderColor: "#FFFFFF" },
+      ])}
+    >
+      <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={iconColor} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+        <Path d="m8 3 4 8 5-5 5 15H2L8 3z" />
+      </Svg>
     </View>
   );
 }
