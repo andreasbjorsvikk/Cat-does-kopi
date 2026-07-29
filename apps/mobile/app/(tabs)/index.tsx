@@ -27,6 +27,15 @@ const MONTH_NAMES = [
   "Juli", "August", "September", "Oktober", "November", "Desember"
 ];
 
+function getStartOfWeek(date: Date) {
+  const d = new Date(date);
+  const day = d.getDay(); // 0 is Sunday, 1 is Monday, ...
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+  d.setDate(diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
 export default function HomeScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
@@ -130,9 +139,8 @@ export default function HomeScreen() {
     const filtered = sessions.filter(s => {
       const d = new Date(s.date);
       if (statsPeriod === 'week') {
-        const weekAgo = new Date();
-        weekAgo.setDate(now.getDate() - 7);
-        return d >= weekAgo;
+        const startOfWeek = getStartOfWeek(now);
+        return d >= startOfWeek;
       } else {
         return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
       }

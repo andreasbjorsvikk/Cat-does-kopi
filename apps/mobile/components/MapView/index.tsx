@@ -502,7 +502,7 @@ export default function MapScreen() {
     }
 
     // Manual latitude offset to position the peak at 15% (2D mode) or 15% ABOVE the top of the screen (3D mode)
-    const latOffset = is3DEnabled ? 0.0098 : 0.0053;
+    const latOffset = is3DEnabled ? 0.012 : 0.0053;
 
     // Zoom to peak if using Mapbox
     if (isMapboxAvailable && isMapboxLayer && mapboxCameraRef.current) {

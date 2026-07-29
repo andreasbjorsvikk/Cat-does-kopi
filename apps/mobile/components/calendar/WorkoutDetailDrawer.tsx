@@ -257,8 +257,8 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
               onPress={onAddHealthEvent}
             >
               <HStack space="xs" style={styles.btnContent}>
-                <Ambulance size={18} color="#FFF" />
-                <Text style={styles.btnText}>Ny hendelse</Text>
+                <Ambulance size={18} color="#EF4444" />
+                <Text style={[styles.btnText, { color: '#EF4444' }]}>Ny helsehendelse</Text>
               </HStack>
             </TouchableOpacity>
           </HStack>
@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
   },
   healthBtn: {
-    backgroundColor: '#3B82F6',
+    backgroundColor: '#FEE2E2',
   },
   btnContent: {
     alignItems: 'center',
