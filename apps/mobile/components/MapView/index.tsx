@@ -459,9 +459,8 @@ export default function MapScreen() {
       setActiveTab("kart");
     }
 
-    // Manual latitude offset to position the peak at 20% from the top of the screen
-    // At zoom level 14, an offset of 0.007 puts the peak high up on the screen
-    const latOffset = 0.007;
+    // Manual latitude offset to position the peak at 30% (2D mode) or 10% (3D mode) of screen height
+    const latOffset = is3DEnabled ? 0.008 : 0.005;
 
     // Zoom to peak if using Mapbox
     if (isMapboxAvailable && isMapboxLayer && mapboxCameraRef.current) {
@@ -469,6 +468,7 @@ export default function MapScreen() {
         mapboxCameraRef.current.setCamera({
           centerCoordinate: [peak.longitude, peak.latitude - latOffset],
           zoomLevel: 14,
+          pitch: is3DEnabled ? 60 : 0,
           animationDuration: 1000,
         } as any);
       } catch (err) {
@@ -968,7 +968,18 @@ export default function MapScreen() {
                       ? { backgroundColor: "#10B981", borderColor: "#FFFFFF" }
                       : { backgroundColor: "#FFFFFF", borderColor: "#10B981" }
                   ])}>
-                    <Mountain size={16} color={isChecked ? "#FFFFFF" : "#10B981"} strokeWidth={2.5} />
+                    <View style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      justifyContent: "center",
+                      alignItems: "center",
+                      zIndex: 9999,
+                    }}>
+                      <Mountain size={16} color={isChecked ? "#FFFFFF" : "#10B981"} strokeWidth={2.5} />
+                    </View>
                   </View>
                   <View style={styles.customMarkerPill}>
                     <Text style={styles.customMarkerLabel} numberOfLines={1}>
@@ -1031,7 +1042,18 @@ export default function MapScreen() {
                       ? { backgroundColor: "#10B981", borderColor: "#FFFFFF" }
                       : { backgroundColor: "#FFFFFF", borderColor: "#10B981" }
                   ])}>
-                    <Mountain size={16} color={isChecked ? "#FFFFFF" : "#10B981"} strokeWidth={2.5} />
+                    <View style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      justifyContent: "center",
+                      alignItems: "center",
+                      zIndex: 9999,
+                    }}>
+                      <Mountain size={16} color={isChecked ? "#FFFFFF" : "#10B981"} strokeWidth={2.5} />
+                    </View>
                   </View>
                   <View style={styles.customMarkerPill}>
                     <Text style={styles.customMarkerLabel} numberOfLines={1}>
