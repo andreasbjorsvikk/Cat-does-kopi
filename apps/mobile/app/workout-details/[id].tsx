@@ -360,6 +360,18 @@ export default function WorkoutDetailsPage() {
     session?.summaryPolyline ? decodePolyline(session.summaryPolyline) : []
   , [session?.summaryPolyline]);
 
+  const routeBounds = useMemo(() => {
+    if (decodedRoute.length === 0) return null;
+    const lats = decodedRoute.map(c => c.latitude);
+    const lngs = decodedRoute.map(c => c.longitude);
+    return {
+      minLat: Math.min(...lats),
+      maxLat: Math.max(...lats),
+      minLng: Math.min(...lngs),
+      maxLng: Math.max(...lngs),
+    };
+  }, [decodedRoute]);
+
   const hrData = useMemo(() => {
     if (streams?.heartrateData && streams.heartrateData.length > 0) {
       return streams.heartrateData.map((d) => ({ x: d.time, value: d.value }));
@@ -386,24 +398,17 @@ export default function WorkoutDetailsPage() {
       }, 500);
     }
 
-    if (session && decodedRoute.length > 0 && isMapboxAvailable && mapboxCameraRef.current) {
-      const lats = decodedRoute.map(c => c.latitude);
-      const lngs = decodedRoute.map(c => c.longitude);
-      const minLat = Math.min(...lats);
-      const maxLat = Math.max(...lats);
-      const minLng = Math.min(...lngs);
-      const maxLng = Math.max(...lngs);
-
+    if (session && decodedRoute.length > 0 && isMapboxAvailable && mapboxCameraRef.current && routeBounds) {
       const focusOnRoute = (duration: number = 2000) => {
         if (mapboxCameraRef.current && decodedRoute.length > 0) {
           mapboxCameraRef.current.setCamera({
             bounds: {
-              ne: [maxLng, maxLat],
-              sw: [minLng, minLat],
-              paddingTop: 50,
-              paddingRight: 50,
-              paddingBottom: 50,
-              paddingLeft: 50,
+              ne: [routeBounds.maxLng, routeBounds.maxLat],
+              sw: [routeBounds.minLng, routeBounds.minLat],
+              paddingTop: 40,
+              paddingRight: 40,
+              paddingBottom: 40,
+              paddingLeft: 40,
             },
             pitch: 60,
             animationDuration: duration,
@@ -419,7 +424,7 @@ export default function WorkoutDetailsPage() {
         clearTimeout(timer2);
       };
     }
-  }, [session, decodedRoute]);
+  }, [session, decodedRoute, routeBounds]);
 
   const handleDelete = async () => {
     if (!session) return;
@@ -520,11 +525,11 @@ export default function WorkoutDetailsPage() {
               <MapboxCamera 
                 ref={mapboxCameraRef}
                 defaultSettings={{
-                  centerCoordinate: decodedRoute.length > 0 
-                    ? [(minLng + maxLng) / 2, (minLat + maxLat) / 2] 
+                  centerCoordinate: routeBounds 
+                    ? [(routeBounds.minLng + routeBounds.maxLng) / 2, (routeBounds.minLat + routeBounds.maxLat) / 2] 
                     : [10.7522, 59.9139],
-                  zoomLevel: 12,
-                  pitch: 60,
+                  zoomLevel: 14,
+                  pitch: 65,
                 }}
               />
               
