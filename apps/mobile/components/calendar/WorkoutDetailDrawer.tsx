@@ -111,7 +111,7 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
       // Use a small timeout to ensure map is ready
       const timer = setTimeout(() => {
         mapRef.current?.fitToCoordinates(decodedRoute, {
-          edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+          edgePadding: { top: 100, right: 100, bottom: 100, left: 100 },
           animated: true,
         });
       }, 800);
@@ -154,7 +154,7 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
         } as any)}
         style={flattenStyle([styles.sheetContent, { paddingHorizontal: 0 }])}
       >
-        <ActionsheetDragIndicatorWrapper>
+        <ActionsheetDragIndicatorWrapper style={styles.dragWrapper}>
           <ActionsheetDragIndicator />
         </ActionsheetDragIndicatorWrapper>
         
@@ -274,7 +274,6 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
             <TouchableOpacity 
               style={flattenStyle([styles.moreBtn, isDark ? styles.btnDark : styles.btnLight])}
               onPress={() => {
-                onClose();
                 router.push({
                   pathname: "/workout-details/[id]",
                   params: { id: session.id }
@@ -539,5 +538,12 @@ const styles = StyleSheet.create({
   btnText: {
     color: '#FFF',
     fontWeight: '700',
+  },
+  dragWrapper: {
+    paddingTop: 10,
+    paddingBottom: 25,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

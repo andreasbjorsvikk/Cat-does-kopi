@@ -105,23 +105,23 @@ const Chart = ({
   minValue?: number;
   avgValue?: number;
   durationMinutes?: number,
-  onInteractionChange?: (active: boolean) => void;
+  onInteractionChange?: (isInteracting: boolean) => void;
 }) => {
-  const chartHeight = 240;
+  const chartHeight = 200;
   const chartWidth = width - 32;
-  const padding = 10;
-  const bottomPadding = 60;
-  const topPadding = 50; // Space for tooltip at top
+  const padding = 15;
+  const bottomPadding = 30;
+  const topPadding = 40; // Space for tooltip at top
   
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   
   const values = data.map(d => d.value);
-  // Even tighter scaling to use full vertical area
+  // Even tighter scaling to use full vertical area, but with a small buffer
   const rawMin = Math.min(...values);
   const rawMax = Math.max(...values);
   const rangeWidth = rawMax - rawMin || 1;
-  const min = Math.max(0, rawMin - rangeWidth * 0.05);
-  const max = rawMax + rangeWidth * 0.05;
+  const min = Math.max(0, rawMin - rangeWidth * 0.02);
+  const max = rawMax + rangeWidth * 0.02;
   const range = (max - min) || 1;
 
   const getX = (index: number) => (index / (data.length - 1)) * (chartWidth - padding * 2) + padding;
@@ -156,11 +156,13 @@ const Chart = ({
     return m === 0 ? `${h}t` : `${h}:${m.toString().padStart(2, '0')}`;
   };
 
-  const handleTouch = (evt: any) => {
+  const handleInteraction = (evt: any) => {
     const x = evt.nativeEvent.locationX;
     const index = Math.round(((x - padding) / (chartWidth - padding * 2)) * (data.length - 1));
     if (index >= 0 && index < data.length) {
-      if (activeIndex === null) onInteractionChange?.(true);
+      if (activeIndex === null) {
+        onInteractionChange?.(true);
+      }
       setActiveIndex(index);
     }
   };
@@ -182,9 +184,13 @@ const Chart = ({
       
       <View 
         style={flattenStyle([styles.chartContainer, isDark ? styles.cardDark : styles.cardLight, { height: chartHeight }])}
-        onStartShouldSetResponder={() => true}
+        onStartShouldSetResponder={() => {
+          // Return true to claim touch and potentially lock parent scroll
+          return true;
+        }}
         onMoveShouldSetResponder={() => true}
-        onResponderMove={handleTouch}
+        onResponderGrant={handleInteraction}
+        onResponderMove={handleInteraction}
         onResponderRelease={handleRelease}
         onResponderTerminate={handleRelease}
       >
@@ -232,33 +238,29 @@ const Chart = ({
               
               {/* Tooltip always at top of line */}
               <Rect
-                x={Math.max(padding, Math.min(chartWidth - padding - 60, getX(activeIndex) - 30))}
-                y={10}
-                width="60"
-                height="22"
-                rx="6"
+                x={Math.max(padding, Math.min(chartWidth - padding - 75, getX(activeIndex) - 37.5))}
+                y={5}
+                width="75"
+                height="24"
+                rx="8"
                 fill={isDark ? "#1F2937" : "#FFFFFF"}
                 stroke={color}
-                strokeWidth="1"
+                strokeWidth="1.5"
               />
               <SvgText
-                x={Math.max(padding + 30, Math.min(chartWidth - padding - 30, getX(activeIndex)))}
-                y={25}
+                x={Math.max(padding + 37.5, Math.min(chartWidth - padding - 37.5, getX(activeIndex)))}
+                y={21}
                 fontSize="12"
                 fontWeight="bold"
                 fill={isDark ? "#FFFFFF" : "#111827"}
                 textAnchor="middle"
               >
-                {data[activeIndex].value}{unit}
+                {data[activeIndex].value} {unit.trim()}
               </SvgText>
             </>
           )}
 
-          {/* Min/Max indicators */}
-          <SvgText x={padding + 5} y={getY(min) - 5} fontSize="10" fill="#9CA3AF" fontWeight="bold">{Math.round(min)}{unit}</SvgText>
-          <SvgText x={padding + 5} y={getY(max) + 12} fontSize="10" fill="#9CA3AF" fontWeight="bold">{Math.round(max)}{unit}</SvgText>
-
-          {/* X Labels at the very bottom */}
+          {/* X Labels at the very bottom, moved up slightly and refined */}
           {xLabels.map((m, i) => {
             const x = (m / durationMinutes) * (chartWidth - padding * 2) + padding;
             if (x > chartWidth - 5) return null;
@@ -266,23 +268,27 @@ const Chart = ({
               <G key={i}>
                 <Line 
                   x1={x} y1={chartHeight - bottomPadding} 
-                  x2={x} y2={chartHeight - bottomPadding + 5} 
+                  x2={x} y2={chartHeight - bottomPadding + 4} 
                   stroke={isDark ? "#374151" : "#E5E7EB"} 
                   strokeWidth="1" 
                 />
                 <SvgText 
                   x={x} 
-                  y={chartHeight - 15} 
-                  fontSize="11" 
+                  y={chartHeight - 8} 
+                  fontSize="10" 
                   fill={isDark ? "#9CA3AF" : "#6B7280"} 
                   textAnchor="middle"
-                  fontWeight="600"
+                  fontWeight="500"
                 >
                   {formatTime(m)}
                 </SvgText>
               </G>
             );
           })}
+
+          {/* Min/Max indicators */}
+          <SvgText x={padding + 5} y={getY(min) - 4} fontSize="9" fill="#9CA3AF" fontWeight="bold">{Math.round(min)}{unit}</SvgText>
+          <SvgText x={padding + 5} y={getY(max) + 10} fontSize="9" fill="#9CA3AF" fontWeight="bold">{Math.round(max)}{unit}</SvgText>
         </Svg>
       </View>
     </VStack>
@@ -337,22 +343,27 @@ export default function WorkoutDetailsPage() {
     }
 
     if (session && decodedRoute.length > 0 && isMapboxAvailable && mapboxCameraRef.current) {
-      const coordinates = decodedRoute.map(c => [c.longitude, c.latitude]);
+      const lats = decodedRoute.map(c => c.latitude);
+      const lngs = decodedRoute.map(c => c.longitude);
+      const minLat = Math.min(...lats);
+      const maxLat = Math.max(...lats);
+      const minLng = Math.min(...lngs);
+      const maxLng = Math.max(...lngs);
+
       setTimeout(() => {
         mapboxCameraRef.current?.setCamera({
           bounds: {
-            ne: [Math.max(...coordinates.map(c => c[0])), Math.max(...coordinates.map(c => c[1]))],
-            sw: [Math.min(...coordinates.map(c => c[0])), Math.min(...coordinates.map(c => c[1]))],
-            paddingTop: 50,
-            paddingRight: 50,
-            paddingBottom: 50,
-            paddingLeft: 50,
+            ne: [maxLng, maxLat],
+            sw: [minLng, minLat],
+            paddingTop: 80,
+            paddingRight: 80,
+            paddingBottom: 80,
+            paddingLeft: 80,
           },
           pitch: 45,
-          pitch: 60,
-          animationDuration: 1500,
+          animationDuration: 2000,
         });
-      }, 500);
+      }, 1000);
     }
   }, [session, decodedRoute]);
 
@@ -557,13 +568,13 @@ export default function WorkoutDetailsPage() {
           <Chart 
             data={hrData} 
             color="#EF4444" 
-            label="Puls over tid" 
+            label="Puls" 
             unit=" bpm" 
             isDark={isDark}
             avgValue={session.averageHeartrate}
             maxValue={session.maxHeartrate}
             durationMinutes={session.durationMinutes}
-            onInteractionChange={setScrollEnabled}
+            onInteractionChange={(interacting) => setScrollEnabled(!interacting)}
           />
 
           <Chart 
@@ -574,7 +585,7 @@ export default function WorkoutDetailsPage() {
             isDark={isDark}
             avgValue={Math.round(altitudeData.reduce((acc, d) => acc + d.value, 0) / altitudeData.length)}
             durationMinutes={session.durationMinutes}
-            onInteractionChange={setScrollEnabled}
+            onInteractionChange={(interacting) => setScrollEnabled(!interacting)}
           />
 
           {session.notes && (
