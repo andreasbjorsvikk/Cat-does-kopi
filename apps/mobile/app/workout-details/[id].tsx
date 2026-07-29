@@ -17,7 +17,8 @@ import Animated, {
   withSpring,
   interpolate,
   Extrapolate,
-  runOnJS
+  runOnJS,
+  useDerivedValue
 } from 'react-native-reanimated';
 import { GestureDetector, Gesture, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Svg, { Path, Defs, LinearGradient, Stop, Text as SvgText, Circle, Rect, G, Line, TSpan } from 'react-native-svg';
@@ -74,8 +75,9 @@ const isMapboxAvailable = !!MapboxMapView;
 
 const { width, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const TOP_HEADER_HEIGHT = Platform.OS === 'ios' ? 100 : 80;
-const MINIMIZED_DRAWER_HEIGHT = 180;
-const SNAP_TOP = SCREEN_HEIGHT * 0.45;
+const MINIMIZED_DRAWER_HEIGHT = 170;
+const BASE_SNAP_TOP = SCREEN_HEIGHT * 0.55;
+const CHART_SNAP_TOP = SCREEN_HEIGHT * 0.40;
 const SNAP_BOTTOM = SCREEN_HEIGHT - MINIMIZED_DRAWER_HEIGHT;
 
 // Mock stream data generator
@@ -339,8 +341,14 @@ export default function WorkoutDetailsPage() {
   const mapboxCameraRef = useRef<any>(null);
 
   const [session, setSession] = useState<WorkoutSession | null>(null);
+  const [showHRChart, setShowHRChart] = useState(false);
+  const [showAltChart, setShowAltChart] = useState(false);
 
-  const translateY = useSharedValue(SNAP_TOP);
+  const currentSnapTopValue = useDerivedValue(() => {
+    return (showHRChart || showAltChart) ? CHART_SNAP_TOP : BASE_SNAP_TOP;
+  });
+
+  const translateY = useSharedValue(BASE_SNAP_TOP);
   const context = useSharedValue({ y: 0 });
   const [isMinimized, setIsMinimized] = useState(false);
 
@@ -350,9 +358,9 @@ export default function WorkoutDetailsPage() {
   }, []);
 
   const snapToExpanded = useCallback(() => {
-    translateY.value = withSpring(SNAP_TOP);
+    translateY.value = withSpring(currentSnapTopValue.value);
     setIsMinimized(false);
-  }, []);
+  }, [currentSnapTopValue]);
 
   const panGesture = Gesture.Pan()
     .onStart(() => {
@@ -360,17 +368,17 @@ export default function WorkoutDetailsPage() {
     })
     .onUpdate((event) => {
       translateY.value = event.translationY + context.value.y;
-      translateY.value = Math.max(SNAP_TOP, translateY.value);
+      translateY.value = Math.max(currentSnapTopValue.value, translateY.value);
     })
     .onEnd((event) => {
       if (event.velocityY < -500) {
-        translateY.value = withSpring(SNAP_TOP);
+        translateY.value = withSpring(currentSnapTopValue.value);
         runOnJS(setIsMinimized)(false);
       } else if (event.velocityY > 500) {
         translateY.value = withSpring(SNAP_BOTTOM);
         runOnJS(setIsMinimized)(true);
-      } else if (translateY.value < (SNAP_TOP + SNAP_BOTTOM) / 2) {
-        translateY.value = withSpring(SNAP_TOP);
+      } else if (translateY.value < (currentSnapTopValue.value + SNAP_BOTTOM) / 2) {
+        translateY.value = withSpring(currentSnapTopValue.value);
         runOnJS(setIsMinimized)(false);
       } else {
         translateY.value = withSpring(SNAP_BOTTOM);
@@ -387,7 +395,7 @@ export default function WorkoutDetailsPage() {
   const rMapStyle = useAnimatedStyle(() => {
     const opacity = interpolate(
       translateY.value,
-      [SNAP_TOP, SNAP_BOTTOM],
+      [currentSnapTopValue.value, SNAP_BOTTOM],
       [0.6, 1],
       Extrapolate.CLAMP
     );
@@ -401,8 +409,6 @@ export default function WorkoutDetailsPage() {
 
   const [streams, setStreams] = useState<WorkoutStreams | null>(null);
   const [loadingStreams, setLoadingStreams] = useState(false);
-  const [showHRChart, setShowHRChart] = useState(false);
-  const [showAltChart, setShowAltChart] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isStyleLoaded, setIsStyleLoaded] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -430,6 +436,12 @@ export default function WorkoutDetailsPage() {
       setLoadingStreams(false);
     }
   };
+
+  useEffect(() => {
+    if (!isMinimized && (showHRChart || showAltChart)) {
+      translateY.value = withSpring(currentSnapTopValue.value);
+    }
+  }, [showHRChart, showAltChart, isMinimized, currentSnapTopValue]);
 
   useEffect(() => {
     fetchSession();
