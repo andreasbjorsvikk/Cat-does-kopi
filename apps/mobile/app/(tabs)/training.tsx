@@ -9,7 +9,9 @@ import {
   Platform,
   Dimensions,
   PanResponder,
-  Alert
+  Alert,
+  LayoutAnimation,
+  UIManager
 } from "react-native";
 import { Heading } from "@/components/ui/heading";
 import { Text } from "@/components/ui/text";
@@ -97,6 +99,11 @@ const MONTH_LABELS_SHORT = [
   "Jan", "Feb", "Mar", "Apr", "Mai", "Jun", 
   "Jul", "Aug", "Sep", "Okt", "Nov", "Des"
 ];
+
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 interface WorkoutTypeColors {
   darkSelectedBg: string;
@@ -322,6 +329,11 @@ export default function TrainingScreen() {
   const [chartMetric, setChartMetric] = useState<"minutes" | "sessions" | "distance" | "elevation" | "steps">("minutes");
   const [chartType, setChartType] = useState<"bar" | "line">("bar");
   const [tooltipIndex, setTooltipIndex] = useState<number | null>(null);
+
+  // Animate chart transitions
+  useEffect(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+  }, [chartData, chartMetric, chartType, period]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1079,7 +1091,7 @@ export default function TrainingScreen() {
                   <TouchableOpacity onPress={handlePrevDate} style={styles.dateSelectorArrow}>
                     <ChevronLeft size={18} color={isDark ? "#FFFFFF" : "#111827"} />
                   </TouchableOpacity>
-                  <Text style={flattenStyle([styles.dateSelectorLabel, { color: isDark ? "#FFFFFF" : "#111827", fontSize: 20 }])}>
+                  <Text style={flattenStyle([styles.dateSelectorLabel, { color: isDark ? "#FFFFFF" : "#111827", fontSize: 26 }])}>
                     {period === "month" ? `${MONTH_NAMES[selectedMonth]} ${selectedYear}` : selectedYear.toString()}
                   </Text>
                   <TouchableOpacity onPress={handleNextDate} style={styles.dateSelectorArrow}>
@@ -1087,7 +1099,7 @@ export default function TrainingScreen() {
                   </TouchableOpacity>
                 </>
               ) : (
-                <Text style={flattenStyle([styles.dateSelectorLabel, { color: isDark ? "#FFFFFF" : "#111827", fontSize: 20 }])}>
+                <Text style={flattenStyle([styles.dateSelectorLabel, { color: isDark ? "#FFFFFF" : "#111827", fontSize: 26 }])}>
                   Total livstidsfremgang
                 </Text>
               )}
@@ -1287,10 +1299,17 @@ export default function TrainingScreen() {
                   bounces={false}
                   overScrollMode="never"
                 >
+                  {/* Background press area to dismiss tooltip */}
+                  <TouchableOpacity 
+                    activeOpacity={1} 
+                    onPress={() => setTooltipIndex(null)} 
+                    style={[StyleSheet.absoluteFill, { zIndex: 0 }]} 
+                  />
+
                   {chartType === "bar" ? (
                     
                     /* STACKED BAR CHART MODE */
-                    <VStack style={{ height: 185 }}>
+                    <VStack style={{ height: 185, zIndex: 1 }}>
                       {/* Graph Bars Area (aligned cleanly above y=0 baseline at exactly 150px height) */}
                       <HStack style={{ alignItems: "flex-end", height: 150, gap: barGap }}>
                         {chartData.map((bucket, bIdx) => {
@@ -1329,14 +1348,15 @@ export default function TrainingScreen() {
 
                         {/* Tooltip Overlay */}
                         {tooltipIndex !== null && chartData[tooltipIndex] && (
-                          <View 
-                            pointerEvents="none"
+                          <TouchableOpacity 
+                            activeOpacity={1}
+                            onPress={() => setTooltipIndex(null)}
                             style={flattenStyle([
                               {
                                 position: 'absolute',
-                                bottom: 160,
-                                left: Math.max(0, tooltipIndex * (barWidth + barGap) + 40 - 50),
-                                width: 100,
+                                bottom: 110,
+                                left: Math.max(0, Math.min(lineChartWidth - 120, tooltipIndex * (barWidth + barGap) + (barWidth / 2) - 60)),
+                                width: 120,
                                 backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
                                 borderRadius: 8,
                                 padding: 8,
@@ -1351,19 +1371,29 @@ export default function TrainingScreen() {
                               }
                             ])}
                           >
-                            <Text style={{ fontSize: 10, fontWeight: 'bold', color: isDark ? '#FFFFFF' : '#111827', marginBottom: 2 }}>
-                              Total: {chartMetric === 'minutes' ? formatMinutes(Number(chartData[tooltipIndex]._total)) : chartData[tooltipIndex]._total}
+                            <Text style={{ fontSize: 11, fontWeight: 'bold', color: isDark ? '#FFFFFF' : '#111827', marginBottom: 4 }}>
+                              Total: {chartMetric === 'minutes' ? formatMinutes(Number(chartData[tooltipIndex]._total)) : (chartMetric === 'distance' ? `${chartData[tooltipIndex]._total} km` : chartData[tooltipIndex]._total)}
                             </Text>
-                            {WORKOUT_TYPES.map(type => {
-                              const val = Number(chartData[tooltipIndex][type.id] || 0);
-                              if (val === 0) return null;
-                              return (
-                                <Text key={type.id} style={{ fontSize: 9, color: isDark ? '#9CA3AF' : '#6B7280' }}>
-                                  {type.label}: {chartMetric === 'minutes' ? formatMinutes(val) : val}
-                                </Text>
-                              );
-                            })}
-                          </View>
+                            <View style={{ gap: 2 }}>
+                              {WORKOUT_TYPES.map(type => {
+                                const val = Number(chartData[tooltipIndex][type.id] || 0);
+                                if (val === 0) return null;
+                                return (
+                                  <HStack key={type.id} style={{ alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <HStack style={{ alignItems: 'center', gap: 4 }}>
+                                      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: isDark ? type.colors.darkSelectedBg : type.colors.lightSelectedBg }} />
+                                      <Text style={{ fontSize: 9, color: isDark ? '#9CA3AF' : '#6B7280' }}>
+                                        {type.label}
+                                      </Text>
+                                    </HStack>
+                                    <Text style={{ fontSize: 9, fontWeight: '600', color: isDark ? '#FFFFFF' : '#111827' }}>
+                                      {chartMetric === 'minutes' ? formatMinutes(val) : (chartMetric === 'distance' ? `${val} km` : val)}
+                                    </Text>
+                                  </HStack>
+                                );
+                              })}
+                            </View>
+                          </TouchableOpacity>
                         )}
                       </HStack>
 
