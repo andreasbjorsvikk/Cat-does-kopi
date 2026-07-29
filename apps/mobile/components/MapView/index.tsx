@@ -11,7 +11,6 @@ import {
   UIManager,
   Alert,
 } from "react-native";
-import Svg, { Path } from "react-native-svg";
 import MapView, { Marker, UrlTile } from "react-native-maps";
 import { Heading } from "@/components/ui/heading";
 import { Text } from "@/components/ui/text";
@@ -460,25 +459,22 @@ export default function MapScreen() {
       setActiveTab("kart");
     }
 
-    const screenHeight = Dimensions.get("window").height;
+    // Manual latitude offset to position the peak at 20% from the top of the screen
+    // At zoom level 14, an offset of 0.007 puts the peak high up on the screen
+    const latOffset = 0.007;
 
     // Zoom to peak if using Mapbox
     if (isMapboxAvailable && isMapboxLayer && mapboxCameraRef.current) {
       try {
         mapboxCameraRef.current.setCamera({
-          centerCoordinate: [peak.longitude, peak.latitude],
+          centerCoordinate: [peak.longitude, peak.latitude - latOffset],
           zoomLevel: 14,
           animationDuration: 1000,
-          padding: { bottom: screenHeight * 0.6, top: 0, left: 0, right: 0 }
         } as any);
       } catch (err) {
         console.warn("Failed to set Mapbox camera center to selected peak:", err);
       }
     } else if (mapRef.current) {
-      // Manually offset latitude to center the peak at 20% from the top
-      // At zoom 14, 0.008 is a good approximation for the latitudinal span that puts the point at 20%
-      const latOffset = 0.004; 
-      
       mapRef.current.animateToRegion({
         latitude: peak.latitude - latOffset,
         longitude: peak.longitude,
@@ -955,27 +951,37 @@ export default function MapScreen() {
               pitch: is3DEnabled ? 60 : 0,
             }}
           />
-          {peaks.map((peak) => (
-            <Mapbox.PointAnnotation
-              key={peak.id}
-              id={peak.id}
-              coordinate={[peak.longitude, peak.latitude]}
-              onSelected={() => handlePeakSelect(peak)}
-              anchor={{ x: 0.5, y: 0.5 }}
-            >
-              <View style={styles.customMarkerContainer}>
-                <CustomMarkerIcon isChecked={checkedPeakIds.has(peak.id)} />
-                <View style={styles.customMarkerPill}>
-                  <Text style={styles.customMarkerLabel} numberOfLines={1}>
-                    {peak.name}
-                  </Text>
-                  <Text style={styles.customMarkerSubLabel}>
-                    {peak.heightMoh} moh
-                  </Text>
+          {peaks.map((peak) => {
+            const isChecked = checkedPeakIds.has(peak.id);
+            return (
+              <Mapbox.PointAnnotation
+                key={peak.id}
+                id={peak.id}
+                coordinate={[peak.longitude, peak.latitude]}
+                onSelected={() => handlePeakSelect(peak)}
+                anchor={{ x: 0.5, y: 0.5 }}
+              >
+                <View style={styles.customMarkerContainer}>
+                  <View style={flattenStyle([
+                    styles.customMarkerCircle,
+                    isChecked
+                      ? { backgroundColor: "#10B981", borderColor: "#FFFFFF" }
+                      : { backgroundColor: "#FFFFFF", borderColor: "#10B981" }
+                  ])}>
+                    <Mountain size={16} color={isChecked ? "#FFFFFF" : "#10B981"} strokeWidth={2.5} />
+                  </View>
+                  <View style={styles.customMarkerPill}>
+                    <Text style={styles.customMarkerLabel} numberOfLines={1}>
+                      {peak.name}
+                    </Text>
+                    <Text style={styles.customMarkerSubLabel}>
+                      {peak.heightMoh} moh
+                    </Text>
+                  </View>
                 </View>
-              </View>
-            </Mapbox.PointAnnotation>
-          ))}
+              </Mapbox.PointAnnotation>
+            );
+          })}
         </MapboxMapView>
       ) : (
         <MapView
@@ -1019,7 +1025,14 @@ export default function MapScreen() {
                 anchor={{ x: 0.5, y: 0.5 }}
               >
                 <View style={styles.customMarkerContainer}>
-                  <CustomMarkerIcon isChecked={isChecked} />
+                  <View style={flattenStyle([
+                    styles.customMarkerCircle,
+                    isChecked
+                      ? { backgroundColor: "#10B981", borderColor: "#FFFFFF" }
+                      : { backgroundColor: "#FFFFFF", borderColor: "#10B981" }
+                  ])}>
+                    <Mountain size={16} color={isChecked ? "#FFFFFF" : "#10B981"} strokeWidth={2.5} />
+                  </View>
                   <View style={styles.customMarkerPill}>
                     <Text style={styles.customMarkerLabel} numberOfLines={1}>
                       {peak.name}
@@ -1262,10 +1275,7 @@ export default function MapScreen() {
                 peaks={peaks}
                 checkins={userCheckins}
                 userLocation={userLocation}
-                onSelectPeak={(peak) => {
-                  setSelectedPeak(peak);
-                  setActiveTab("kart");
-                }}
+                onSelectPeak={handlePeakSelect}
                 loading={loading}
               />
             </View>
@@ -1475,28 +1485,6 @@ export default function MapScreen() {
           onSuccess={handleCheckinSuccess}
         />
       )}
-    </View>
-  );
-}
-
-/**
- * Refactored CustomMarkerIcon for better visibility and consistency across platforms.
- * Uses fixed dimensions and an SVG mountain icon for guaranteed visibility.
- */
-function CustomMarkerIcon({ isChecked }: { isChecked: boolean }) {
-  const iconColor = isChecked ? "#FFFFFF" : "#10B981";
-  return (
-    <View
-      style={flattenStyle([
-        styles.customMarkerCircle,
-        !isChecked
-          ? { backgroundColor: "#FFFFFF", borderColor: "#10B981" }
-          : { backgroundColor: "#10B981", borderColor: "#FFFFFF" },
-      ])}
-    >
-      <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={iconColor} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-        <Path d="m8 3 4 8 5-5 5 15H2L8 3z" />
-      </Svg>
     </View>
   );
 }
