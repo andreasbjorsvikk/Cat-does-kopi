@@ -117,30 +117,12 @@ const KOMMUNE_PALETTE = FYLKE_PALETTE.map(p => ({
 }));
 
 const CustomMountainIcon = ({ isChecked }: { isChecked: boolean }) => (
-  <View 
-    style={{ 
-      width: 20, 
-      height: 16, 
-      alignItems: 'center', 
-      justifyContent: 'center',
-      overflow: 'visible'
-    }}
-  >
-    <View
-      style={{
-        width: 0,
-        height: 0,
-        backgroundColor: 'transparent',
-        borderStyle: 'solid',
-        borderLeftWidth: 9,
-        borderRightWidth: 9,
-        borderBottomWidth: 14,
-        borderLeftColor: 'transparent',
-        borderRightColor: 'transparent',
-        borderBottomColor: isChecked ? "#FFFFFF" : "#10B981",
-      }}
-    />
-  </View>
+  <Mountain 
+    size={18} 
+    color={isChecked ? "#FFFFFF" : "#10B981"} 
+    strokeWidth={2}
+    fill={isChecked ? "#FFFFFF" : "#10B981"}
+  />
 );
 
 export default function MapScreen() {
@@ -173,6 +155,30 @@ export default function MapScreen() {
   const [areaStatsMode, setAreaStatsMode] = useState<'off' | 'kommune' | 'fylke'>('off');
   const [areaBoundaries, setAreaBoundaries] = useState<Record<string, any>>({});
   const [currentZoom, setCurrentZoom] = useState(12);
+
+  const declutteredPeaks = React.useMemo(() => {
+    // Show all peaks when zoomed in enough
+    if (currentZoom >= 12.5) return peaks;
+
+    const result: Peak[] = [];
+    // Dynamic distance based on zoom level
+    const minLatDist = 0.08 / Math.pow(2, currentZoom - 7);
+    const minLngDist = 0.08 / Math.pow(2, currentZoom - 7);
+
+    // Sort by height to prioritize showing higher peaks
+    const sorted = [...peaks].sort((a, b) => b.heightMoh - a.heightMoh);
+
+    for (const peak of sorted) {
+      const isTooClose = result.some(p => 
+        Math.abs(p.latitude - peak.latitude) < minLatDist && 
+        Math.abs(p.longitude - peak.longitude) < minLngDist
+      );
+      if (!isTooClose) {
+        result.push(peak);
+      }
+    }
+    return result;
+  }, [peaks, currentZoom]);
 
   const areaStats = React.useMemo(() => {
     if (areaStatsMode === 'off') return [];
@@ -1032,34 +1038,42 @@ export default function MapScreen() {
             }}
           />
           {peaks.map((peak) => {
+            // Always render the selected peak regardless of decluttering
+            const isSelected = selectedPeak?.id === peak.id;
+            const isVisible = isSelected || declutteredPeaks.some(p => p.id === peak.id);
+            if (!isVisible) return null;
+
             const isChecked = checkedPeakIds.has(peak.id);
             return (
-              <Mapbox.PointAnnotation
+              <MapboxMarkerView
                 key={peak.id}
                 id={peak.id}
                 coordinate={[peak.longitude, peak.latitude]}
-                onSelected={() => handlePeakSelect(peak)}
-                anchor={{ x: 0.5, y: 0.5 }}
               >
-                <View style={styles.customMarkerContainer}>
-                  <View style={flattenStyle([
-                    styles.customMarkerCircle,
-                    isChecked
-                      ? { backgroundColor: "#10B981", borderColor: "#FFFFFF" }
-                      : { backgroundColor: "#FFFFFF", borderColor: "#10B981" }
-                  ])}>
-                    <CustomMountainIcon isChecked={isChecked} />
+                <TouchableOpacity 
+                  onPress={() => handlePeakSelect(peak)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.customMarkerContainer}>
+                    <View style={flattenStyle([
+                      styles.customMarkerCircle,
+                      isChecked
+                        ? { backgroundColor: "#10B981", borderColor: "#FFFFFF" }
+                        : { backgroundColor: "#FFFFFF", borderColor: "#10B981" }
+                    ])}>
+                      <CustomMountainIcon isChecked={isChecked} />
+                    </View>
+                    <View style={styles.customMarkerPill}>
+                      <Text style={styles.customMarkerLabel} numberOfLines={1}>
+                        {peak.name}
+                      </Text>
+                      <Text style={styles.customMarkerSubLabel}>
+                        {peak.heightMoh} moh
+                      </Text>
+                    </View>
                   </View>
-                  <View style={styles.customMarkerPill}>
-                    <Text style={styles.customMarkerLabel} numberOfLines={1}>
-                      {peak.name}
-                    </Text>
-                    <Text style={styles.customMarkerSubLabel}>
-                      {peak.heightMoh} moh
-                    </Text>
-                  </View>
-                </View>
-              </Mapbox.PointAnnotation>
+                </TouchableOpacity>
+              </MapboxMarkerView>
             );
           })}
         </MapboxMapView>
@@ -1097,6 +1111,10 @@ export default function MapScreen() {
             />
           )}
           {peaks.map((peak) => {
+            const isSelected = selectedPeak?.id === peak.id;
+            const isVisible = isSelected || declutteredPeaks.some(p => p.id === peak.id);
+            if (!isVisible) return null;
+
             const isChecked = checkedPeakIds.has(peak.id);
             return (
               <Marker
@@ -1104,6 +1122,7 @@ export default function MapScreen() {
                 coordinate={{ latitude: peak.latitude, longitude: peak.longitude }}
                 onPress={() => handlePeakSelect(peak)}
                 anchor={{ x: 0.5, y: 0.5 }}
+                tracksViewChanges={false}
               >
                 <View style={styles.customMarkerContainer}>
                   <View style={flattenStyle([
