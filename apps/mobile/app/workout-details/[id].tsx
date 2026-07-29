@@ -74,10 +74,9 @@ try {
 const isMapboxAvailable = !!MapboxMapView;
 
 const { width, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const TOP_HEADER_HEIGHT = Platform.OS === 'ios' ? 100 : 80;
 const MINIMIZED_DRAWER_HEIGHT = 170;
 const BASE_SNAP_TOP = SCREEN_HEIGHT * 0.55;
-const CHART_SNAP_TOP = SCREEN_HEIGHT * 0.40;
+const CHART_SNAP_TOP = SCREEN_HEIGHT * 0.25;
 const SNAP_BOTTOM = SCREEN_HEIGHT - MINIMIZED_DRAWER_HEIGHT;
 
 // Mock stream data generator
@@ -392,15 +391,9 @@ export default function WorkoutDetailsPage() {
     };
   });
 
-  const rMapStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(
-      translateY.value,
-      [currentSnapTopValue.value, SNAP_BOTTOM],
-      [0.6, 1],
-      Extrapolate.CLAMP
-    );
-    return { opacity };
-  });
+  const rMapStyle = useAnimatedStyle(() => ({
+    opacity: 1,
+  }));
 
   const activityColors = useMemo(() => {
     if (!session) return null;
@@ -583,24 +576,17 @@ export default function WorkoutDetailsPage() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <View style={flattenStyle([styles.mainContainer, isDark ? styles.bgDark : styles.bgLight])}>
         <Stack.Screen options={{ headerShown: false }} />
-        
-        {/* Header - Fixed at top */}
-        <View style={flattenStyle([styles.header, isDark ? styles.headerDark : styles.headerLight])}>
-          <HStack style={{ alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
-              <ChevronLeft size={24} color={isDark ? "#FFFFFF" : "#1F2937"} />
-            </TouchableOpacity>
-            <Heading size="md" style={{ color: isDark ? "#FFFFFF" : "#1F2937" }}>Øktdetaljer</Heading>
-            <HStack space="sm">
-              <TouchableOpacity onPress={() => setIsEditModalOpen(true)} style={styles.iconBtn}>
-                <Pencil size={20} color={isDark ? "#FFFFFF" : "#1F2937"} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleDelete} style={styles.iconBtn}>
-                <Trash2 size={20} color="#EF4444" />
-              </TouchableOpacity>
-            </HStack>
-          </HStack>
-        </View>
+
+        {/* Floating Back Button */}
+        <TouchableOpacity 
+          onPress={() => router.back()} 
+          style={flattenStyle([
+            styles.floatingBackBtn,
+            isDark ? styles.floatingBtnDark : styles.floatingBtnLight
+          ])}
+        >
+          <ChevronLeft size={24} color={isDark ? "#FFFFFF" : "#1F2937"} />
+        </TouchableOpacity>
 
         {/* Map Section - Background */}
         {decodedRoute.length > 0 && (
@@ -716,11 +702,14 @@ export default function WorkoutDetailsPage() {
                   <View style={flattenStyle([styles.typeIconContainer, activityColors ? { backgroundColor: activityColors.bg } : null])}>
                     <ActivityIcon type={session.type} size={28} color={activityColors?.text || "#FFFFFF"} />
                   </View>
-                  <VStack style={{ flex: 1 }}>
-                    <HStack space="sm" style={{ alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Heading size="lg" numberOfLines={1} style={{ flex: 1 }}>
+                  <HStack style={{ flex: 1, alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                    <VStack style={{ flex: 1 }}>
+                      <Heading size="lg" numberOfLines={1}>
                         {session.title || session.type.charAt(0).toUpperCase() + session.type.slice(1)}
                       </Heading>
+                      <Text style={styles.dateText}>{displayDate}</Text>
+                    </VStack>
+                    <VStack space="xs" style={{ alignItems: 'flex-end' }}>
                       <Badge 
                         size="md" 
                         variant="solid" 
@@ -735,9 +724,16 @@ export default function WorkoutDetailsPage() {
                           {session.type.charAt(0).toUpperCase() + session.type.slice(1)}
                         </BadgeText>
                       </Badge>
-                    </HStack>
-                    <Text style={styles.dateText}>{displayDate}</Text>
-                  </VStack>
+                      <HStack space="sm">
+                        <TouchableOpacity onPress={() => setIsEditModalOpen(true)}>
+                          <Pencil size={18} color={isDark ? "#9CA3AF" : "#6B7280"} />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={handleDelete}>
+                          <Trash2 size={18} color="#EF4444" />
+                        </TouchableOpacity>
+                      </HStack>
+                    </VStack>
+                  </HStack>
                 </HStack>
               </TouchableOpacity>
             </VStack>
@@ -920,28 +916,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  header: {
-    height: TOP_HEADER_HEIGHT,
-    paddingTop: Platform.OS === 'ios' ? 44 : 24,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
-    zIndex: 10,
-  },
-  headerLight: {
-    backgroundColor: '#FFFFFF',
-  },
-  headerDark: {
-    backgroundColor: '#111827',
-  },
-  iconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  floatingBackBtn: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 60 : 40,
+    left: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 100,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  floatingBtnLight: {
+    backgroundColor: '#FFFFFF',
+  },
+  floatingBtnDark: {
+    backgroundColor: '#1F2937',
   },
   backBtn: {
     marginTop: 16,
