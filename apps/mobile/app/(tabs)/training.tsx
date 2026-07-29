@@ -1356,8 +1356,8 @@ export default function TrainingScreen() {
                               {
                                 position: 'absolute',
                                 bottom: 60,
-                                left: Math.max(0, Math.min(lineChartWidth - 120, tooltipIndex * (barWidth + barGap) + (barWidth / 2) - 60)),
-                                width: 130,
+                                left: Math.max(0, Math.min(lineChartWidth - 110, tooltipIndex * (barWidth + barGap) + (barWidth / 2) - 55)),
+                                width: 110,
                                 backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
                                 borderRadius: 8,
                                 padding: 6,
@@ -1372,13 +1372,13 @@ export default function TrainingScreen() {
                               }
                             ])}
                           >
-                            <Text style={{ fontSize: 10, fontWeight: '800', color: isDark ? '#10B981' : '#059669', marginBottom: 2 }}>
-                              {chartData[tooltipIndex].label} {period === 'month' ? MONTH_NAMES[selectedMonth] : ''} {selectedYear}
+                            <Text style={{ fontSize: 9, fontWeight: '800', color: isDark ? '#10B981' : '#059669', marginBottom: 0 }}>
+                              {period === 'month' ? `${tooltipIndex + 1}. ${MONTH_NAMES[selectedMonth]}` : (period === 'year' ? MONTH_NAMES[tooltipIndex] : chartData[tooltipIndex].label)}
                             </Text>
-                            <Text style={{ fontSize: 11, fontWeight: 'bold', color: isDark ? '#FFFFFF' : '#111827', marginBottom: 3 }}>
+                            <Text style={{ fontSize: 10, fontWeight: 'bold', color: isDark ? '#FFFFFF' : '#111827', marginBottom: 1 }}>
                               Total: {chartMetric === 'minutes' ? formatMinutes(Number(chartData[tooltipIndex]._total)) : (chartMetric === 'distance' ? `${Number(chartData[tooltipIndex]._total).toFixed(1)} km` : chartData[tooltipIndex]._total)}
                             </Text>
-                            <View style={{ gap: 1 }}>
+                            <View style={{ gap: 0 }}>
                               {WORKOUT_TYPES.map(type => {
                                 const val = Number(chartData[tooltipIndex][type.id] || 0);
                                 if (val === 0) return null;
