@@ -1358,8 +1358,8 @@ export default function TrainingScreen() {
                               {
                                 position: 'absolute',
                                 bottom: 60,
-                                left: Math.max(0, Math.min(lineChartWidth - 110, tooltipIndex * (barWidth + barGap) + (barWidth / 2) - 55)),
-                                width: 110,
+                                left: Math.max(0, Math.min(lineChartWidth - 120, tooltipIndex * (barWidth + barGap) + (barWidth / 2) - 60)),
+                                width: 120,
                                 backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
                                 borderRadius: 8,
                                 padding: 6,
@@ -1374,10 +1374,10 @@ export default function TrainingScreen() {
                               }
                             ])}
                           >
-                            <Text style={{ fontSize: 9, fontWeight: '800', color: isDark ? '#10B981' : '#059669', marginBottom: -2, lineHeight: 12 }}>
+                            <Text style={{ fontSize: 10.5, fontWeight: '800', color: isDark ? '#10B981' : '#059669', marginBottom: -2, lineHeight: 14 }}>
                               {period === 'month' ? `${tooltipIndex + 1}. ${MONTH_NAMES[selectedMonth]}` : (period === 'year' ? MONTH_NAMES[tooltipIndex] : chartData[tooltipIndex].label)}
                             </Text>
-                            <Text style={{ fontSize: 10, fontWeight: 'bold', color: isDark ? '#FFFFFF' : '#111827', marginBottom: 0, lineHeight: 14 }}>
+                            <Text style={{ fontSize: 11.5, fontWeight: 'bold', color: isDark ? '#FFFFFF' : '#111827', marginBottom: 0, lineHeight: 16 }}>
                               Total: {chartMetric === 'minutes' ? formatMinutes(Number(chartData[tooltipIndex]._total)) : (chartMetric === 'distance' ? `${Number(chartData[tooltipIndex]._total).toFixed(1)} km` : chartData[tooltipIndex]._total)}
                             </Text>
                             <View style={{ gap: 0 }}>
@@ -1385,14 +1385,14 @@ export default function TrainingScreen() {
                                 const val = Number(chartData[tooltipIndex][type.id] || 0);
                                 if (val === 0) return null;
                                 return (
-                                  <HStack key={type.id} style={{ alignItems: 'center', justifyContent: 'space-between', height: 12 }}>
+                                  <HStack key={type.id} style={{ alignItems: 'center', justifyContent: 'space-between', height: 14 }}>
                                     <HStack style={{ alignItems: 'center', gap: 4 }}>
                                       <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: isDark ? type.colors.darkSelectedBg : type.colors.lightSelectedBg }} />
-                                      <Text style={{ fontSize: 8.5, color: isDark ? '#9CA3AF' : '#6B7280', lineHeight: 10 }}>
+                                      <Text style={{ fontSize: 9.5, color: isDark ? '#9CA3AF' : '#6B7280', lineHeight: 12 }}>
                                         {type.label}
                                       </Text>
                                     </HStack>
-                                    <Text style={{ fontSize: 8.5, fontWeight: '600', color: isDark ? '#FFFFFF' : '#111827', lineHeight: 10 }}>
+                                    <Text style={{ fontSize: 9.5, fontWeight: '600', color: isDark ? '#FFFFFF' : '#111827', lineHeight: 12 }}>
                                       {chartMetric === 'minutes' ? formatMinutes(val) : (chartMetric === 'distance' ? `${val.toFixed(1)} km` : val)}
                                     </Text>
                                   </HStack>
