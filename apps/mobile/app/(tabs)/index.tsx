@@ -27,12 +27,15 @@ const MONTH_NAMES = [
   "Juli", "August", "September", "Oktober", "November", "Desember"
 ];
 
-function getStartOfWeek(date: Date) {
-  const d = new Date(date);
+/**
+ * Returns a Date object for the start of the week (Monday) at 00:00:00.000
+ */
+function getStartOfWeek(inputDate: Date) {
+  const d = new Date(inputDate);
+  d.setHours(0, 0, 0, 0);
   const day = d.getDay(); // 0 is Sunday, 1 is Monday, ...
   const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
   d.setDate(diff);
-  d.setHours(0, 0, 0, 0);
   return d;
 }
 
@@ -136,13 +139,23 @@ export default function HomeScreen() {
   [periods, sessions, currentYear]);
 
   const stats = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const currentMonthNum = today.getMonth();
+    const currentYearNum = today.getFullYear();
+    const startOfCurrentWeek = getStartOfWeek(today);
+
     const filtered = sessions.filter(s => {
+      // s.date is usually YYYY-MM-DD
       const d = new Date(s.date);
+      // Ensure we compare midnight to midnight
+      d.setHours(0, 0, 0, 0);
+
       if (statsPeriod === 'week') {
-        const startOfWeek = getStartOfWeek(now);
-        return d >= startOfWeek;
+        return d >= startOfCurrentWeek && d <= today;
       } else {
-        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+        return d.getMonth() === currentMonthNum && d.getFullYear() === currentYearNum;
       }
     });
     
@@ -152,7 +165,7 @@ export default function HomeScreen() {
       totalDistance: filtered.reduce((acc, s) => acc + (s.distance || 0), 0),
       totalElevation: filtered.reduce((acc, s) => acc + (s.elevationGain || 0), 0),
     };
-  }, [sessions, statsPeriod, currentMonth, currentYear]);
+  }, [sessions, statsPeriod]);
 
   // Extra goals filtered for home display
   const homeExtraGoals = useMemo(() => {
@@ -241,12 +254,6 @@ export default function HomeScreen() {
               <Plus size={20} color={theme.text} />
             </TouchableOpacity>
           </HStack>
-          <VStack style={{ marginTop: 16 }}>
-            <Text style={flattenStyle([styles.welcomeLabel, { color: theme.textMuted }])}>VELKOMMEN TILBAKE</Text>
-            <Heading style={flattenStyle([styles.welcomeName, { color: theme.text }])}>
-              Hei, {profile?.username?.split(' ')[0] || 'Spreking'}
-            </Heading>
-          </VStack>
         </View>
 
         {/* Report Buttons - Only visible in admin mode */}

@@ -71,7 +71,6 @@ const GoalGraph = memo(function GoalGraph({ sessions, periods, compact, isDark }
   const getDotColor = (d: { count: number; target: number }) => {
     if (d.target === 0) return '#9CA3AF';
     const diff = d.count - Math.round(d.target);
-    if (diff > 0) return '#D4A843'; // Gold
     if (diff >= 0) return '#10B981'; // Green
     if (diff >= -2) return '#F59E0B'; // Orange
     return '#EF4444'; // Red
@@ -114,6 +113,8 @@ const GoalGraph = memo(function GoalGraph({ sessions, periods, compact, isDark }
           stroke="#10B981"
           strokeWidth="1.2"
           opacity="0.6"
+          strokeLinejoin="round"
+          strokeLinecap="round"
         />
 
         {/* Dots */}
@@ -122,10 +123,10 @@ const GoalGraph = memo(function GoalGraph({ sessions, periods, compact, isDark }
             key={i}
             cx={getX(i)}
             cy={getY(d.count)}
-            r="2.5"
+            r="4"
             fill={getDotColor(d)}
             stroke={isDark ? '#1F2937' : '#FFFFFF'}
-            strokeWidth="0.8"
+            strokeWidth="1.2"
           />
         ))}
 
