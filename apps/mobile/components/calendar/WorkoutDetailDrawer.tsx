@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
 import MapView, { Polyline } from 'react-native-maps';
+import { useRouter } from 'expo-router';
 import { 
   Actionsheet, 
   ActionsheetBackdrop, 
@@ -39,6 +40,7 @@ interface WorkoutDetailDrawerProps {
   onClose: () => void;
   session: WorkoutSession | null;
   onEdit: (session: WorkoutSession) => void;
+  onDelete?: (session: WorkoutSession) => void;
   onAddWorkout: () => void;
   onAddHealthEvent: () => void;
 }
@@ -57,10 +59,7 @@ const StatsBox = ({
   isDark: boolean;
 }) => (
   <View
-    style={flattenStyle([
-      styles.statItem,
-      isDark ? styles.statItemDark : styles.statItemLight,
-    ])}
+    style={flattenStyle([styles.statItem, isDark ? styles.statItemDark : styles.statItemLight])}
   >
     <View style={styles.statLabel}>
       <Icon size={14} color="#6B7280" />
@@ -76,12 +75,14 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
   onClose,
   session,
   onEdit,
+  onDelete,
   onAddWorkout,
   onAddHealthEvent
 }) => {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const mapRef = React.useRef<MapView | null>(null);
+  const router = useRouter();
 
   const decodedRoute = React.useMemo(() => 
     session?.summaryPolyline ? decodePolyline(session.summaryPolyline) : []
@@ -108,10 +109,10 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
       // Use a small timeout to ensure map is ready
       const timer = setTimeout(() => {
         mapRef.current?.fitToCoordinates(decodedRoute, {
-          edgePadding: { top: 100, right: 100, bottom: 100, left: 100 },
-          animated: false,
+          edgePadding: { top: 80, right: 80, bottom: 80, left: 80 },
+          animated: true,
         });
-      }, 500);
+      }, 800);
       return () => clearTimeout(timer);
     }
   }, [isOpen, session, decodedRoute]);
@@ -135,57 +136,55 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
   const durationText = session.durationMinutes >= 60
     ? `${Math.floor(session.durationMinutes / 60)} t ${session.durationMinutes % 60} min`
     : `${session.durationMinutes} min`;
-
   return (
     <Actionsheet isOpen={isOpen} onClose={onClose}>
       <ActionsheetBackdrop />
-      <ActionsheetContent style={styles.sheetContent}>
+      <ActionsheetContent style={flattenStyle([styles.sheetContent, { paddingHorizontal: 0 }])}>
         <ActionsheetDragIndicatorWrapper>
           <ActionsheetDragIndicator />
         </ActionsheetDragIndicatorWrapper>
         
+        <View style={styles.mapContainer}>
+          {Platform.OS !== 'web' ? (
+            <MapView
+              ref={mapRef}
+              style={styles.map}
+              initialCamera={{
+                center: initialRegion,
+                pitch: 50,
+                heading: 0,
+                altitude: 1000,
+                zoom: 12,
+              }}
+              scrollEnabled={false}
+              zoomEnabled={false}
+              rotateEnabled={false}
+              pitchEnabled={true}
+              mapType="satellite"
+            >
+              {decodedRoute.length > 0 && (
+                <Polyline
+                  coordinates={decodedRoute}
+                  strokeColor="#F97316"
+                  strokeWidth={4}
+                />
+              )}
+            </MapView>
+          ) : (
+            <View style={flattenStyle([styles.mapPlaceholder, isDark ? styles.placeholderDark : styles.placeholderLight])}>
+              <MapPin size={48} color={isDark ? "#4B5563" : "#D1D5DB"} />
+              <Text style={styles.placeholderText}>Kart er utilgjengelig på web</Text>
+            </View>
+          )}
+        </View>
+
         <ScrollView 
           style={styles.scroll} 
           contentContainerStyle={styles.container}
           showsVerticalScrollIndicator={false}
         >
           <VStack space="xl">
-            {/* Map View */}
-            <View style={styles.mapContainer}>
-              {Platform.OS !== 'web' ? (
-                <MapView
-                  ref={mapRef}
-                  style={styles.map}
-                  initialCamera={{
-                    center: initialRegion,
-                    pitch: 50,
-                    heading: 0,
-                    altitude: 1000,
-                    zoom: 12,
-                  }}
-                  scrollEnabled={false}
-                  zoomEnabled={false}
-                  rotateEnabled={false}
-                  pitchEnabled={true}
-                  mapType="satellite"
-                >
-                  {decodedRoute.length > 0 && (
-                    <Polyline
-                      coordinates={decodedRoute}
-                      strokeColor="#F97316" // Orange like in Strava/Screenshot
-                      strokeWidth={4}
-                    />
-                  )}
-                </MapView>
-              ) : (
-                <View style={flattenStyle([styles.mapPlaceholder, isDark ? styles.placeholderDark : styles.placeholderLight])}>
-                  <MapPin size={48} color={isDark ? "#4B5563" : "#D1D5DB"} />
-                  <Text style={styles.placeholderText}>Kart er utilgjengelig på web</Text>
-                </View>
-              )}
-            </View>
-
-            <View style={styles.header}>
+            <View style={flattenStyle([styles.header, { alignItems: 'center' }])}>
               <HStack space="md" style={{ flex: 1, alignItems: 'center' }}>
                 <View style={styles.iconContainer}>
                   <ActivityIcon type={session.type} size={28} color="#FFFFFF" />
@@ -207,7 +206,7 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
                 </TouchableOpacity>
                 <TouchableOpacity 
                   style={flattenStyle([styles.squareActionBtn, isDark ? styles.btnDark : styles.btnLight])}
-                  onPress={() => {/* Handle delete */}}
+                  onPress={() => onDelete?.(session)}
                 >
                   <Trash2 size={18} color="#EF4444" />
                 </TouchableOpacity>
@@ -246,7 +245,7 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
                     ? `${session.averageHeartrate} / ${session.maxHeartrate || "--"}`
                     : "-- / --"
                 }
-                subtitle={session.averageHeartrate ? "(snitt / maks)" : undefined}
+                subtitle={session.averageHeartrate ? "snitt / maks" : undefined}
                 icon={Heart} 
                 isDark={isDark} 
               />
@@ -258,9 +257,17 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
               />
             </View>
 
-            <TouchableOpacity style={flattenStyle([styles.moreBtn, isDark ? styles.btnDark : styles.btnLight])}>
+            <TouchableOpacity 
+              style={flattenStyle([styles.moreBtn, isDark ? styles.btnDark : styles.btnLight])}
+              onPress={() => {
+                onClose();
+                router.push({
+                  pathname: "/workout-details/[id]",
+                  params: { id: session.id }
+                } as any);
+              }}
+            >
               <HStack space="xs" style={{ alignItems: 'center', justifyContent: 'center' }}>
-                <ChevronDown size={18} color={isDark ? "#9CA3AF" : "#4B5563"} />
                 <Text style={styles.moreText}>Mer detaljer</Text>
               </HStack>
             </TouchableOpacity>
@@ -318,10 +325,8 @@ const styles = StyleSheet.create({
   },
   mapContainer: {
     width: '100%',
-    height: 220,
-    borderRadius: 16,
+    height: 260,
     overflow: 'hidden',
-    marginBottom: 8,
   },
   map: {
     width: '100%',
@@ -385,13 +390,14 @@ const styles = StyleSheet.create({
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'space-between',
     gap: 8,
   },
   statItem: {
-    width: '31.8%',
+    width: '48.5%',
     padding: 12,
     borderRadius: 16,
-    minHeight: 80,
+    minHeight: 90,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -441,7 +447,27 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#6B7280',
+  },
+  graphInfo: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  graphContainer: {
+    width: '100%',
+    height: 120,
+    borderRadius: 16,
+    padding: 16,
+    justifyContent: 'flex-end',
+  },
+  mockGraph: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    height: '100%',
+    gap: 2,
+  },
+  expandedSection: {
     marginTop: 8,
+    marginBottom: 8,
   },
   notesBox: {
     padding: 16,

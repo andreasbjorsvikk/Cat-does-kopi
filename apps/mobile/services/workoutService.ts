@@ -43,6 +43,21 @@ export const workoutService = {
     }
   },
 
+  async getById(id: string): Promise<WorkoutSession | null> {
+    try {
+      const { data, error } = await supabase
+        .from("workout_sessions")
+        .select("*")
+        .eq("id", id)
+        .single();
+      if (error) throw error;
+      return data ? rowToSession(data) : null;
+    } catch (err) {
+      console.error(`Could not fetch workout session ${id}:`, err);
+      return null;
+    }
+  },
+
   async add(session: Omit<WorkoutSession, "id">, userId: string | undefined): Promise<WorkoutSession> {
     if (!userId) throw new Error("Du må være logget inn for å lagre økter.");
 

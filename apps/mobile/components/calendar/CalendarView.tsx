@@ -25,6 +25,8 @@ import { DayDrawer } from './DayDrawer';
 import { WorkoutDetailDrawer } from './WorkoutDetailDrawer';
 import { HealthEventModal } from '@/components/HealthEventModal';
 import { WorkoutSession, HealthEvent } from '@/types/workout';
+import { workoutService } from '@/services/workoutService';
+import { Alert } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 const DAYS_NO = ['Ma', 'Ti', 'On', 'To', 'Fr', 'Lø', 'Sø'];
@@ -53,6 +55,7 @@ export const CalendarView: React.FC = () => {
   const [isHealthModalOpen, setIsHealthModalOpen] = useState(false);
   const [isDayDrawerOpen, setIsDayDrawerOpen] = useState(false);
   const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false);
+  const [wasDetailDrawerOpen, setWasDetailDrawerOpen] = useState(false);
 
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [selectedSession, setSelectedSession] = useState<WorkoutSession | null>(null);
@@ -165,26 +168,62 @@ export const CalendarView: React.FC = () => {
     setIsDayDrawerOpen(true);
   }, []);
 
-  const handleEditWorkout = (session: WorkoutSession) => {
+  const handleEditWorkout = (session: WorkoutSession, fromDetailDrawer = false) => {
     setSelectedSession(session);
+    if (fromDetailDrawer) {
+      setWasDetailDrawerOpen(true);
+    }
     setIsWorkoutModalOpen(true);
   };
 
-  const handleEditHealth = (event: HealthEvent) => {
+  const handleEditHealth = (event: HealthEvent, fromDetailDrawer = false) => {
     setSelectedHealthEvent(event);
+    if (fromDetailDrawer) {
+      setWasDetailDrawerOpen(true);
+    }
     setIsHealthModalOpen(true);
   };
 
-  const handleAddWorkout = (date: string) => {
+  const handleAddWorkout = (date: string, fromDetailDrawer = false) => {
     setSelectedDate(date);
     setSelectedSession(null);
+    if (fromDetailDrawer) {
+      setWasDetailDrawerOpen(true);
+    }
     setIsWorkoutModalOpen(true);
   };
 
-  const handleAddHealth = (date: string) => {
+  const handleAddHealth = (date: string, fromDetailDrawer = false) => {
     setSelectedDate(date);
     setSelectedHealthEvent(null);
+    if (fromDetailDrawer) {
+      setWasDetailDrawerOpen(true);
+    }
     setIsHealthModalOpen(true);
+  };
+
+  const handleDeleteWorkout = async (session: WorkoutSession) => {
+    Alert.alert(
+      "Slett økt",
+      "Er du sikker på at du vil slette denne økten?",
+      [
+        { text: "Avbryt", style: "cancel" },
+        { 
+          text: "Slett", 
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await workoutService.delete(session.id);
+              setIsDetailDrawerOpen(false);
+              refresh();
+            } catch (error) {
+              console.error("Error deleting session:", error);
+              Alert.alert("Feil", "Kunne ikke slette økten.");
+            }
+          }
+        }
+      ]
+    );
   };
 
   const scrollToToday = useCallback(async () => {
@@ -422,18 +461,10 @@ export const CalendarView: React.FC = () => {
         isOpen={isDetailDrawerOpen}
         onClose={() => setIsDetailDrawerOpen(false)}
         session={selectedSession}
-        onEdit={(s) => {
-          setIsDetailDrawerOpen(false);
-          handleEditWorkout(s);
-        }}
-        onAddWorkout={() => {
-          setIsDetailDrawerOpen(false);
-          handleAddWorkout(selectedDate);
-        }}
-        onAddHealthEvent={() => {
-          setIsDetailDrawerOpen(false);
-          handleAddHealth(selectedDate);
-        }}
+        onEdit={(s) => handleEditWorkout(s, true)}
+        onDelete={handleDeleteWorkout}
+        onAddWorkout={() => handleAddWorkout(selectedDate, true)}
+        onAddHealthEvent={() => handleAddHealth(selectedDate, true)}
       />
 
       <HealthEventModal
@@ -441,9 +472,19 @@ export const CalendarView: React.FC = () => {
         onClose={() => {
           setIsHealthModalOpen(false);
           setSelectedHealthEvent(null);
+          if (wasDetailDrawerOpen) {
+            setIsDetailDrawerOpen(true);
+            setWasDetailDrawerOpen(false);
+          }
         }}
         initialDate={selectedDate}
-        onSuccess={() => refresh()}
+        onSuccess={() => {
+          refresh();
+          if (wasDetailDrawerOpen) {
+            setIsDetailDrawerOpen(true);
+            setWasDetailDrawerOpen(false);
+          }
+        }}
         eventToEdit={selectedHealthEvent}
       />
 
@@ -452,9 +493,21 @@ export const CalendarView: React.FC = () => {
         onClose={() => {
           setIsWorkoutModalOpen(false);
           setSelectedSession(null);
+          if (wasDetailDrawerOpen) {
+            setIsDetailDrawerOpen(true);
+            setWasDetailDrawerOpen(false);
+          }
         }}
         initialDate={selectedDate}
-        onSuccess={refresh}
+        onSuccess={() => {
+          refresh();
+          if (wasDetailDrawerOpen) {
+            // Try to update the selected session with the new data
+            // (refresh is async, but this is a quick fix to keep the drawer open)
+            setIsDetailDrawerOpen(true);
+            setWasDetailDrawerOpen(false);
+          }
+        }}
         sessionToEdit={selectedSession}
       />
     </View>
