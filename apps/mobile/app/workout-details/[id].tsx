@@ -32,6 +32,7 @@ import { WorkoutSession } from '@/types/workout';
 import { workoutService } from '@/services/workoutService';
 import { stravaService } from '@/services/stravaService';
 import { WorkoutStreams } from '@/types/workout';
+import { getActivityColors } from '@/utils/activityColors';
 import { ActivityIcon } from '@/components/ActivityIcon';
 import { decodePolyline } from '@/utils/polyline';
 import { flattenStyle } from '@/utils/flatten-style';
@@ -318,6 +319,11 @@ export default function WorkoutDetailsPage() {
   const isDark = colorScheme === 'dark';
   const mapRef = useRef<MapView | null>(null);
   const mapboxCameraRef = useRef<any>(null);
+  
+  const activityColors = useMemo(() => {
+    if (!session) return null;
+    return getActivityColors(session.type, isDark);
+  }, [session, isDark]);
 
   const [session, setSession] = useState<WorkoutSession | null>(null);
   const [streams, setStreams] = useState<WorkoutStreams | null>(null);
@@ -390,7 +396,7 @@ export default function WorkoutDetailsPage() {
     if (session && decodedRoute.length > 0 && mapRef.current) {
       setTimeout(() => {
         mapRef.current?.fitToCoordinates(decodedRoute, {
-          edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+          edgePadding: { top: 100, right: 100, bottom: 100, left: 100 },
           animated: true,
         });
       }, 500);
@@ -403,10 +409,10 @@ export default function WorkoutDetailsPage() {
             bounds: {
               ne: [routeBounds.maxLng, routeBounds.maxLat],
               sw: [routeBounds.minLng, routeBounds.minLat],
-              paddingTop: 40,
-              paddingRight: 40,
-              paddingBottom: 40,
-              paddingLeft: 40,
+              paddingTop: 80,
+              paddingRight: 80,
+              paddingBottom: 80,
+              paddingLeft: 80,
             },
             pitch: 60,
             animationDuration: duration,
@@ -604,8 +610,8 @@ export default function WorkoutDetailsPage() {
         <VStack space="xl" style={{ padding: 16 }}>
           {/* Session Info */}
           <HStack space="md" style={{ alignItems: 'center' }}>
-            <View style={styles.typeIconContainer}>
-              <ActivityIcon type={session.type} size={28} color="#FFFFFF" />
+            <View style={flattenStyle([styles.typeIconContainer, activityColors ? { backgroundColor: activityColors.badge } : null])}>
+              <ActivityIcon type={session.type} size={28} color={activityColors?.text || "#FFFFFF"} />
             </View>
             <VStack style={{ flex: 1 }}>
               <Heading size="xl">

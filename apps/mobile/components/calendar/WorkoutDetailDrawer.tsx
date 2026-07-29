@@ -15,7 +15,7 @@ import { HStack } from '@/components/ui/hstack';
 import { VStack } from '@/components/ui/vstack';
 import { WorkoutSession } from '@/types/workout';
 import { ActivityIcon } from '@/components/ActivityIcon';
-import { getActivityColors } from '@/utils/activityColors';
+import { getActivityColors, ActivityColorSet } from '@/utils/activityColors';
 import useColorScheme from '@/hooks/useColorScheme';
 import { 
   Plus, 
@@ -93,6 +93,11 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
   const isDark = colorScheme === 'dark';
   const mapRef = React.useRef<MapView | null>(null);
   const router = useRouter();
+  
+  const activityColors = React.useMemo(() => {
+    if (!session) return null;
+    return getActivityColors(session.type, isDark);
+  }, [session, isDark]);
 
   const decodedRoute = React.useMemo(() => 
     session?.summaryPolyline ? decodePolyline(session.summaryPolyline) : []
@@ -119,7 +124,7 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
       // Use a small timeout to ensure map is ready
       const timer = setTimeout(() => {
         mapRef.current?.fitToCoordinates(decodedRoute, {
-          edgePadding: { top: 100, right: 100, bottom: 100, left: 100 },
+          edgePadding: { top: 140, right: 140, bottom: 140, left: 140 },
           animated: true,
         });
       }, 800);
@@ -199,8 +204,8 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
           <VStack space="xl">
             <View style={flattenStyle([styles.header, { alignItems: 'center' }])}>
               <HStack space="md" style={{ flex: 1, alignItems: 'center' }}>
-                <View style={styles.iconContainer}>
-                  <ActivityIcon type={session.type} size={28} color="#FFFFFF" />
+                <View style={flattenStyle([styles.iconContainer, activityColors ? { backgroundColor: activityColors.badge } : null])}>
+                  <ActivityIcon type={session.type} size={28} color={activityColors?.text || "#FFFFFF"} />
                 </View>
                 <VStack style={{ flex: 1 }}>
                   <Heading style={styles.title}>

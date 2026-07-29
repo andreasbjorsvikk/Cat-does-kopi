@@ -103,7 +103,7 @@ export const DayDrawer: React.FC<DayDrawerProps> = ({
                           {session.title || session.type.charAt(0).toUpperCase() + session.type.slice(1)}
                         </Text>
                         <Text style={[styles.eventNotes, { color: colors.text }]}>
-                          {session.durationMinutes} min {session.distance ? `• ${session.distance} km` : ''}
+                          {session.durationMinutes} min {session.distance ? `• ${session.distance} km` : ''} {session.elevationGain ? `• ${session.elevationGain} m` : ''}
                         </Text>
                       </VStack>
                     </HStack>
