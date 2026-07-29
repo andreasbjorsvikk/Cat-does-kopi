@@ -1,9 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, FlatList, TouchableOpacity, ActivityIndicator, Image, Platform } from 'react-native';
-import { VStack } from '@/components/ui/vstack';
-import { HStack } from '@/components/ui/hstack';
-import { Text } from '@/components/ui/text';
-import { Heading } from '@/components/ui/heading';
+import { Text } from 'react-native';
 import { Trophy, Users, Globe } from 'lucide-react-native';
 import { useAuth } from '@/hooks/useAuth';
 import useColorScheme from '@/hooks/useColorScheme';
@@ -63,23 +60,44 @@ export const LeaderboardView = () => {
     const isTop3 = rank <= 3;
     const trophyColor = rank === 1 ? '#FBBF24' : rank === 2 ? '#9CA3AF' : '#D97706';
 
-    let containerClasses = "px-4 py-3 mx-4 mb-2 rounded-2xl border ";
-    if (isFirst) {
-      containerClasses += "bg-emerald-500/10 dark:bg-emerald-500/20 border-emerald-500/50";
-    } else if (item.isMe) {
-      containerClasses += "bg-emerald-50 dark:bg-emerald-900/50 border-emerald-500/30";
-    } else {
-      containerClasses += "bg-background-50 dark:bg-background-950 border-outline-100 dark:border-outline-900";
-    }
+    const backgroundColor = isFirst 
+      ? (isDark ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 185, 129, 0.1)')
+      : (item.isMe 
+          ? (isDark ? 'rgba(6, 78, 59, 0.5)' : '#ECFDF5')
+          : (isDark ? '#111827' : '#FFFFFF'));
+
+    const borderColor = isFirst
+      ? 'rgba(16, 185, 129, 0.5)'
+      : (item.isMe
+          ? 'rgba(16, 185, 129, 0.3)'
+          : (isDark ? '#374151' : '#F3F4F6'));
 
     return (
-      <View className={containerClasses}>
-        <HStack className="items-center" style={{ gap: 12 }}>
+      <View 
+        style={{
+          backgroundColor,
+          borderColor,
+          borderWidth: 1,
+          borderRadius: 16,
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          marginHorizontal: 16,
+          marginBottom: 8,
+          ...(isFirst ? {
+            shadowColor: "#10B981",
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.2,
+            shadowRadius: 8,
+            elevation: 4,
+          } : {})
+        }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <View className="w-8 items-center">
             {isTop3 ? (
               <Trophy size={20} color={trophyColor} fill={trophyColor + '20'} />
             ) : (
-              <Text className="text-typography-400 dark:text-typography-500 font-bold">{rank}</Text>
+              <Text style={{ color: isDark ? '#9CA3AF' : '#6B7280', fontWeight: 'bold' }}>{rank}</Text>
             )}
           </View>
 
@@ -87,33 +105,40 @@ export const LeaderboardView = () => {
             {item.avatarUrl ? (
               <Image 
                 source={{ uri: item.avatarUrl }} 
-                className="w-10 h-10 rounded-full bg-background-200 dark:bg-background-800" 
+                style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: isDark ? '#374151' : '#E5E7EB' }} 
               />
             ) : (
-              <View className="w-10 h-10 rounded-full bg-background-200 dark:bg-background-800 items-center justify-center">
-                <Text className="text-typography-500 font-bold">
+              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: isDark ? '#374151' : '#E5E7EB', alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: isDark ? '#9CA3AF' : '#6B7280', fontWeight: 'bold' }}>
                   {item.name.charAt(0).toUpperCase()}
                 </Text>
               </View>
             )}
             {item.isChild && (
-              <View className="absolute -right-1 -bottom-1 bg-white dark:bg-background-950 rounded-full w-5 h-5 items-center justify-center border border-outline-50 dark:border-outline-900 shadow-sm">
-                <Text className="text-[10px]">{item.emoji || '👶'}</Text>
+              <View style={{ position: 'absolute', right: -4, bottom: -4, backgroundColor: isDark ? '#1F2937' : '#FFFFFF', borderRadius: 10, width: 20, height: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: isDark ? '#374151' : '#F3F4F6' }}>
+                <Text style={{ fontSize: 10 }}>{item.emoji || '👶'}</Text>
               </View>
             )}
           </View>
 
-          <VStack className="flex-1" style={{ gap: 0 }}>
-            <Text className={`font-semibold text-sm ${item.isMe ? 'text-emerald-900 dark:text-white' : 'text-typography-900 dark:text-white'}`} numberOfLines={1}>
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text 
+              style={{ 
+                fontWeight: '600', 
+                fontSize: 14, 
+                color: isDark ? '#FFFFFF' : (item.isMe ? '#064E3B' : '#111827') 
+              }} 
+              numberOfLines={1}
+            >
               {item.name}
             </Text>
-          </VStack>
+          </View>
 
-          <HStack className="items-baseline" style={{ gap: 4 }}>
-            <Text className="font-bold text-base text-typography-900 dark:text-white">{value}</Text>
-            <Text size="xs" className="text-typography-500 dark:text-typography-200">{label}</Text>
-          </HStack>
-        </HStack>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+            <Text style={{ fontWeight: 'bold', fontSize: 16, color: isDark ? '#FFFFFF' : '#111827' }}>{value}</Text>
+            <Text style={{ fontSize: 12, marginLeft: 4, color: isDark ? '#9CA3AF' : '#6B7280' }}>{label}</Text>
+          </View>
+        </View>
       </View>
     );
   };
@@ -121,43 +146,100 @@ export const LeaderboardView = () => {
   return (
     <View className="flex-1">
       {/* Header Filters */}
-      <VStack className="px-4 pt-4 pb-2" style={{ gap: 12 }}>
+      <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 }}>
         {/* Scope Switcher */}
-        <HStack className="bg-background-100 dark:bg-background-900 p-1 rounded-xl">
+        <View 
+          style={{ 
+            flexDirection: 'row', 
+            backgroundColor: isDark ? '#1F2937' : '#F3F4F6', 
+            padding: 4, 
+            borderRadius: 12,
+            marginBottom: 12
+          }}
+        >
           <TouchableOpacity 
             onPress={() => { hapticsService.impact('light'); setScope('global'); }}
-            className={`flex-1 flex-row items-center justify-center py-2 rounded-lg ${scope === 'global' ? 'bg-white dark:bg-emerald-600 shadow-sm' : ''}`}
+            style={{
+              flex: 1,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              paddingVertical: 8,
+              borderRadius: 8,
+              backgroundColor: scope === 'global' ? (isDark ? '#10B981' : '#FFFFFF') : 'transparent',
+              ...(scope === 'global' && !isDark ? { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 } : {})
+            }}
           >
             <Globe size={14} color={scope === 'global' ? (isDark ? '#FFFFFF' : '#10B981') : (isDark ? '#9CA3AF' : '#6B7280')} />
-            <Text size="sm" className={`font-semibold ml-2 ${scope === 'global' ? 'text-typography-900 dark:text-white' : 'text-typography-500'}`}>Global</Text>
+            <Text style={{ fontSize: 14, fontWeight: '600', marginLeft: 8, color: scope === 'global' ? (isDark ? '#FFFFFF' : '#111827') : (isDark ? '#9CA3AF' : '#6B7280') }}>Global</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             onPress={() => { hapticsService.impact('light'); setScope('friends'); }}
-            className={`flex-1 flex-row items-center justify-center py-2 rounded-lg ${scope === 'friends' ? 'bg-white dark:bg-emerald-600 shadow-sm' : ''}`}
+            style={{
+              flex: 1,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              paddingVertical: 8,
+              borderRadius: 8,
+              backgroundColor: scope === 'friends' ? (isDark ? '#10B981' : '#FFFFFF') : 'transparent',
+              ...(scope === 'friends' && !isDark ? { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 } : {})
+            }}
           >
             <Users size={14} color={scope === 'friends' ? (isDark ? '#FFFFFF' : '#10B981') : (isDark ? '#9CA3AF' : '#6B7280')} />
-            <Text size="sm" className={`font-semibold ml-2 ${scope === 'friends' ? 'text-typography-900 dark:text-white' : 'text-typography-500'}`}>Venner</Text>
+            <Text style={{ fontSize: 14, fontWeight: '600', marginLeft: 8, color: scope === 'friends' ? (isDark ? '#FFFFFF' : '#111827') : (isDark ? '#9CA3AF' : '#6B7280') }}>Venner</Text>
           </TouchableOpacity>
-        </HStack>
+        </View>
 
         {/* Metric Selector Toggle Buttons */}
-        <HStack className="bg-background-100 dark:bg-background-900 p-1 rounded-xl">
+        <View 
+          style={{ 
+            flexDirection: 'row', 
+            backgroundColor: isDark ? '#1F2937' : '#F3F4F6', 
+            padding: 4, 
+            borderRadius: 12,
+            marginBottom: 12
+          }}
+        >
           <TouchableOpacity 
             onPress={() => { hapticsService.impact('light'); setMetric('unique'); }}
-            className={`flex-1 items-center justify-center py-2 rounded-lg ${metric === 'unique' ? 'bg-white dark:bg-emerald-600 shadow-sm' : ''}`}
+            style={{
+              flex: 1,
+              alignItems: 'center',
+              justifyContent: 'center',
+              paddingVertical: 8,
+              borderRadius: 8,
+              backgroundColor: metric === 'unique' ? (isDark ? '#10B981' : '#FFFFFF') : 'transparent',
+              ...(metric === 'unique' && !isDark ? { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 } : {})
+            }}
           >
-            <Text size="sm" className={`font-semibold ${metric === 'unique' ? 'text-typography-900 dark:text-white' : 'text-typography-500'}`}>Unike topper</Text>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: metric === 'unique' ? (isDark ? '#FFFFFF' : '#111827') : (isDark ? '#9CA3AF' : '#6B7280') }}>Unike topper</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             onPress={() => { hapticsService.impact('light'); setMetric('trips'); }}
-            className={`flex-1 items-center justify-center py-2 rounded-lg ${metric === 'trips' ? 'bg-white dark:bg-emerald-600 shadow-sm' : ''}`}
+            style={{
+              flex: 1,
+              alignItems: 'center',
+              justifyContent: 'center',
+              paddingVertical: 8,
+              borderRadius: 8,
+              backgroundColor: metric === 'trips' ? (isDark ? '#10B981' : '#FFFFFF') : 'transparent',
+              ...(metric === 'trips' && !isDark ? { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 } : {})
+            }}
           >
-            <Text size="sm" className={`font-semibold ${metric === 'trips' ? 'text-typography-900 dark:text-white' : 'text-typography-500'}`}>Totalt antall turer</Text>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: metric === 'trips' ? (isDark ? '#FFFFFF' : '#111827') : (isDark ? '#9CA3AF' : '#6B7280') }}>Totalt antall turer</Text>
           </TouchableOpacity>
-        </HStack>
+        </View>
 
         {/* Period Selector */}
-        <HStack className="bg-background-100 dark:bg-background-900 p-1 rounded-xl">
+        <View 
+          style={{ 
+            flexDirection: 'row', 
+            backgroundColor: isDark ? '#1F2937' : '#F3F4F6', 
+            padding: 4, 
+            borderRadius: 12
+          }}
+        >
           {(['month', 'year', 'total'] as LeaderboardPeriod[]).map((p) => {
             const label = p === 'month' ? 'Måned' : p === 'year' ? 'År' : 'Totalt';
             const isActive = period === p;
@@ -165,21 +247,29 @@ export const LeaderboardView = () => {
               <TouchableOpacity 
                 key={p}
                 onPress={() => { hapticsService.impact('light'); setPeriod(p); }}
-                className={`flex-1 items-center justify-center py-1.5 rounded-lg ${isActive ? 'bg-white dark:bg-emerald-600 shadow-sm' : ''}`}
+                style={{
+                  flex: 1,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  paddingVertical: 6,
+                  borderRadius: 8,
+                  backgroundColor: isActive ? (isDark ? '#10B981' : '#FFFFFF') : 'transparent',
+                  ...(isActive && !isDark ? { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 } : {})
+                }}
               >
-                <Text size="xs" className={`font-semibold ${isActive ? 'text-typography-900 dark:text-white' : 'text-typography-500'}`}>{label}</Text>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: isActive ? (isDark ? '#FFFFFF' : '#111827') : (isDark ? '#9CA3AF' : '#6B7280') }}>{label}</Text>
               </TouchableOpacity>
             );
           })}
-        </HStack>
-      </VStack>
+        </View>
+      </View>
 
       {/* List */}
       <View className="flex-1 mt-2">
         {loading ? (
           <View className="flex-1 items-center justify-center py-20">
             <ActivityIndicator size="large" color="#10B981" />
-            <Text className="mt-4 text-typography-500">Laster lederliste...</Text>
+            <Text style={{ marginTop: 16, color: isDark ? '#9CA3AF' : '#6B7280' }}>Laster lederliste...</Text>
           </View>
         ) : sortedEntries.length > 0 ? (
           <FlatList
@@ -190,13 +280,13 @@ export const LeaderboardView = () => {
             showsVerticalScrollIndicator={false}
           />
         ) : (
-          <VStack className="items-center justify-center py-20 px-10">
+          <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 80, paddingHorizontal: 40 }}>
             <Trophy size={48} color={isDark ? "#374151" : "#E5E7EB"} />
-            <Heading size="sm" className="mt-4 text-center">Ingen data ennå</Heading>
-            <Text size="sm" className="text-center text-typography-500 mt-2">
+            <Text style={{ fontSize: 18, fontWeight: 'bold', marginTop: 16, textAlign: 'center', color: isDark ? '#FFFFFF' : '#111827' }}>Ingen data ennå</Text>
+            <Text style={{ fontSize: 14, textAlign: 'center', color: isDark ? '#9CA3AF' : '#6B7280', marginTop: 8 }}>
               Sjekk inn på topper for å klatre på listen!
             </Text>
-          </VStack>
+          </View>
         )}
       </View>
     </View>
