@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { 
   View, 
   StyleSheet, 
@@ -11,6 +11,15 @@ import {
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import MapView, { Polyline } from 'react-native-maps';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle, 
+  withSpring,
+  interpolate,
+  Extrapolate,
+  runOnJS
+} from 'react-native-reanimated';
+import { GestureDetector, Gesture, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Svg, { Path, Defs, LinearGradient, Stop, Text as SvgText, Circle, Rect, G, Line, TSpan } from 'react-native-svg';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
@@ -63,7 +72,11 @@ try {
 
 const isMapboxAvailable = !!MapboxMapView;
 
-const { width } = Dimensions.get('window');
+const { width, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const TOP_HEADER_HEIGHT = Platform.OS === 'ios' ? 100 : 80;
+const MINIMIZED_DRAWER_HEIGHT = 160;
+const SNAP_TOP = TOP_HEADER_HEIGHT + 20;
+const SNAP_BOTTOM = SCREEN_HEIGHT - MINIMIZED_DRAWER_HEIGHT;
 
 // Mock stream data generator
 const generateMockHRData = (count: number, avg: number) => {
@@ -98,7 +111,8 @@ const Chart = ({
   minValue,
   avgValue,
   durationMinutes = 60,
-  onInteractionChange
+  onInteractionChange,
+  isDrawerMinimized
 }: { 
   data: { x: number; value: number }[]; 
   color: string; 
@@ -110,6 +124,7 @@ const Chart = ({
   avgValue?: number;
   durationMinutes?: number,
   onInteractionChange?: (isInteracting: boolean) => void;
+  isDrawerMinimized?: boolean;
 }) => {
   const chartHeight = 200;
   const chartWidth = width - 32;
@@ -120,6 +135,9 @@ const Chart = ({
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const interactionTimerRef = useRef<any>(null);
   
+  // Disable chart interaction when drawer is minimized
+  const isEnabled = !isDrawerMinimized;
+
   const values = data.map(d => d.value);
   // Even tighter scaling to use full vertical area, but with a small buffer
   const rawMin = Math.min(...values);
@@ -162,6 +180,7 @@ const Chart = ({
   };
 
   const handleInteraction = (evt: any) => {
+    if (!isEnabled) return;
     const x = evt.nativeEvent.locationX;
     const index = Math.round(((x - padding) / (chartWidth - padding * 2)) * (data.length - 1));
     
@@ -181,6 +200,7 @@ const Chart = ({
   };
 
   const handleRelease = () => {
+    if (!isEnabled) return;
     if (interactionTimerRef.current) {
       clearTimeout(interactionTimerRef.current);
       interactionTimerRef.current = null;
@@ -201,11 +221,8 @@ const Chart = ({
       
       <View 
         style={flattenStyle([styles.chartContainer, isDark ? styles.cardDark : styles.cardLight, { height: chartHeight }])}
-        onStartShouldSetResponder={() => {
-          // Return true to claim touch and potentially lock parent scroll
-          return true;
-        }}
-        onMoveShouldSetResponder={() => true}
+        onStartShouldSetResponder={() => isEnabled}
+        onMoveShouldSetResponder={() => isEnabled}
         onResponderGrant={handleInteraction}
         onResponderMove={handleInteraction}
         onResponderRelease={handleRelease}
@@ -322,6 +339,60 @@ export default function WorkoutDetailsPage() {
   const mapboxCameraRef = useRef<any>(null);
 
   const [session, setSession] = useState<WorkoutSession | null>(null);
+
+  const translateY = useSharedValue(SNAP_BOTTOM);
+  const context = useSharedValue({ y: 0 });
+  const [isMinimized, setIsMinimized] = useState(true);
+
+  const snapToMinimized = useCallback(() => {
+    translateY.value = withSpring(SNAP_BOTTOM);
+    setIsMinimized(true);
+  }, []);
+
+  const snapToExpanded = useCallback(() => {
+    translateY.value = withSpring(SNAP_TOP);
+    setIsMinimized(false);
+  }, []);
+
+  const panGesture = Gesture.Pan()
+    .onStart(() => {
+      context.value = { y: translateY.value };
+    })
+    .onUpdate((event) => {
+      translateY.value = event.translationY + context.value.y;
+      translateY.value = Math.max(SNAP_TOP, translateY.value);
+    })
+    .onEnd((event) => {
+      if (event.velocityY < -500) {
+        translateY.value = withSpring(SNAP_TOP);
+        runOnJS(setIsMinimized)(false);
+      } else if (event.velocityY > 500) {
+        translateY.value = withSpring(SNAP_BOTTOM);
+        runOnJS(setIsMinimized)(true);
+      } else if (translateY.value < (SNAP_TOP + SNAP_BOTTOM) / 2) {
+        translateY.value = withSpring(SNAP_TOP);
+        runOnJS(setIsMinimized)(false);
+      } else {
+        translateY.value = withSpring(SNAP_BOTTOM);
+        runOnJS(setIsMinimized)(true);
+      }
+    });
+
+  const rDrawerStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateY: translateY.value }],
+    };
+  });
+
+  const rMapStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      translateY.value,
+      [SNAP_TOP, SNAP_BOTTOM],
+      [0.6, 1],
+      Extrapolate.CLAMP
+    );
+    return { opacity };
+  });
 
   const activityColors = useMemo(() => {
     if (!session) return null;
@@ -497,303 +568,328 @@ export default function WorkoutDetailsPage() {
     : '--:-- /km';
 
   return (
-    <View style={flattenStyle([styles.mainContainer, isDark ? styles.bgDark : styles.bgLight])}>
-      <Stack.Screen options={{ headerShown: false }} />
-      
-      {/* Header */}
-      <View style={flattenStyle([styles.header, isDark ? styles.headerDark : styles.headerLight])}>
-        <HStack style={{ alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
-            <ChevronLeft size={24} color={isDark ? "#FFFFFF" : "#1F2937"} />
-          </TouchableOpacity>
-          <Heading size="md" style={{ color: isDark ? "#FFFFFF" : "#1F2937" }}>Øktdetaljer</Heading>
-          <HStack space="sm">
-            <TouchableOpacity onPress={() => setIsEditModalOpen(true)} style={styles.iconBtn}>
-              <Pencil size={20} color={isDark ? "#FFFFFF" : "#1F2937"} />
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <View style={flattenStyle([styles.mainContainer, isDark ? styles.bgDark : styles.bgLight])}>
+        <Stack.Screen options={{ headerShown: false }} />
+        
+        {/* Header - Fixed at top */}
+        <View style={flattenStyle([styles.header, isDark ? styles.headerDark : styles.headerLight])}>
+          <HStack style={{ alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
+              <ChevronLeft size={24} color={isDark ? "#FFFFFF" : "#1F2937"} />
             </TouchableOpacity>
-            <TouchableOpacity onPress={handleDelete} style={styles.iconBtn}>
-              <Trash2 size={20} color="#EF4444" />
-            </TouchableOpacity>
+            <Heading size="md" style={{ color: isDark ? "#FFFFFF" : "#1F2937" }}>Øktdetaljer</Heading>
+            <HStack space="sm">
+              <TouchableOpacity onPress={() => setIsEditModalOpen(true)} style={styles.iconBtn}>
+                <Pencil size={20} color={isDark ? "#FFFFFF" : "#1F2937"} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleDelete} style={styles.iconBtn}>
+                <Trash2 size={20} color="#EF4444" />
+              </TouchableOpacity>
+            </HStack>
           </HStack>
-        </HStack>
-      </View>
+        </View>
 
-      <ScrollView 
-        scrollEnabled={scrollEnabled}
-        showsVerticalScrollIndicator={false} 
-        contentContainerStyle={{ paddingBottom: 40 }}
-      >
-        {/* Map Section */}
+        {/* Map Section - Background */}
         {decodedRoute.length > 0 && (
-          <View style={styles.mapSection}>
-          {isMapboxAvailable ? (
-            <MapboxMapView
-              style={styles.map}
-              styleURL="mapbox://styles/mapbox/satellite-streets-v12"
-              logoEnabled={false}
-              attributionEnabled={false}
-              onDidFinishLoadingStyle={() => setIsStyleLoaded(true)}
-            >
-              <MapboxCamera 
-                ref={mapboxCameraRef}
-                defaultSettings={{
-                  centerCoordinate: routeBounds 
-                    ? [(routeBounds.minLng + routeBounds.maxLng) / 2, (routeBounds.minLat + routeBounds.maxLat) / 2] 
-                    : [10.7522, 59.9139],
-                  zoomLevel: 14,
-                  pitch: 65,
-                }}
-              />
-              
-              {isStyleLoaded && (
-                <>
-                  <Mapbox.Atmosphere
-                    style={{
-                      range: [0, 15],
-                      horizonBlend: 0.05,
-                      color: 'rgba(135, 206, 235, 0.7)',
-                      highColor: '#245cdf',
-                      spaceColor: '#0b1026',
-                    }}
-                  />
-                  <Mapbox.RasterDemSource
-                    id="mapbox-dem"
-                    url="mapbox://mapbox.mapbox-terrain-dem-v1"
-                    tileSize={512}
-                  />
-                  <Mapbox.Terrain
-                    sourceID="mapbox-dem"
-                    style={{ exaggeration: 1.5 }}
-                  />
-                </>
-              )}
-              
-                <Mapbox.ShapeSource
-                  id="routeSource"
-                  shape={{
-                    type: 'Feature',
-                    geometry: {
-                      type: 'LineString',
-                      coordinates: decodedRoute.map(c => [c.longitude, c.latitude]),
-                    },
-                    properties: {},
+          <Animated.View style={[styles.mapSection, rMapStyle]}>
+            {isMapboxAvailable ? (
+              <MapboxMapView
+                style={styles.map}
+                styleURL="mapbox://styles/mapbox/satellite-streets-v12"
+                logoEnabled={false}
+                attributionEnabled={false}
+                onDidFinishLoadingStyle={() => setIsStyleLoaded(true)}
+                onCameraChanged={runOnJS(snapToMinimized)}
+              >
+                <MapboxCamera 
+                  ref={mapboxCameraRef}
+                  defaultSettings={{
+                    centerCoordinate: routeBounds 
+                      ? [(routeBounds.minLng + routeBounds.maxLng) / 2, (routeBounds.minLat + routeBounds.maxLat) / 2] 
+                      : [10.7522, 59.9139],
+                    zoomLevel: 14,
+                    pitch: 65,
                   }}
-                >
-                  <Mapbox.LineLayer
-                    id="routeLayer"
-                    style={{
-                      lineColor: '#F97316',
-                      lineWidth: 5,
-                      lineCap: 'round',
-                      lineJoin: 'round',
-                    }}
-                  />
-                </Mapbox.ShapeSource>
-            </MapboxMapView>
-          ) : Platform.OS !== 'web' ? (
-            <MapView
-              ref={mapRef}
-              style={styles.map}
-              scrollEnabled={true}
-              zoomEnabled={true}
-              mapType="satellite"
-            >
-              {decodedRoute.length > 0 && (
-                <Polyline
-                  coordinates={decodedRoute}
-                  strokeColor="#F97316"
-                  strokeWidth={4}
                 />
-              )}
-            </MapView>
-          ) : (
-            <View style={styles.mapPlaceholder}>
-              <MapPin size={48} color="#D1D5DB" />
-              <Text>Kart utilgjengelig på web</Text>
-            </View>
-          )}
-          </View>
+                
+                {isStyleLoaded && (
+                  <>
+                    <Mapbox.Atmosphere
+                      style={{
+                        range: [0, 15],
+                        horizonBlend: 0.05,
+                        color: 'rgba(135, 206, 235, 0.7)',
+                        highColor: '#245cdf',
+                        spaceColor: '#0b1026',
+                      }}
+                    />
+                    <Mapbox.RasterDemSource
+                      id="mapbox-dem"
+                      url="mapbox://mapbox.mapbox-terrain-dem-v1"
+                      tileSize={512}
+                    />
+                    <Mapbox.Terrain
+                      sourceID="mapbox-dem"
+                      style={{ exaggeration: 1.0 }}
+                    />
+                  </>
+                )}
+                
+                  <Mapbox.ShapeSource
+                    id="routeSource"
+                    shape={{
+                      type: 'Feature',
+                      geometry: {
+                        type: 'LineString',
+                        coordinates: decodedRoute.map(c => [c.longitude, c.latitude]),
+                      },
+                      properties: {},
+                    }}
+                  >
+                    <Mapbox.LineLayer
+                      id="routeLayer"
+                      style={{
+                        lineColor: '#F97316',
+                        lineWidth: 5,
+                        lineCap: 'round',
+                        lineJoin: 'round',
+                      }}
+                    />
+                  </Mapbox.ShapeSource>
+              </MapboxMapView>
+            ) : Platform.OS !== 'web' ? (
+              <MapView
+                ref={mapRef}
+                style={styles.map}
+                scrollEnabled={true}
+                zoomEnabled={true}
+                mapType="satellite"
+                onPanDrag={runOnJS(snapToMinimized)}
+              >
+                {decodedRoute.length > 0 && (
+                  <Polyline
+                    coordinates={decodedRoute}
+                    strokeColor="#F97316"
+                    strokeWidth={4}
+                  />
+                )}
+              </MapView>
+            ) : (
+              <View style={styles.mapPlaceholder}>
+                <MapPin size={48} color="#D1D5DB" />
+                <Text>Kart utilgjengelig på web</Text>
+              </View>
+            )}
+          </Animated.View>
         )}
 
-        <VStack space="xl" style={{ padding: 16 }}>
-          {/* Session Info */}
-          <HStack space="md" style={{ alignItems: 'center' }}>
-            <View style={flattenStyle([styles.typeIconContainer, activityColors ? { backgroundColor: activityColors.bg } : null])}>
-              <ActivityIcon type={session.type} size={28} color={activityColors?.text || "#FFFFFF"} />
-            </View>
-            <VStack style={{ flex: 1 }}>
-              <HStack space="sm" style={{ alignItems: 'center', justifyContent: 'space-between' }}>
-                <Heading size="xl" style={{ flex: 1 }}>
-                  {session.title || session.type.charAt(0).toUpperCase() + session.type.slice(1)}
-                </Heading>
-                <Badge 
-                  size="md" 
-                  variant="solid" 
-                  style={flattenStyle([{ 
-                    backgroundColor: activityColors?.bg,
-                    borderRadius: 12,
-                    paddingHorizontal: 10,
-                    paddingVertical: 2
-                  }])}
-                >
-                  <BadgeText style={{ color: activityColors?.text, fontSize: 12, fontWeight: '700' }}>
-                    {session.type.charAt(0).toUpperCase() + session.type.slice(1)}
-                  </BadgeText>
-                </Badge>
-              </HStack>
-              <Text style={styles.dateText}>{displayDate}</Text>
+        {/* Draggable Drawer */}
+        <Animated.View style={flattenStyle([
+          styles.drawerContainer, 
+          isDark ? styles.drawerDark : styles.drawerLight,
+          rDrawerStyle
+        ])}>
+          <GestureDetector gesture={panGesture}>
+            <VStack>
+              <View style={styles.drawerHandle} />
+              
+              {/* Session Info Header (Tappable to expand/minimize) */}
+              <TouchableOpacity 
+                activeOpacity={0.9}
+                onPress={isMinimized ? snapToExpanded : snapToMinimized}
+                style={{ padding: 16, paddingBottom: 8 }}
+              >
+                <HStack space="md" style={{ alignItems: 'center' }}>
+                  <View style={flattenStyle([styles.typeIconContainer, activityColors ? { backgroundColor: activityColors.bg } : null])}>
+                    <ActivityIcon type={session.type} size={28} color={activityColors?.text || "#FFFFFF"} />
+                  </View>
+                  <VStack style={{ flex: 1 }}>
+                    <HStack space="sm" style={{ alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Heading size="lg" numberOfLines={1} style={{ flex: 1 }}>
+                        {session.title || session.type.charAt(0).toUpperCase() + session.type.slice(1)}
+                      </Heading>
+                      <Badge 
+                        size="md" 
+                        variant="solid" 
+                        style={flattenStyle([{ 
+                          backgroundColor: activityColors?.bg,
+                          borderRadius: 12,
+                          paddingHorizontal: 10,
+                          paddingVertical: 2
+                        }])}
+                      >
+                        <BadgeText style={{ color: activityColors?.text, fontSize: 10, fontWeight: '700' }}>
+                          {session.type.charAt(0).toUpperCase() + session.type.slice(1)}
+                        </BadgeText>
+                      </Badge>
+                    </HStack>
+                    <Text style={styles.dateText}>{displayDate}</Text>
+                  </VStack>
+                </HStack>
+              </TouchableOpacity>
             </VStack>
-          </HStack>
+          </GestureDetector>
 
-          {/* Stats Grid */}
-          <View style={styles.statsGrid}>
-            <View style={flattenStyle([styles.statCard, isDark ? styles.cardDark : styles.cardLight])}>
-              <HStack space="xs" style={styles.statHeader}>
-                <Clock size={12} color="#9CA3AF" />
-                <Text style={styles.statLabel}>Varighet</Text>
-              </HStack>
-              <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>{durationText}</Text>
-            </View>
-            <View style={flattenStyle([styles.statCard, isDark ? styles.cardDark : styles.cardLight])}>
-              <HStack space="xs" style={styles.statHeader}>
-                <MapPin size={12} color="#9CA3AF" />
-                <Text style={styles.statLabel}>Distanse</Text>
-              </HStack>
-              <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>{session.distance || 0} km</Text>
-            </View>
-            <View style={flattenStyle([styles.statCard, isDark ? styles.cardDark : styles.cardLight])}>
-              <HStack space="xs" style={styles.statHeader}>
-                <Mountain size={12} color="#9CA3AF" />
-                <Text style={styles.statLabel}>Høydemeter</Text>
-              </HStack>
-              <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>{session.elevationGain || 0} m</Text>
-            </View>
-            <View style={flattenStyle([styles.statCard, isDark ? styles.cardDark : styles.cardLight])}>
-              <HStack space="xs" style={styles.statHeader}>
-                <Activity size={12} color="#9CA3AF" />
-                <Text style={styles.statLabel}>Tempo</Text>
-              </HStack>
-              <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>{pace}</Text>
-            </View>
-            <VStack 
-              style={flattenStyle([styles.statCard, isDark ? styles.cardDark : styles.cardLight])}
-              space="xs"
-            >
-              <HStack space="xs" style={styles.statHeader}>
-                <Heart size={12} color="#9CA3AF" />
-                <Text style={styles.statLabel}>Puls</Text>
-              </HStack>
-              {session.averageHeartrate ? (
-                <VStack space="none" style={{ alignItems: 'center' }}>
-                  <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>
-                    {session.averageHeartrate} / {session.maxHeartrate || "--"}
-                  </Text>
-                  <Text style={styles.statSubText}>snitt / maks</Text>
+          <ScrollView 
+            scrollEnabled={scrollEnabled && !isMinimized}
+            showsVerticalScrollIndicator={false} 
+            contentContainerStyle={{ paddingBottom: 100 }}
+          >
+            <VStack space="xl" style={{ padding: 16, paddingTop: 0 }}>
+              {/* Stats Grid */}
+              <View style={styles.statsGrid}>
+                <View style={flattenStyle([styles.statCard, isDark ? styles.cardDark : styles.cardLight])}>
+                  <HStack space="xs" style={styles.statHeader}>
+                    <Clock size={12} color="#9CA3AF" />
+                    <Text style={styles.statLabel}>Varighet</Text>
+                  </HStack>
+                  <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>{durationText}</Text>
+                </View>
+                <View style={flattenStyle([styles.statCard, isDark ? styles.cardDark : styles.cardLight])}>
+                  <HStack space="xs" style={styles.statHeader}>
+                    <MapPin size={12} color="#9CA3AF" />
+                    <Text style={styles.statLabel}>Distanse</Text>
+                  </HStack>
+                  <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>{session.distance || 0} km</Text>
+                </View>
+                <View style={flattenStyle([styles.statCard, isDark ? styles.cardDark : styles.cardLight])}>
+                  <HStack space="xs" style={styles.statHeader}>
+                    <Mountain size={12} color="#9CA3AF" />
+                    <Text style={styles.statLabel}>Høydemeter</Text>
+                  </HStack>
+                  <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>{session.elevationGain || 0} m</Text>
+                </View>
+                <View style={flattenStyle([styles.statCard, isDark ? styles.cardDark : styles.cardLight])}>
+                  <HStack space="xs" style={styles.statHeader}>
+                    <Activity size={12} color="#9CA3AF" />
+                    <Text style={styles.statLabel}>Tempo</Text>
+                  </HStack>
+                  <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>{pace}</Text>
+                </View>
+                <VStack 
+                  style={flattenStyle([styles.statCard, isDark ? styles.cardDark : styles.cardLight])}
+                  space="xs"
+                >
+                  <HStack space="xs" style={styles.statHeader}>
+                    <Heart size={12} color="#9CA3AF" />
+                    <Text style={styles.statLabel}>Puls</Text>
+                  </HStack>
+                  {session.averageHeartrate ? (
+                    <VStack space="none" style={{ alignItems: 'center' }}>
+                      <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>
+                        {session.averageHeartrate} / {session.maxHeartrate || "--"}
+                      </Text>
+                      <Text style={styles.statSubText}>snitt / maks</Text>
+                    </VStack>
+                  ) : (
+                    <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>—</Text>
+                  )}
                 </VStack>
-              ) : (
-                <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>—</Text>
+                <View style={flattenStyle([styles.statCard, isDark ? styles.cardDark : styles.cardLight])}>
+                  <HStack space="xs" style={styles.statHeader}>
+                    <Flame size={12} color="#9CA3AF" />
+                    <Text style={styles.statLabel}>Kalorier</Text>
+                  </HStack>
+                  <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>
+                    {session.calories ? `${session.calories} kcal` : "—"}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Charts */}
+              <VStack space="md">
+                {session.averageHeartrate && (
+                  showHRChart && hrData.length > 0 ? (
+                    <Chart 
+                      data={hrData} 
+                      color="#EF4444" 
+                      label="Puls" 
+                      unit=" bpm" 
+                      isDark={isDark}
+                      avgValue={session.averageHeartrate}
+                      maxValue={session.maxHeartrate}
+                      durationMinutes={session.durationMinutes}
+                      onInteractionChange={(interacting) => setScrollEnabled(!interacting)}
+                      isDrawerMinimized={isMinimized}
+                    />
+                  ) : (
+                    <TouchableOpacity 
+                      style={flattenStyle([styles.loadChartBtn, isDark ? styles.cardDark : styles.cardLight])}
+                      onPress={() => {
+                        setShowHRChart(true);
+                        loadRealStreams();
+                      }}
+                    >
+                      <HStack space="sm" style={{ alignItems: 'center' }}>
+                        {loadingStreams ? <ActivityIndicator size="small" color="#EF4444" /> : <Heart size={16} color="#EF4444" />}
+                        <Text style={styles.loadChartText}>Vis pulsgraf</Text>
+                      </HStack>
+                    </TouchableOpacity>
+                  )
+                )}
+
+                {session.elevationGain && session.elevationGain > 0 && (
+                  showAltChart && altitudeData.length > 0 ? (
+                    <Chart 
+                      data={altitudeData} 
+                      color="#10B981" 
+                      label="Høydeprofil" 
+                      unit="m" 
+                      isDark={isDark}
+                      avgValue={Math.round(altitudeData.reduce((acc, d) => acc + d.value, 0) / altitudeData.length)}
+                      durationMinutes={session.durationMinutes}
+                      onInteractionChange={(interacting) => setScrollEnabled(!interacting)}
+                      isDrawerMinimized={isMinimized}
+                    />
+                  ) : (
+                    <TouchableOpacity 
+                      style={flattenStyle([styles.loadChartBtn, isDark ? styles.cardDark : styles.cardLight])}
+                      onPress={() => {
+                        setShowAltChart(true);
+                        loadRealStreams();
+                      }}
+                    >
+                      <HStack space="sm" style={{ alignItems: 'center' }}>
+                        {loadingStreams ? <ActivityIndicator size="small" color="#10B981" /> : <Mountain size={16} color="#10B981" />}
+                        <Text style={styles.loadChartText}>Vis høydeprofil</Text>
+                      </HStack>
+                    </TouchableOpacity>
+                  )
+                )}
+
+                {((showHRChart && hrData.length === 0) || (showAltChart && altitudeData.length === 0)) && !loadingStreams && (
+                  <View style={flattenStyle([styles.noDataBox, isDark ? styles.cardDark : styles.cardLight])}>
+                    <Text style={styles.noDataText}>Ingen detaljerte data tilgjengelig for denne økten</Text>
+                  </View>
+                )}
+              </VStack>
+
+              {session.notes && (
+                <VStack space="sm">
+                  <HStack space="xs" style={{ alignItems: 'center' }}>
+                    <Info size={16} color="#6B7280" />
+                    <Text style={styles.chartTitle}>Notater</Text>
+                  </HStack>
+                  <View style={flattenStyle([styles.notesContainer, isDark ? styles.cardDark : styles.cardLight])}>
+                    <Text style={styles.notesText}>{session.notes}</Text>
+                  </View>
+                </VStack>
               )}
             </VStack>
-            <View style={flattenStyle([styles.statCard, isDark ? styles.cardDark : styles.cardLight])}>
-              <HStack space="xs" style={styles.statHeader}>
-                <Flame size={12} color="#9CA3AF" />
-                <Text style={styles.statLabel}>Kalorier</Text>
-              </HStack>
-              <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>
-                {session.calories ? `${session.calories} kcal` : "—"}
-              </Text>
-            </View>
-          </View>
+          </ScrollView>
+        </Animated.View>
 
-          {/* Charts */}
-          <VStack space="md">
-            {session.averageHeartrate && (
-              showHRChart && hrData.length > 0 ? (
-                <Chart 
-                  data={hrData} 
-                  color="#EF4444" 
-                  label="Puls" 
-                  unit=" bpm" 
-                  isDark={isDark}
-                  avgValue={session.averageHeartrate}
-                  maxValue={session.maxHeartrate}
-                  durationMinutes={session.durationMinutes}
-                  onInteractionChange={(interacting) => setScrollEnabled(!interacting)}
-                />
-              ) : (
-                <TouchableOpacity 
-                  style={flattenStyle([styles.loadChartBtn, isDark ? styles.cardDark : styles.cardLight])}
-                  onPress={() => {
-                    setShowHRChart(true);
-                    loadRealStreams();
-                  }}
-                >
-                  <HStack space="sm" style={{ alignItems: 'center' }}>
-                    {loadingStreams ? <ActivityIndicator size="small" color="#EF4444" /> : <Heart size={16} color="#EF4444" />}
-                    <Text style={styles.loadChartText}>Vis pulsgraf</Text>
-                  </HStack>
-                </TouchableOpacity>
-              )
-            )}
-
-            {session.elevationGain && session.elevationGain > 0 && (
-              showAltChart && altitudeData.length > 0 ? (
-                <Chart 
-                  data={altitudeData} 
-                  color="#10B981" 
-                  label="Høydeprofil" 
-                  unit="m" 
-                  isDark={isDark}
-                  avgValue={Math.round(altitudeData.reduce((acc, d) => acc + d.value, 0) / altitudeData.length)}
-                  durationMinutes={session.durationMinutes}
-                  onInteractionChange={(interacting) => setScrollEnabled(!interacting)}
-                />
-              ) : (
-                <TouchableOpacity 
-                  style={flattenStyle([styles.loadChartBtn, isDark ? styles.cardDark : styles.cardLight])}
-                  onPress={() => {
-                    setShowAltChart(true);
-                    loadRealStreams();
-                  }}
-                >
-                  <HStack space="sm" style={{ alignItems: 'center' }}>
-                    {loadingStreams ? <ActivityIndicator size="small" color="#10B981" /> : <Mountain size={16} color="#10B981" />}
-                    <Text style={styles.loadChartText}>Vis høydeprofil</Text>
-                  </HStack>
-                </TouchableOpacity>
-              )
-            )}
-
-            {((showHRChart && hrData.length === 0) || (showAltChart && altitudeData.length === 0)) && !loadingStreams && (
-              <View style={flattenStyle([styles.noDataBox, isDark ? styles.cardDark : styles.cardLight])}>
-                <Text style={styles.noDataText}>Ingen detaljerte data tilgjengelig for denne økten</Text>
-              </View>
-            )}
-          </VStack>
-
-          {session.notes && (
-            <VStack space="sm">
-              <HStack space="xs" style={{ alignItems: 'center' }}>
-                <Info size={16} color="#6B7280" />
-                <Text style={styles.chartTitle}>Notater</Text>
-              </HStack>
-              <View style={flattenStyle([styles.notesContainer, isDark ? styles.cardDark : styles.cardLight])}>
-                <Text style={styles.notesText}>{session.notes}</Text>
-              </View>
-            </VStack>
-          )}
-        </VStack>
-      </ScrollView>
-
-      <WorkoutModal 
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        sessionToEdit={session}
-        onSuccess={() => {
-          fetchSession();
-        }}
-      />
-    </View>
+        <WorkoutModal 
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          sessionToEdit={session}
+          onSuccess={() => {
+            fetchSession();
+          }}
+        />
+      </View>
+    </GestureHandlerRootView>
   );
 }
 
@@ -813,13 +909,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   header: {
-    height: Platform.OS === 'ios' ? 100 : 80,
+    height: TOP_HEADER_HEIGHT,
     paddingTop: Platform.OS === 'ios' ? 44 : 24,
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.05)',
+    zIndex: 10,
   },
   headerLight: {
     backgroundColor: '#FFFFFF',
@@ -839,9 +936,9 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   mapSection: {
-    width: '100%',
-    height: 300,
-    backgroundColor: '#E5E7EB',
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000000',
+    zIndex: 0,
   },
   map: {
     width: '100%',
@@ -853,6 +950,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  drawerContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: SCREEN_HEIGHT,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 20,
+    zIndex: 20,
+  },
+  drawerLight: {
+    backgroundColor: '#FFFFFF',
+  },
+  drawerDark: {
+    backgroundColor: '#111827',
+  },
+  drawerHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginTop: 12,
+    marginBottom: 4,
+  },
   typeIconContainer: {
     width: 56,
     height: 56,
@@ -862,7 +989,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   dateText: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#6B7280',
   },
   statsGrid: {
@@ -885,7 +1012,7 @@ const styles = StyleSheet.create({
     borderColor: '#F3F4F6',
   },
   cardDark: {
-    backgroundColor: '#111827',
+    backgroundColor: '#1F2937',
   },
   statHeader: {
     alignItems: 'center',
