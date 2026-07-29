@@ -427,9 +427,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
   },
   statItemDark: {
-    backgroundColor: '#0F172A', // Slightly lighter than #030712 to pop against background
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: '#111827',
   },
   statLabelText: {
     fontSize: 10,

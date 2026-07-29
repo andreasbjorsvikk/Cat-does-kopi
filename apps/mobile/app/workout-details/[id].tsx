@@ -376,17 +376,15 @@ export default function WorkoutDetailsPage() {
     if (streams?.heartrateData && streams.heartrateData.length > 0) {
       return streams.heartrateData.map((d) => ({ x: d.time, value: d.value }));
     }
-    // Fallback to mock data if no real streams
-    return generateMockHRData(100, session?.averageHeartrate || 145).map((d, i) => ({ x: i, value: d.value }));
-  }, [session?.id, session?.averageHeartrate, streams?.heartrateData]);
+    return [];
+  }, [streams?.heartrateData]);
 
   const altitudeData = useMemo(() => {
     if (streams?.altitudeData && streams.altitudeData.length > 0) {
       return streams.altitudeData.map((d) => ({ x: d.distance, value: d.value }));
     }
-    // Fallback to mock data if no real streams
-    return generateMockAltitudeData(100, session?.elevationGain || 300).map((d, i) => ({ x: i, value: d.value }));
-  }, [session?.id, session?.elevationGain, streams?.altitudeData]);
+    return [];
+  }, [streams?.altitudeData]);
 
   useEffect(() => {
     if (session && decodedRoute.length > 0 && mapRef.current) {
@@ -655,53 +653,61 @@ export default function WorkoutDetailsPage() {
                 <Heart size={12} color="#9CA3AF" />
                 <Text style={styles.statLabel}>Puls</Text>
               </HStack>
-              <VStack space="none" style={{ alignItems: 'center' }}>
-                <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>
-                  {session.averageHeartrate || "--"} / {session.maxHeartrate || "--"}
-                </Text>
-                <Text style={styles.statSubText}>snitt / maks</Text>
-              </VStack>
+              {session.averageHeartrate ? (
+                <VStack space="none" style={{ alignItems: 'center' }}>
+                  <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>
+                    {session.averageHeartrate} / {session.maxHeartrate || "--"}
+                  </Text>
+                  <Text style={styles.statSubText}>snitt / maks</Text>
+                </VStack>
+              ) : (
+                <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>—</Text>
+              )}
             </VStack>
             <View style={flattenStyle([styles.statCard, isDark ? styles.cardDark : styles.cardLight])}>
               <HStack space="xs" style={styles.statHeader}>
                 <Flame size={12} color="#9CA3AF" />
                 <Text style={styles.statLabel}>Kalorier</Text>
               </HStack>
-              <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>{session.calories || 640} kcal</Text>
+              <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>
+                {session.calories ? `${session.calories} kcal` : "—"}
+              </Text>
             </View>
           </View>
 
           {/* Charts */}
           <VStack space="md">
-            {showHRChart ? (
-              <Chart 
-                data={hrData} 
-                color="#EF4444" 
-                label="Puls" 
-                unit=" bpm" 
-                isDark={isDark}
-                avgValue={session.averageHeartrate}
-                maxValue={session.maxHeartrate}
-                durationMinutes={session.durationMinutes}
-                onInteractionChange={(interacting) => setScrollEnabled(!interacting)}
-              />
-            ) : (
-              <TouchableOpacity 
-                style={flattenStyle([styles.loadChartBtn, isDark ? styles.cardDark : styles.cardLight])}
-                onPress={() => {
-                  setShowHRChart(true);
-                  loadRealStreams();
-                }}
-              >
-                <HStack space="sm" style={{ alignItems: 'center' }}>
-                  {loadingStreams ? <ActivityIndicator size="small" color="#EF4444" /> : <Heart size={16} color="#EF4444" />}
-                  <Text style={styles.loadChartText}>Vis pulsgraf</Text>
-                </HStack>
-              </TouchableOpacity>
+            {session.averageHeartrate && (
+              showHRChart && hrData.length > 0 ? (
+                <Chart 
+                  data={hrData} 
+                  color="#EF4444" 
+                  label="Puls" 
+                  unit=" bpm" 
+                  isDark={isDark}
+                  avgValue={session.averageHeartrate}
+                  maxValue={session.maxHeartrate}
+                  durationMinutes={session.durationMinutes}
+                  onInteractionChange={(interacting) => setScrollEnabled(!interacting)}
+                />
+              ) : (
+                <TouchableOpacity 
+                  style={flattenStyle([styles.loadChartBtn, isDark ? styles.cardDark : styles.cardLight])}
+                  onPress={() => {
+                    setShowHRChart(true);
+                    loadRealStreams();
+                  }}
+                >
+                  <HStack space="sm" style={{ alignItems: 'center' }}>
+                    {loadingStreams ? <ActivityIndicator size="small" color="#EF4444" /> : <Heart size={16} color="#EF4444" />}
+                    <Text style={styles.loadChartText}>Vis pulsgraf</Text>
+                  </HStack>
+                </TouchableOpacity>
+              )
             )}
 
-            {session.elevationGain && session.elevationGain > 0 ? (
-              showAltChart ? (
+            {session.elevationGain && session.elevationGain > 0 && (
+              showAltChart && altitudeData.length > 0 ? (
                 <Chart 
                   data={altitudeData} 
                   color="#10B981" 
@@ -726,7 +732,13 @@ export default function WorkoutDetailsPage() {
                   </HStack>
                 </TouchableOpacity>
               )
-            ) : null}
+            )}
+
+            {((showHRChart && hrData.length === 0) || (showAltChart && altitudeData.length === 0)) && !loadingStreams && (
+              <View style={flattenStyle([styles.noDataBox, isDark ? styles.cardDark : styles.cardLight])}>
+                <Text style={styles.noDataText}>Ingen detaljerte data tilgjengelig for denne økten</Text>
+              </View>
+            )}
           </VStack>
 
           {session.notes && (
@@ -894,6 +906,20 @@ const styles = StyleSheet.create({
   notesText: {
     fontSize: 15,
     lineHeight: 22,
+  },
+  noDataBox: {
+    padding: 16,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+    borderStyle: 'dashed',
+  },
+  noDataText: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    fontWeight: '500',
   },
   loadChartBtn: {
     width: '100%',
