@@ -1107,7 +1107,7 @@ export default function TrainingScreen() {
             </HStack>
 
             {/* Metric Tiles Single Row */}
-            <View style={flattenStyle([styles.gridContainer, { flexWrap: 'nowrap' }])}>
+            <View style={flattenStyle([styles.gridContainer, { flexWrap: 'nowrap', marginBottom: 4 }])}>
               
               {/* ØKTER */}
               <View style={flattenStyle([styles.metricCard, dynamicCardStyle, { width: (Dimensions.get("window").width - 48) / 4 }])}>
@@ -1155,7 +1155,7 @@ export default function TrainingScreen() {
             </View>
 
             {/* Workout type multi-select horizontal scroll filter list */}
-            <View style={{ marginVertical: 12 }}>
+            <View style={{ marginTop: 4, marginBottom: 8 }}>
               <ScrollView 
                 horizontal 
                 showsHorizontalScrollIndicator={false}
@@ -1220,7 +1220,7 @@ export default function TrainingScreen() {
             </View>
 
             {/* Chart Metric Selectors (Økter, Distanse, Høydemeter, Total tid, Skritt) */}
-            <View style={{ marginVertical: 8 }}>
+            <View style={{ marginTop: 4, marginBottom: 4 }}>
               <ScrollView 
                 horizontal 
                 showsHorizontalScrollIndicator={false}
@@ -1263,7 +1263,7 @@ export default function TrainingScreen() {
             <TouchableOpacity 
               activeOpacity={1}
               onPress={() => setTooltipIndex(null)}
-              style={flattenStyle([styles.chartCard, dynamicCardStyle, { marginHorizontal: 16, marginTop: 8, padding: 16 }])}
+              style={flattenStyle([styles.chartCard, dynamicCardStyle, { marginHorizontal: 16, marginTop: 4, padding: 16, paddingTop: 24 }])}
             >
               <View style={styles.chartContainer}>
                 
