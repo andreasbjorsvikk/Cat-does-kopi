@@ -26,6 +26,7 @@ export interface WorkoutSession {
   userId?: string;
   averageHeartrate?: number;
   maxHeartrate?: number;
+  calories?: number;
   summaryPolyline?: string;
   stravaActivityId?: number;
   sourcePrimary?: 'manual' | 'strava' | 'apple_health';
