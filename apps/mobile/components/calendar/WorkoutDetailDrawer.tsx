@@ -43,6 +43,7 @@ interface WorkoutDetailDrawerProps {
   onDelete?: (session: WorkoutSession) => void;
   onAddWorkout: () => void;
   onAddHealthEvent: () => void;
+  onNavigateToDetails?: () => void;
 }
 
 const StatsBox = ({
@@ -72,6 +73,8 @@ const StatsBox = ({
   </View>
 );
 
+const { height: screenHeight } = Dimensions.get('window');
+
 export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
   isOpen,
   onClose,
@@ -79,7 +82,8 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
   onEdit,
   onDelete,
   onAddWorkout,
-  onAddHealthEvent
+  onAddHealthEvent,
+  onNavigateToDetails
 }) => {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -149,8 +153,12 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
           drag: "y",
           dragConstraints: { top: 0 },
           onDragEnd: (e: any, info: any) => {
-            if (info.offset.y > 100) onClose();
-          }
+            // Use 25% of screen height as threshold for dismissal
+            if (info.offset.y > screenHeight * 0.25) {
+              onClose();
+            }
+          },
+          dragElastic: 0.1 // Low elasticity for bounce back below threshold
         } as any)}
         style={flattenStyle([styles.sheetContent, { paddingHorizontal: 0 }])}
       >
@@ -274,7 +282,11 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
             <TouchableOpacity 
               style={flattenStyle([styles.moreBtn, isDark ? styles.btnDark : styles.btnLight])}
               onPress={() => {
-                onClose();
+                if (onNavigateToDetails) {
+                  onNavigateToDetails();
+                } else {
+                  onClose();
+                }
                 router.push({
                   pathname: "/workout-details/[id]",
                   params: { id: session.id }
@@ -541,11 +553,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   dragWrapper: {
-    paddingTop: 15,
-    paddingBottom: 35, // More vertical space for dragging
+    paddingTop: 10,
+    paddingBottom: 45, // Even more vertical space for dragging (~4.5cm total area)
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'transparent',
+    zIndex: 10,
   },
 });

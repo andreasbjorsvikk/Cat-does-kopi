@@ -96,8 +96,17 @@ export const CalendarView: React.FC = () => {
 
 
   // Re-open detail drawer if returning from details page
+  // We only want this to run when the screen BECOMES focused (on return)
+  // and not when we are actively navigating away.
+  const isNavigatingAwayRef = useRef(false);
+
   useFocusEffect(
     useCallback(() => {
+      if (isNavigatingAwayRef.current) {
+        isNavigatingAwayRef.current = false;
+        return;
+      }
+
       if (selectedSession && !isDetailDrawerOpen && !isWorkoutModalOpen && !isDayDrawerOpen) {
         setIsDetailDrawerOpen(true);
       }
@@ -466,6 +475,10 @@ export const CalendarView: React.FC = () => {
         onDelete={handleDeleteWorkout}
         onAddWorkout={() => handleAddWorkout(selectedDate, true)}
         onAddHealthEvent={() => handleAddHealth(selectedDate, true)}
+        onNavigateToDetails={() => {
+          isNavigatingAwayRef.current = true;
+          setIsDetailDrawerOpen(false);
+        }}
       />
 
       <HealthEventModal

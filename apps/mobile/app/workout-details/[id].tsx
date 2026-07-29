@@ -251,24 +251,24 @@ const Chart = ({
               
               {/* Tooltip always at top of line */}
               <Rect
-                x={Math.max(padding, Math.min(chartWidth - padding - 85, getX(activeIndex) - 42.5))}
+                x={Math.max(padding, Math.min(chartWidth - padding - 100, getX(activeIndex) - 50))}
                 y={2}
-                width="85"
-                height="26"
+                width="100"
+                height="28"
                 rx="8"
                 fill={isDark ? "#1F2937" : "#FFFFFF"}
                 stroke={color}
-                strokeWidth="1.5"
+                strokeWidth="2"
               />
               <SvgText
-                x={Math.max(padding + 37.5, Math.min(chartWidth - padding - 37.5, getX(activeIndex)))}
-                y={20}
-                fontSize="12"
+                x={Math.max(padding + 50, Math.min(chartWidth - padding - 50, getX(activeIndex)))}
+                y={21}
+                fontSize="13"
                 fontWeight="bold"
                 fill={isDark ? "#FFFFFF" : "#111827"}
                 textAnchor="middle"
               >
-                {data[activeIndex].value}  {unit.trim()}
+                {data[activeIndex].value}    {unit.trim()}
               </SvgText>
             </>
           )}
@@ -363,20 +363,27 @@ export default function WorkoutDetailsPage() {
       const minLng = Math.min(...lngs);
       const maxLng = Math.max(...lngs);
 
-      setTimeout(() => {
+      const focusOnRoute = () => {
         mapboxCameraRef.current?.setCamera({
           bounds: {
             ne: [maxLng, maxLat],
             sw: [minLng, minLat],
-            paddingTop: 80,
-            paddingRight: 80,
-            paddingBottom: 80,
-            paddingLeft: 80,
+            paddingTop: 100,
+            paddingRight: 100,
+            paddingBottom: 100,
+            paddingLeft: 100,
           },
           pitch: 45,
-          animationDuration: 2000,
+          animationDuration: 2500,
         });
-      }, 1000);
+      };
+
+      const timer1 = setTimeout(focusOnRoute, 1000);
+      const timer2 = setTimeout(focusOnRoute, 3000); // Second attempt to be sure
+      return () => {
+        clearTimeout(timer1);
+        clearTimeout(timer2);
+      };
     }
   }, [session, decodedRoute]);
 
