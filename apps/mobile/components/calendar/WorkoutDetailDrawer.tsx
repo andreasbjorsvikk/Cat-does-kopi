@@ -46,30 +46,29 @@ interface WorkoutDetailDrawerProps {
 const StatsBox = ({
   label,
   value,
+  subtitle,
   icon: Icon,
   isDark,
 }: {
   label: string;
   value: string;
+  subtitle?: string;
   icon: any;
   isDark: boolean;
 }) => (
-  <VStack
+  <View
     style={flattenStyle([
       styles.statItem,
       isDark ? styles.statItemDark : styles.statItemLight,
-      { alignItems: "center" },
     ])}
   >
-    <HStack
-      space="xs"
-      style={flattenStyle([styles.statLabel, { justifyContent: "center" }])}
-    >
+    <View style={styles.statLabel}>
       <Icon size={14} color="#6B7280" />
       <Text style={styles.statLabelText}>{label}</Text>
-    </HStack>
+    </View>
     <Text style={styles.statValue}>{value}</Text>
-  </VStack>
+    {subtitle && <Text style={styles.statSubtitle}>{subtitle}</Text>}
+  </View>
 );
 
 export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
@@ -109,7 +108,7 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
       // Use a small timeout to ensure map is ready
       const timer = setTimeout(() => {
         mapRef.current?.fitToCoordinates(decodedRoute, {
-          edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+          edgePadding: { top: 100, right: 100, bottom: 100, left: 100 },
           animated: false,
         });
       }, 500);
@@ -186,17 +185,34 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
               )}
             </View>
 
-            <HStack space="md" style={styles.header}>
-              <View style={styles.iconContainer}>
-                <ActivityIcon type={session.type} size={28} color="#FFFFFF" />
-              </View>
-              <VStack style={{ flex: 1 }}>
-                <Heading style={styles.title}>
-                  {session.title || session.type.charAt(0).toUpperCase() + session.type.slice(1)}
-                </Heading>
-                <Text style={styles.dateLabel}>{displayDate}</Text>
-              </VStack>
-            </HStack>
+            <View style={styles.header}>
+              <HStack space="md" style={{ flex: 1, alignItems: 'center' }}>
+                <View style={styles.iconContainer}>
+                  <ActivityIcon type={session.type} size={28} color="#FFFFFF" />
+                </View>
+                <VStack style={{ flex: 1 }}>
+                  <Heading style={styles.title}>
+                    {session.title || session.type.charAt(0).toUpperCase() + session.type.slice(1)}
+                  </Heading>
+                  <Text style={styles.dateLabel}>{displayDate}</Text>
+                </VStack>
+              </HStack>
+              
+              <HStack space="xs" style={styles.headerActions}>
+                <TouchableOpacity 
+                  style={flattenStyle([styles.squareActionBtn, isDark ? styles.btnDark : styles.btnLight])}
+                  onPress={() => onEdit(session)}
+                >
+                  <Pencil size={18} color={isDark ? "#FFFFFF" : "#1F2937"} />
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={flattenStyle([styles.squareActionBtn, isDark ? styles.btnDark : styles.btnLight])}
+                  onPress={() => {/* Handle delete */}}
+                >
+                  <Trash2 size={18} color="#EF4444" />
+                </TouchableOpacity>
+              </HStack>
+            </View>
 
             <View style={styles.statsGrid}>
               <StatsBox 
@@ -227,9 +243,10 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
                 label="Puls" 
                 value={
                   session.averageHeartrate
-                    ? `Snitt: ${session.averageHeartrate} / Maks: ${session.maxHeartrate || "--"}`
+                    ? `${session.averageHeartrate} / ${session.maxHeartrate || "--"}`
                     : "-- / --"
                 }
+                subtitle={session.averageHeartrate ? "(snitt / maks)" : undefined}
                 icon={Heart} 
                 isDark={isDark} 
               />
@@ -262,24 +279,6 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
 
         {/* Fixed Footer Buttons */}
         <VStack space="md" style={styles.footer}>
-          <HStack space="md" style={{ width: '100%' }}>
-            <TouchableOpacity 
-              style={flattenStyle([styles.editFooterBtn, isDark ? styles.btnDark : styles.btnLight])}
-              onPress={() => onEdit(session)}
-            >
-              <HStack space="xs" style={styles.btnContent}>
-                <Pencil size={18} color={isDark ? "#FFFFFF" : "#1F2937"} />
-                <Text style={flattenStyle([styles.btnText, { color: isDark ? "#FFFFFF" : "#1F2937" }])}>Rediger</Text>
-              </HStack>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={flattenStyle([styles.deleteFooterBtn, isDark ? styles.btnDark : styles.btnLight])}
-              onPress={() => {/* Handle delete */}}
-            >
-              <Trash2 size={18} color="#EF4444" />
-            </TouchableOpacity>
-          </HStack>
-
           <HStack space="md" style={{ width: '100%' }}>
             <TouchableOpacity 
               style={flattenStyle([styles.footerBtn, styles.workoutBtn])}
@@ -346,8 +345,20 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   header: {
-    alignItems: 'center',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
     marginBottom: 4,
+  },
+  headerActions: {
+    alignItems: 'center',
+  },
+  squareActionBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   iconContainer: {
     width: 48,
@@ -382,6 +393,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     minHeight: 80,
     justifyContent: 'center',
+    alignItems: 'center',
   },
   statItemLight: {
     backgroundColor: '#F9FAFB',
@@ -390,7 +402,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#111827',
   },
   statLabel: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
     marginBottom: 2,
   },
   statLabelText: {
@@ -399,9 +414,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   statValue: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     textAlign: 'center',
+  },
+  statSubtitle: {
+    fontSize: 10,
+    color: '#6B7280',
+    fontWeight: '500',
+    textAlign: 'center',
+    marginTop: 1,
   },
   moreBtn: {
     width: '100%',

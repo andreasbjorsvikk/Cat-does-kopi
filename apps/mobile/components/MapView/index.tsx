@@ -116,19 +116,32 @@ const KOMMUNE_PALETTE = FYLKE_PALETTE.map(p => ({
   fill: p.fill.replace("0.30)", "0.32)").replace("0.25)", "0.32)").replace("0.28)", "0.32)").replace("0.32)", "0.35)")
 }));
 
-const CustomMountainIcon = ({ isChecked }: { isChecked: boolean }) => {
-  return (
-    <Image
-      source={require("../../assets/images/mountains.png")}
+const CustomMountainIcon = ({ isChecked }: { isChecked: boolean }) => (
+  <View 
+    style={{ 
+      width: 20, 
+      height: 16, 
+      alignItems: 'center', 
+      justifyContent: 'center',
+      overflow: 'visible'
+    }}
+  >
+    <View
       style={{
-        width: 20,
-        height: 16,
-        tintColor: isChecked ? "#FFFFFF" : "#10B981",
+        width: 0,
+        height: 0,
+        backgroundColor: 'transparent',
+        borderStyle: 'solid',
+        borderLeftWidth: 9,
+        borderRightWidth: 9,
+        borderBottomWidth: 14,
+        borderLeftColor: 'transparent',
+        borderRightColor: 'transparent',
+        borderBottomColor: isChecked ? "#FFFFFF" : "#10B981",
       }}
-      resizeMode="contain"
     />
-  );
-};
+  </View>
+);
 
 export default function MapScreen() {
   const colorScheme = useColorScheme();
