@@ -692,61 +692,64 @@ export default function WorkoutDetailsPage() {
           isDark ? styles.drawerDark : styles.drawerLight,
           rDrawerStyle
         ])}>
-          <GestureDetector gesture={panGesture}>
-            <VStack>
-              <View style={styles.drawerHandle} />
-              
-              {/* Session Info Header (Tappable to expand/minimize) */}
-              <TouchableOpacity 
-                activeOpacity={0.9}
-                onPress={isMinimized ? snapToExpanded : snapToMinimized}
-                style={{ padding: 16, paddingBottom: 8 }}
-              >
-                <HStack space="md" style={{ alignItems: 'center' }}>
-                  <View style={flattenStyle([styles.typeIconContainer, activityColors ? { backgroundColor: activityColors.bg } : null])}>
-                    <ActivityIcon type={session.type} size={28} color={activityColors?.text || "#FFFFFF"} />
-                  </View>
-                  <HStack style={{ flex: 1, alignItems: 'stretch', justifyContent: 'space-between' }}>
-                    <VStack style={{ flex: 1 }}>
-                      <Heading size="lg" numberOfLines={1}>
-                        {session.title || session.type.charAt(0).toUpperCase() + session.type.slice(1)}
-                      </Heading>
-                      <Text style={styles.dateText}>{displayDate}</Text>
-                    </VStack>
-                    <VStack style={{ alignItems: 'flex-end', justifyContent: 'space-between' }}>
-                      <Badge 
-                        size="md" 
-                        variant="solid" 
-                        style={flattenStyle([{ 
-                          backgroundColor: activityColors?.bg,
-                          borderRadius: 12,
-                          paddingHorizontal: 10,
-                          paddingVertical: 2
-                        }])}
-                      >
-                        <BadgeText style={{ color: activityColors?.text, fontSize: 10, fontWeight: '700' }}>
-                          {session.type.charAt(0).toUpperCase() + session.type.slice(1)}
-                        </BadgeText>
-                      </Badge>
-                      <View style={{ flex: 1, minHeight: 8 }} />
-                      <HStack space="md" style={{ alignItems: 'center' }}>
-                        <TouchableOpacity onPress={() => setIsEditModalOpen(true)}>
-                          <Pencil size={22} color={isDark ? "#9CA3AF" : "#6B7280"} />
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={handleDelete}>
-                          <Trash2 size={22} color="#EF4444" />
-                        </TouchableOpacity>
-                      </HStack>
-                    </VStack>
+          <VStack>
+            <GestureDetector gesture={panGesture}>
+              <VStack>
+                <View style={styles.drawerHandle} />
+                
+                {/* Session Info Header (Tappable to expand/minimize) */}
+                <TouchableOpacity 
+                  activeOpacity={0.9}
+                  onPress={isMinimized ? snapToExpanded : snapToMinimized}
+                  style={{ padding: 16, paddingBottom: 8 }}
+                >
+                  <HStack space="md" style={{ alignItems: 'center' }}>
+                    <View style={flattenStyle([styles.typeIconContainer, activityColors ? { backgroundColor: activityColors.bg } : null])}>
+                      <ActivityIcon type={session.type} size={28} color={activityColors?.text || "#FFFFFF"} />
+                    </View>
+                    <HStack style={{ flex: 1, alignItems: 'stretch', justifyContent: 'space-between' }}>
+                      <VStack style={{ flex: 1 }}>
+                        <Heading size="lg" numberOfLines={1}>
+                          {session.title || session.type.charAt(0).toUpperCase() + session.type.slice(1)}
+                        </Heading>
+                        <Text style={styles.dateText}>{displayDate}</Text>
+                      </VStack>
+                      <VStack style={{ alignItems: 'flex-end', justifyContent: 'space-between' }}>
+                        <Badge 
+                          size="md" 
+                          variant="solid" 
+                          style={flattenStyle([{ 
+                            backgroundColor: activityColors?.bg,
+                            borderRadius: 12,
+                            paddingHorizontal: 10,
+                            paddingVertical: 2
+                          }])}
+                        >
+                          <BadgeText style={{ color: activityColors?.text, fontSize: 10, fontWeight: '700' }}>
+                            {session.type.charAt(0).toUpperCase() + session.type.slice(1)}
+                          </BadgeText>
+                        </Badge>
+                        <View style={{ flex: 1, minHeight: 8 }} />
+                        <HStack space="md" style={{ alignItems: 'center' }}>
+                          <TouchableOpacity onPress={() => setIsEditModalOpen(true)}>
+                            <Pencil size={22} color={isDark ? "#9CA3AF" : "#6B7280"} />
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={handleDelete}>
+                            <Trash2 size={22} color="#EF4444" />
+                          </TouchableOpacity>
+                        </HStack>
+                      </VStack>
+                    </HStack>
                   </HStack>
-                </HStack>
-              </TouchableOpacity>
-            </VStack>
-          </GestureDetector>
+                </TouchableOpacity>
+              </VStack>
+            </GestureDetector>
+          </VStack>
 
           <ScrollView 
-            scrollEnabled={scrollEnabled && (!isMinimized || showHRChart || showAltChart)}
+            scrollEnabled={scrollEnabled && !isMinimized}
             showsVerticalScrollIndicator={false} 
+            style={{ flex: 1 }}
             contentContainerStyle={{ paddingBottom: 100 }}
           >
             <VStack space="xl" style={{ padding: 16, paddingTop: 0 }}>
