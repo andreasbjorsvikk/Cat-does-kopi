@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView, Platform, Dimensions } from 'react-native';
 import MapView, { Polyline } from 'react-native-maps';
 import { useRouter } from 'expo-router';
 import { 
