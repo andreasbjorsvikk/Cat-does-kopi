@@ -3,7 +3,6 @@ import {
   View, 
   StyleSheet, 
   TouchableOpacity, 
-  ScrollView, 
   Platform, 
   ActivityIndicator,
   Dimensions,
@@ -20,7 +19,12 @@ import Animated, {
   runOnJS,
   useDerivedValue
 } from 'react-native-reanimated';
-import { GestureDetector, Gesture, GestureHandlerRootView } from 'react-native-gesture-handler';
+import { 
+  GestureDetector, 
+  Gesture, 
+  GestureHandlerRootView, 
+  ScrollView 
+} from 'react-native-gesture-handler';
 import Svg, { Path, Defs, LinearGradient, Stop, Text as SvgText, Circle, Rect, G, Line, TSpan } from 'react-native-svg';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
@@ -131,33 +135,33 @@ const Chart = ({
   const chartWidth = width - 32;
   const padding = 15;
   const bottomPadding = 30;
-  const topPadding = 25; // Even tighter space for tooltip at top
+  const topPadding = 25; 
   
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  const interactionTimerRef = useRef<any>(null);
   
-  // Disable chart interaction when drawer is minimized
   const isEnabled = !isDrawerMinimized;
 
-  const values = data.map(d => d.value);
-  // Even tighter scaling to use full vertical area, but with a small buffer
-  const rawMin = Math.min(...values);
-  const rawMax = Math.max(...values);
-  const rangeWidth = rawMax - rawMin || 1;
-  const min = Math.max(0, rawMin - rangeWidth * 0.02);
-  const max = rawMax + rangeWidth * 0.02;
-  const range = (max - min) || 1;
+  const values = useMemo(() => data.map(d => d.value), [data]);
+  const { min, max, range } = useMemo(() => {
+    const rawMin = values.length > 0 ? Math.min(...values) : 0;
+    const rawMax = values.length > 0 ? Math.max(...values) : 100;
+    const rangeWidth = rawMax - rawMin || 1;
+    const minVal = Math.max(0, rawMin - rangeWidth * 0.02);
+    const maxVal = rawMax + rangeWidth * 0.02;
+    const rangeVal = (maxVal - minVal) || 1;
+    return { min: minVal, max: maxVal, range: rangeVal };
+  }, [values]);
 
   const getX = (index: number) => (index / (data.length - 1)) * (chartWidth - padding * 2) + padding;
   const getY = (value: number) => (chartHeight - bottomPadding) - ((value - min) / range) * (chartHeight - bottomPadding - topPadding);
 
-  const points = data.map((d, i) => ({ x: getX(i), y: getY(d.value) }));
+  const points = useMemo(() => data.map((d, i) => ({ x: getX(i), y: getY(d.value) })), [data, min, range]);
   
-  const pathData = points.reduce((acc, p, i) => 
+  const pathData = useMemo(() => points.reduce((acc, p, i) => 
     acc + (i === 0 ? `M ${p.x} ${p.y}` : ` L ${p.x} ${p.y}`), ""
-  );
+  ), [points]);
 
-  const areaData = `${pathData} L ${getX(data.length - 1)} ${chartHeight - bottomPadding} L ${getX(0)} ${chartHeight - bottomPadding} Z`;
+  const areaData = useMemo(() => `${pathData} L ${getX(data.length - 1)} ${chartHeight - bottomPadding} L ${getX(0)} ${chartHeight - bottomPadding} Z`, [pathData, data.length]);
 
   const xLabels = useMemo(() => {
     let interval = 5;
@@ -180,35 +184,38 @@ const Chart = ({
     return m === 0 ? `${h}t` : `${h}:${m.toString().padStart(2, '0')}`;
   };
 
-  const handleInteraction = (evt: any) => {
-    if (!isEnabled) return;
-    const x = evt.nativeEvent.locationX;
+  const handleInteraction = useCallback((x: number) => {
+    if (!isEnabled || data.length < 2) return;
     const index = Math.round(((x - padding) / (chartWidth - padding * 2)) * (data.length - 1));
     
     if (index >= 0 && index < data.length) {
-      if (activeIndex === null) {
-        // If not already interacting, start a small timer to distinguish from vertical scroll
-        if (!interactionTimerRef.current) {
-          interactionTimerRef.current = setTimeout(() => {
-            setActiveIndex(index);
-            onInteractionChange?.(true);
-          }, 150); // 150ms delay
-        }
-      } else {
-        setActiveIndex(index);
-      }
+      setActiveIndex(index);
+      onInteractionChange?.(true);
     }
-  };
+  }, [isEnabled, data, padding, chartWidth, onInteractionChange]);
 
-  const handleRelease = () => {
+  const handleRelease = useCallback(() => {
     if (!isEnabled) return;
-    if (interactionTimerRef.current) {
-      clearTimeout(interactionTimerRef.current);
-      interactionTimerRef.current = null;
-    }
     setActiveIndex(null);
     onInteractionChange?.(false);
-  };
+  }, [isEnabled, onInteractionChange]);
+
+  const panGesture = useMemo(() => Gesture.Pan()
+    .enabled(isEnabled)
+    .activeOffsetX([-10, 10])
+    .failOffsetY([-10, 10])
+    .onStart((evt) => {
+      runOnJS(handleInteraction)(evt.x);
+    })
+    .onUpdate((evt) => {
+      runOnJS(handleInteraction)(evt.x);
+    })
+    .onEnd(() => {
+      runOnJS(handleRelease)();
+    })
+    .onFinalize(() => {
+      runOnJS(handleRelease)();
+    }), [isEnabled, handleInteraction, handleRelease]);
 
   return (
     <VStack space="sm" style={styles.chartWrapper}>
@@ -220,15 +227,10 @@ const Chart = ({
         </HStack>
       </HStack>
       
-      <View 
-        style={flattenStyle([styles.chartContainer, isDark ? styles.cardDark : styles.cardLight, { height: chartHeight }])}
-        onStartShouldSetResponder={() => isEnabled}
-        onMoveShouldSetResponder={() => isEnabled}
-        onResponderGrant={handleInteraction}
-        onResponderMove={handleInteraction}
-        onResponderRelease={handleRelease}
-        onResponderTerminate={handleRelease}
-      >
+      <GestureDetector gesture={panGesture}>
+        <Animated.View 
+          style={flattenStyle([styles.chartContainer, isDark ? styles.cardDark : styles.cardLight, { height: chartHeight }])}
+        >
         <Svg width={chartWidth} height={chartHeight}>
           <Defs>
             <LinearGradient id={`grad-${label}`} x1="0" y1="0" x2="0" y2="1">
@@ -326,7 +328,8 @@ const Chart = ({
           <SvgText x={padding + 5} y={getY(min) - 4} fontSize="9" fill="#9CA3AF" fontWeight="bold">{Math.round(min)}{unit}</SvgText>
           <SvgText x={padding + 5} y={getY(max) + 10} fontSize="9" fill="#9CA3AF" fontWeight="bold">{Math.round(max)}{unit}</SvgText>
         </Svg>
-      </View>
+        </Animated.View>
+      </GestureDetector>
     </VStack>
   );
 };
@@ -407,6 +410,10 @@ export default function WorkoutDetailsPage() {
   const [isStyleLoaded, setIsStyleLoaded] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [scrollEnabled, setScrollEnabled] = useState(true);
+
+  const scrollContentStyle = useMemo(() => ({ 
+    paddingBottom: 100 
+  }), []);
 
   const fetchSession = async () => {
     if (!id) return;
@@ -746,11 +753,13 @@ export default function WorkoutDetailsPage() {
             </GestureDetector>
           </VStack>
 
-          <ScrollView 
+          <ScrollView
+            key="workout-details-scroll"
             scrollEnabled={scrollEnabled && !isMinimized}
             showsVerticalScrollIndicator={false} 
             style={{ flex: 1 }}
-            contentContainerStyle={{ paddingBottom: 100 }}
+            contentContainerStyle={scrollContentStyle}
+            removeClippedSubviews={false}
           >
             <VStack space="xl" style={{ padding: 16, paddingTop: 0 }}>
               {/* Stats Grid */}
