@@ -96,23 +96,19 @@ export const CalendarView: React.FC = () => {
 
 
   // Re-open detail drawer if returning from details page
-  const isNavigatingAwayRef = useRef(false);
   const shouldReopenDetailRef = useRef(false);
 
   useFocusEffect(
     useCallback(() => {
-      if (isNavigatingAwayRef.current) {
-        isNavigatingAwayRef.current = false;
-        // We set this so that when we eventually come back, we know to reopen
-        shouldReopenDetailRef.current = true;
-        return;
-      }
-
       if (shouldReopenDetailRef.current && selectedSession) {
-        setIsDetailDrawerOpen(true);
-        shouldReopenDetailRef.current = false;
+        // Small delay to ensure everything is settled
+        const timer = setTimeout(() => {
+          setIsDetailDrawerOpen(true);
+          shouldReopenDetailRef.current = false;
+        }, 100);
+        return () => clearTimeout(timer);
       }
-    }, [selectedSession]) // Only depend on selectedSession
+    }, [selectedSession])
   );
 
   // Handles:
@@ -478,7 +474,7 @@ export const CalendarView: React.FC = () => {
         onAddWorkout={() => handleAddWorkout(selectedDate, true)}
         onAddHealthEvent={() => handleAddHealth(selectedDate, true)}
         onNavigateToDetails={() => {
-          isNavigatingAwayRef.current = true;
+          shouldReopenDetailRef.current = true;
           setIsDetailDrawerOpen(false);
         }}
       />

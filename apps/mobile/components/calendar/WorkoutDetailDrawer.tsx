@@ -429,7 +429,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
-    marginBottom: 2,
+    marginBottom: 4,
   },
   statLabelText: {
     fontSize: 11,
@@ -439,7 +439,7 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   textMutedDark: {
-    color: '#9CA3AF',
+    color: '#D1D5DB', // Even lighter gray for better visibility
   },
   statValue: {
     fontSize: 16,
@@ -447,7 +447,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   statValueDark: {
-    color: '#FFFFFF',
+    color: '#FFFFFF', // Ensure white
   },
   statValueLight: {
     color: '#1F2937',

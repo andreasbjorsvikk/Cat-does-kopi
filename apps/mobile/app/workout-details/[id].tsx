@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import MapView, { Polyline } from 'react-native-maps';
-import Svg, { Path, Defs, LinearGradient, Stop, Text as SvgText, Circle, Rect, G, Line } from 'react-native-svg';
+import Svg, { Path, Defs, LinearGradient, Stop, Text as SvgText, Circle, Rect, G, Line, TSpan } from 'react-native-svg';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { HStack } from '@/components/ui/hstack';
@@ -268,7 +268,8 @@ const Chart = ({
                 fill={isDark ? "#FFFFFF" : "#111827"}
                 textAnchor="middle"
               >
-                {data[activeIndex].value} {unit.trim()}
+                <TSpan dx="-4">{data[activeIndex].value}</TSpan>
+                <TSpan dx="8">{unit.trim()}</TSpan>
               </SvgText>
             </>
           )}
@@ -338,11 +339,11 @@ export default function WorkoutDetailsPage() {
   , [session?.summaryPolyline]);
 
   const hrData = useMemo(() => 
-    generateMockHRData(40, session?.averageHeartrate || 145).map((d, i) => ({ x: i, value: d.value }))
+    generateMockHRData(100, session?.averageHeartrate || 145).map((d, i) => ({ x: i, value: d.value }))
   , [session?.id, session?.averageHeartrate]);
 
   const altitudeData = useMemo(() => 
-    generateMockAltitudeData(40, session?.elevationGain || 300).map((d, i) => ({ x: i, value: d.value }))
+    generateMockAltitudeData(100, session?.elevationGain || 300).map((d, i) => ({ x: i, value: d.value }))
   , [session?.id, session?.elevationGain]);
 
   useEffect(() => {
@@ -364,25 +365,30 @@ export default function WorkoutDetailsPage() {
       const maxLng = Math.max(...lngs);
 
       const focusOnRoute = () => {
-        mapboxCameraRef.current?.setCamera({
-          bounds: {
-            ne: [maxLng, maxLat],
-            sw: [minLng, minLat],
-            paddingTop: 100,
-            paddingRight: 100,
-            paddingBottom: 100,
-            paddingLeft: 100,
-          },
-          pitch: 45,
-          animationDuration: 2500,
-        });
+        if (mapboxCameraRef.current) {
+          mapboxCameraRef.current.setCamera({
+            bounds: {
+              ne: [maxLng, maxLat],
+              sw: [minLng, minLat],
+              paddingTop: 120,
+              paddingRight: 120,
+              paddingBottom: 120,
+              paddingLeft: 120,
+            },
+            pitch: 45,
+            animationDuration: 3000,
+          });
+        }
       };
 
-      const timer1 = setTimeout(focusOnRoute, 1000);
-      const timer2 = setTimeout(focusOnRoute, 3000); // Second attempt to be sure
+      const timer1 = setTimeout(focusOnRoute, 800);
+      const timer2 = setTimeout(focusOnRoute, 2500);
+      const timer3 = setTimeout(focusOnRoute, 5000); // Final attempt
+      
       return () => {
         clearTimeout(timer1);
         clearTimeout(timer2);
+        clearTimeout(timer3);
       };
     }
   }, [session, decodedRoute]);
@@ -478,8 +484,19 @@ export default function WorkoutDetailsPage() {
             <MapboxMapView
               style={styles.map}
               styleURL="mapbox://styles/mapbox/satellite-streets-v12"
+              logoEnabled={false}
+              attributionEnabled={false}
             >
-              <MapboxCamera ref={mapboxCameraRef} />
+              <MapboxCamera 
+                ref={mapboxCameraRef}
+                defaultSettings={{
+                  centerCoordinate: decodedRoute.length > 0 
+                    ? [decodedRoute[0].longitude, decodedRoute[0].latitude] 
+                    : [10.7522, 59.9139],
+                  zoomLevel: 12,
+                  pitch: 45,
+                }}
+              />
               {decodedRoute.length > 0 && (
                 <Mapbox.ShapeSource
                   id="routeSource"
@@ -496,7 +513,7 @@ export default function WorkoutDetailsPage() {
                     id="routeLayer"
                     style={{
                       lineColor: '#F97316',
-                      lineWidth: 4,
+                      lineWidth: 5,
                       lineCap: 'round',
                       lineJoin: 'round',
                     }}
@@ -545,42 +562,54 @@ export default function WorkoutDetailsPage() {
           {/* Stats Grid */}
           <View style={styles.statsGrid}>
             <View style={flattenStyle([styles.statCard, isDark ? styles.cardDark : styles.cardLight])}>
-              <Clock size={16} color="#6B7280" />
-              <Text style={styles.statLabel}>Varighet</Text>
-              <Text style={styles.statValue}>{durationText}</Text>
+              <HStack space="xs" style={styles.statHeader}>
+                <Clock size={12} color="#9CA3AF" />
+                <Text style={styles.statLabel}>Varighet</Text>
+              </HStack>
+              <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>{durationText}</Text>
             </View>
             <View style={flattenStyle([styles.statCard, isDark ? styles.cardDark : styles.cardLight])}>
-              <MapPin size={16} color="#6B7280" />
-              <Text style={styles.statLabel}>Distanse</Text>
-              <Text style={styles.statValue}>{session.distance || 0} km</Text>
+              <HStack space="xs" style={styles.statHeader}>
+                <MapPin size={12} color="#9CA3AF" />
+                <Text style={styles.statLabel}>Distanse</Text>
+              </HStack>
+              <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>{session.distance || 0} km</Text>
             </View>
             <View style={flattenStyle([styles.statCard, isDark ? styles.cardDark : styles.cardLight])}>
-              <Mountain size={16} color="#6B7280" />
-              <Text style={styles.statLabel}>Høydemeter</Text>
-              <Text style={styles.statValue}>{session.elevationGain || 0} m</Text>
+              <HStack space="xs" style={styles.statHeader}>
+                <Mountain size={12} color="#9CA3AF" />
+                <Text style={styles.statLabel}>Høydemeter</Text>
+              </HStack>
+              <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>{session.elevationGain || 0} m</Text>
             </View>
             <View style={flattenStyle([styles.statCard, isDark ? styles.cardDark : styles.cardLight])}>
-              <Activity size={16} color="#6B7280" />
-              <Text style={styles.statLabel}>Tempo</Text>
-              <Text style={styles.statValue}>{pace}</Text>
+              <HStack space="xs" style={styles.statHeader}>
+                <Activity size={12} color="#9CA3AF" />
+                <Text style={styles.statLabel}>Tempo</Text>
+              </HStack>
+              <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>{pace}</Text>
             </View>
             <VStack 
               style={flattenStyle([styles.statCard, isDark ? styles.cardDark : styles.cardLight])}
               space="xs"
             >
-              <HStack space="xs" style={{ alignItems: 'center', justifyContent: 'center' }}>
-                <Heart size={14} color="#6B7280" />
+              <HStack space="xs" style={styles.statHeader}>
+                <Heart size={12} color="#9CA3AF" />
                 <Text style={styles.statLabel}>Puls</Text>
               </HStack>
-              <Text style={flattenStyle([styles.statValue, isDark ? { color: '#FFF' } : null])}>
-                {session.averageHeartrate || "--"} / {session.maxHeartrate || "--"}
-              </Text>
-              <Text style={{ fontSize: 10, color: '#6B7280', textAlign: 'center' }}>snitt / maks</Text>
+              <VStack space="none" style={{ alignItems: 'center' }}>
+                <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>
+                  {session.averageHeartrate || "--"} / {session.maxHeartrate || "--"}
+                </Text>
+                <Text style={styles.statSubText}>snitt / maks</Text>
+              </VStack>
             </VStack>
             <View style={flattenStyle([styles.statCard, isDark ? styles.cardDark : styles.cardLight])}>
-              <Flame size={16} color="#6B7280" />
-              <Text style={styles.statLabel}>Kalorier</Text>
-              <Text style={styles.statValue}>{session.calories || 640} kcal</Text>
+              <HStack space="xs" style={styles.statHeader}>
+                <Flame size={12} color="#9CA3AF" />
+                <Text style={styles.statLabel}>Kalorier</Text>
+              </HStack>
+              <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>{session.calories || 640} kcal</Text>
             </View>
           </View>
 
@@ -724,16 +753,30 @@ const styles = StyleSheet.create({
   cardDark: {
     backgroundColor: '#111827',
   },
+  statHeader: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
+  },
   statLabel: {
     fontSize: 10,
-    color: '#6B7280',
+    color: '#9CA3AF',
     fontWeight: '600',
     textAlign: 'center',
   },
   statValue: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '800',
     textAlign: 'center',
+  },
+  statSubText: {
+    fontSize: 9,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginTop: -2,
+  },
+  textWhite: {
+    color: '#FFFFFF',
   },
   chartWrapper: {
     marginTop: 8,
