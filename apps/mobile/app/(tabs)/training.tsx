@@ -330,10 +330,11 @@ export default function TrainingScreen() {
   const [chartType, setChartType] = useState<"bar" | "line">("bar");
   const [tooltipIndex, setTooltipIndex] = useState<number | null>(null);
 
-  // Animate chart transitions
-  useEffect(() => {
+  // Helper to animate state transitions
+  const withAnimation = useCallback((fn: () => void) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-  }, [chartData, chartMetric, chartType, period]);
+    fn();
+  }, []);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1057,15 +1058,15 @@ export default function TrainingScreen() {
         {activeSubTab === "statistikk" && (
           <View style={styles.tabContent} {...panResponder.panHandlers}>
             
-            {/* Period selector tabs: Måned, År, Total */}
-            <View style={flattenStyle([styles.periodTabsWrapper, { backgroundColor: isDark ? "#1F2937" : "#E5E7EB" }])}>
+            {/* Period selector tabs with animation */}
+            <View style={flattenStyle([styles.periodTabsWrapper, { backgroundColor: isDark ? "#1F2937" : "#E5E7EB", marginBottom: 8 }])}>
               {(["month", "year", "total"] as const).map((p) => {
                 const isActive = period === p;
                 const label = p === "month" ? "Måned" : p === "year" ? "År" : "Total";
                 return (
                   <TouchableOpacity
                     key={p}
-                    onPress={() => setPeriod(p)}
+                    onPress={() => withAnimation(() => setPeriod(p))}
                     style={flattenStyle([
                       styles.periodTabButton,
                       isActive ? { backgroundColor: isDark ? "#111827" : "#FFFFFF" } : null
@@ -1085,21 +1086,21 @@ export default function TrainingScreen() {
             </View>
 
             {/* Date navigation bar (chevron indicators) */}
-            <HStack style={flattenStyle([styles.dateSelectorContainer, { marginBottom: 16 }])}>
+            <HStack style={flattenStyle([styles.dateSelectorContainer, { marginBottom: 4, paddingTop: 8 }])}>
               {period !== "total" ? (
                 <>
-                  <TouchableOpacity onPress={handlePrevDate} style={styles.dateSelectorArrow}>
+                  <TouchableOpacity onPress={() => withAnimation(handlePrevDate)} style={styles.dateSelectorArrow}>
                     <ChevronLeft size={18} color={isDark ? "#FFFFFF" : "#111827"} />
                   </TouchableOpacity>
-                  <Text style={flattenStyle([styles.dateSelectorLabel, { color: isDark ? "#FFFFFF" : "#111827", fontSize: 26 }])}>
+                  <Text style={flattenStyle([styles.dateSelectorLabel, { color: isDark ? "#FFFFFF" : "#111827", fontSize: 26, lineHeight: 34 }])}>
                     {period === "month" ? `${MONTH_NAMES[selectedMonth]} ${selectedYear}` : selectedYear.toString()}
                   </Text>
-                  <TouchableOpacity onPress={handleNextDate} style={styles.dateSelectorArrow}>
+                  <TouchableOpacity onPress={() => withAnimation(handleNextDate)} style={styles.dateSelectorArrow}>
                     <ChevronRight size={18} color={isDark ? "#FFFFFF" : "#111827"} />
                   </TouchableOpacity>
                 </>
               ) : (
-                <Text style={flattenStyle([styles.dateSelectorLabel, { color: isDark ? "#FFFFFF" : "#111827", fontSize: 26 }])}>
+                <Text style={flattenStyle([styles.dateSelectorLabel, { color: isDark ? "#FFFFFF" : "#111827", fontSize: 26, lineHeight: 34 }])}>
                   Total livstidsfremgang
                 </Text>
               )}
@@ -1237,7 +1238,7 @@ export default function TrainingScreen() {
                     return (
                       <TouchableOpacity
                         key={m.id}
-                        onPress={() => setChartMetric(m.id)}
+                        onPress={() => withAnimation(() => setChartMetric(m.id))}
                         style={styles.metricTextBtn}
                       >
                         <Text 
@@ -1269,7 +1270,7 @@ export default function TrainingScreen() {
                 {/* Absolute Y Axis and Grid Lines */}
                 <View style={StyleSheet.absoluteFill}>
                   {yAxisGridLines.map((val, idx) => {
-                    const topPosition = idx * 37.5; // Squeeze 5 grid lines evenly into 150px height
+                    const topPosition = idx * 50; // Squeeze 5 grid lines evenly into 200px height
                     return (
                       <View 
                         key={idx} 
@@ -1295,7 +1296,7 @@ export default function TrainingScreen() {
                   horizontal 
                   showsHorizontalScrollIndicator={isScrollEnabled}
                   scrollEnabled={isScrollEnabled}
-                  contentContainerStyle={{ paddingLeft: 40, paddingRight: 10, height: 185, overflow: 'visible' }}
+                  contentContainerStyle={{ paddingLeft: 40, paddingRight: 10, height: 235, overflow: 'visible' }}
                   bounces={false}
                   overScrollMode="never"
                 >
@@ -1309,9 +1310,9 @@ export default function TrainingScreen() {
                   {chartType === "bar" ? (
                     
                     /* STACKED BAR CHART MODE */
-                    <VStack style={{ height: 185, zIndex: 1 }}>
+                    <VStack style={{ height: 235, zIndex: 1 }}>
                       {/* Graph Bars Area (aligned cleanly above y=0 baseline at exactly 150px height) */}
-                      <HStack style={{ alignItems: "flex-end", height: 150, gap: barGap }}>
+                      <HStack style={{ alignItems: "flex-end", height: 200, gap: barGap }}>
                         {chartData.map((bucket, bIdx) => {
                           return (
                             <TouchableOpacity 
@@ -1354,7 +1355,7 @@ export default function TrainingScreen() {
                             style={flattenStyle([
                               {
                                 position: 'absolute',
-                                bottom: 110,
+                                bottom: 140,
                                 left: Math.max(0, Math.min(lineChartWidth - 120, tooltipIndex * (barWidth + barGap) + (barWidth / 2) - 60)),
                                 width: 120,
                                 backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
@@ -1411,8 +1412,8 @@ export default function TrainingScreen() {
                   ) : (
                     
                     /* SMOOTH SVG GRADIENT LINE CHART MODE */
-                    <View style={{ height: 185, width: lineChartWidth }}>
-                      <Svg height={150} width="100%">
+                    <View style={{ height: 235, width: lineChartWidth }}>
+                      <Svg height={200} width="100%">
                         <Defs>
                           <LinearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
                             <Stop offset="0%" stopColor="#10B981" stopOpacity="0.35" />
@@ -1420,7 +1421,7 @@ export default function TrainingScreen() {
                           </LinearGradient>
                         </Defs>
                         {(() => {
-                          const chartHeight = 150;
+                          const chartHeight = 200;
                           const columnWidth = lineChartWidth / chartData.length;
                           
                           // Compute coordinate pairs
@@ -1493,7 +1494,7 @@ export default function TrainingScreen() {
               
               {/* STOLPE (Bar) */}
               <TouchableOpacity
-                onPress={() => setChartType("bar")}
+                onPress={() => withAnimation(() => setChartType("bar"))}
                 style={flattenStyle([
                   styles.chartTypeToggleBtn,
                   chartType === "bar" 
@@ -1516,7 +1517,7 @@ export default function TrainingScreen() {
 
               {/* LINJE (Line) */}
               <TouchableOpacity
-                onPress={() => setChartType("line")}
+                onPress={() => withAnimation(() => setChartType("line"))}
                 style={flattenStyle([
                   styles.chartTypeToggleBtn,
                   chartType === "line" 
@@ -2545,7 +2546,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   chartContainer: {
-    height: 190,
+    height: 240,
     position: "relative",
   },
   chartGridLineRow: {
