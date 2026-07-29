@@ -460,7 +460,7 @@ export default function MapScreen() {
     }
 
     const screenHeight = Dimensions.get("window").height;
-    const bottomPadding = screenHeight * 0.45; // Account for the sheet covering ~45% (top: 55%)
+    const bottomPadding = screenHeight * 0.6; // Account for the sheet covering 60% of screen (top: 40%)
 
     // Zoom to peak if using Mapbox
     if (isMapboxAvailable && isMapboxLayer && mapboxCameraRef.current) {

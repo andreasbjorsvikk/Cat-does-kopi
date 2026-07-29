@@ -130,7 +130,7 @@ export function PeakProfileSheet({
   }, [peak.id]);
 
   const themeClasses = {
-    text: "text-typography-900 dark:text-typography-50",
+    text: "text-typography-900 dark:text-typography-50", // Ensuring light text in dark mode
     textMuted: "text-typography-500 dark:text-typography-400",
     bg: isDark ? "bg-background-950" : "bg-white",
     cardBg: isDark ? "bg-background-900" : "bg-background-50",
@@ -168,7 +168,7 @@ export function PeakProfileSheet({
       {/* Header */}
       <HStack style={styles.header}>
         <VStack style={{ flex: 1, alignItems: "center" }}>
-          <Heading className={`text-2xl font-bold ${themeClasses.text}`}>
+          <Heading className={`text-2xl font-bold ${themeClasses.text} dark:text-typography-50`}>
             {peak.name}
           </Heading>
           <HStack space="sm" className="items-center mt-1">
@@ -241,15 +241,24 @@ export function PeakProfileSheet({
                     <Cloud size={24} color="#3B82F6" />
                   </View>
                   <VStack>
-                    <Text className={`font-semibold ${themeClasses.text}`}>Været nå</Text>
+                    <Text className={`font-semibold ${themeClasses.text} dark:text-typography-50`}>Været nå</Text>
                     <Text size="xs" className={themeClasses.textMuted}>{weatherData?.description || "Laster..."}</Text>
                   </VStack>
                 </HStack>
                 <HStack space="sm" className="items-center">
-                  <Text className={`text-2xl font-bold ${themeClasses.text}`}>
+                  {weatherData && (
+                    <View className="mr-1">
+                      {weatherData.symbol.includes("cloud") ? (
+                        <Cloud size={24} color={isDark ? "#9CA3AF" : "#3B82F6"} />
+                      ) : (
+                        <Sun size={24} color={isDark ? "#FBBF24" : "#EAB308"} />
+                      )}
+                    </View>
+                  )}
+                  <Text className={`text-2xl font-bold ${themeClasses.text} dark:text-typography-50`}>
                     {weatherData ? `${weatherData.temp}°` : "--"}
                   </Text>
-                  <VStack className="items-end">
+                  <VStack className="items-end ml-1">
                     <Wind size={14} color={isDark ? "#9CA3AF" : "#64748B"} />
                     <Text style={{ fontSize: 10 }} className={themeClasses.textMuted}>
                       {weatherData ? `${weatherData.wind} m/s` : "--"}
@@ -447,7 +456,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    top: "55%",
+    top: "40%",
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     zIndex: 100,
