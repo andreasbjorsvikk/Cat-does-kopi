@@ -30,6 +30,8 @@ import {
 } from 'lucide-react-native';
 import { WorkoutSession } from '@/types/workout';
 import { workoutService } from '@/services/workoutService';
+import { stravaService } from '@/services/stravaService';
+import { WorkoutStreams } from '@/types/workout';
 import { ActivityIcon } from '@/components/ActivityIcon';
 import { decodePolyline } from '@/utils/polyline';
 import { flattenStyle } from '@/utils/flatten-style';
@@ -318,7 +320,9 @@ export default function WorkoutDetailsPage() {
   const mapboxCameraRef = useRef<any>(null);
 
   const [session, setSession] = useState<WorkoutSession | null>(null);
+  const [streams, setStreams] = useState<WorkoutStreams | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isStyleLoaded, setIsStyleLoaded] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [scrollEnabled, setScrollEnabled] = useState(true);
 
@@ -327,6 +331,17 @@ export default function WorkoutDetailsPage() {
     setLoading(true);
     const data = await workoutService.getById(id);
     setSession(data);
+
+    // If it's a Strava activity, fetch real streams
+    if (data && data.stravaActivityId) {
+      try {
+        const streamData = await stravaService.fetchStreams(data.id, data.stravaActivityId);
+        setStreams(streamData);
+      } catch (err) {
+        console.warn("Failed to fetch real streams from Strava:", err);
+      }
+    }
+
     setLoading(false);
   };
 
@@ -338,13 +353,21 @@ export default function WorkoutDetailsPage() {
     session?.summaryPolyline ? decodePolyline(session.summaryPolyline) : []
   , [session?.summaryPolyline]);
 
-  const hrData = useMemo(() => 
-    generateMockHRData(100, session?.averageHeartrate || 145).map((d, i) => ({ x: i, value: d.value }))
-  , [session?.id, session?.averageHeartrate]);
+  const hrData = useMemo(() => {
+    if (streams?.heartrateData && streams.heartrateData.length > 0) {
+      return streams.heartrateData.map((d) => ({ x: d.time, value: d.value }));
+    }
+    // Fallback to mock data if no real streams
+    return generateMockHRData(100, session?.averageHeartrate || 145).map((d, i) => ({ x: i, value: d.value }));
+  }, [session?.id, session?.averageHeartrate, streams?.heartrateData]);
 
-  const altitudeData = useMemo(() => 
-    generateMockAltitudeData(100, session?.elevationGain || 300).map((d, i) => ({ x: i, value: d.value }))
-  , [session?.id, session?.elevationGain]);
+  const altitudeData = useMemo(() => {
+    if (streams?.altitudeData && streams.altitudeData.length > 0) {
+      return streams.altitudeData.map((d) => ({ x: d.distance, value: d.value }));
+    }
+    // Fallback to mock data if no real streams
+    return generateMockAltitudeData(100, session?.elevationGain || 300).map((d, i) => ({ x: i, value: d.value }));
+  }, [session?.id, session?.elevationGain, streams?.altitudeData]);
 
   useEffect(() => {
     if (session && decodedRoute.length > 0 && mapRef.current) {
@@ -370,12 +393,12 @@ export default function WorkoutDetailsPage() {
             bounds: {
               ne: [maxLng, maxLat],
               sw: [minLng, minLat],
-              paddingTop: 120,
-              paddingRight: 120,
-              paddingBottom: 120,
-              paddingLeft: 120,
+              paddingTop: 80,
+              paddingRight: 80,
+              paddingBottom: 80,
+              paddingLeft: 80,
             },
-            pitch: 45,
+            pitch: 65,
             animationDuration: 3000,
           });
         }
@@ -479,13 +502,15 @@ export default function WorkoutDetailsPage() {
         contentContainerStyle={{ paddingBottom: 40 }}
       >
         {/* Map Section */}
-        <View style={styles.mapSection}>
+        {decodedRoute.length > 0 && (
+          <View style={styles.mapSection}>
           {isMapboxAvailable ? (
             <MapboxMapView
               style={styles.map}
               styleURL="mapbox://styles/mapbox/satellite-streets-v12"
               logoEnabled={false}
               attributionEnabled={false}
+              onDidFinishLoadingStyle={() => setIsStyleLoaded(true)}
             >
               <MapboxCamera 
                 ref={mapboxCameraRef}
@@ -493,11 +518,34 @@ export default function WorkoutDetailsPage() {
                   centerCoordinate: decodedRoute.length > 0 
                     ? [decodedRoute[0].longitude, decodedRoute[0].latitude] 
                     : [10.7522, 59.9139],
-                  zoomLevel: 12,
-                  pitch: 45,
+                  zoomLevel: 14,
+                  pitch: 65,
                 }}
               />
-              {decodedRoute.length > 0 && (
+              
+              {isStyleLoaded && (
+                <>
+                  <Mapbox.Atmosphere
+                    style={{
+                      range: [0, 15],
+                      horizonBlend: 0.05,
+                      color: 'rgba(135, 206, 235, 0.7)',
+                      highColor: '#245cdf',
+                      spaceColor: '#0b1026',
+                    }}
+                  />
+                  <Mapbox.RasterDemSource
+                    id="mapbox-dem"
+                    url="mapbox://mapbox.mapbox-terrain-dem-v1"
+                    tileSize={512}
+                  />
+                  <Mapbox.Terrain
+                    sourceID="mapbox-dem"
+                    style={{ exaggeration: 1.5 }}
+                  />
+                </>
+              )}
+              
                 <Mapbox.ShapeSource
                   id="routeSource"
                   shape={{
@@ -519,7 +567,6 @@ export default function WorkoutDetailsPage() {
                     }}
                   />
                 </Mapbox.ShapeSource>
-              )}
             </MapboxMapView>
           ) : Platform.OS !== 'web' ? (
             <MapView
@@ -543,7 +590,8 @@ export default function WorkoutDetailsPage() {
               <Text>Kart utilgjengelig på web</Text>
             </View>
           )}
-        </View>
+          </View>
+        )}
 
         <VStack space="xl" style={{ padding: 16 }}>
           {/* Session Info */}

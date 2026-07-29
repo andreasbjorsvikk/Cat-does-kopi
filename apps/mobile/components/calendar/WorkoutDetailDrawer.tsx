@@ -62,13 +62,15 @@ const StatsBox = ({
   <View
     style={flattenStyle([styles.statItem, isDark ? styles.statItemDark : styles.statItemLight])}
   >
-    <Icon size={14} color={isDark ? "#D1D5DB" : "#6B7280"} />
-    <Text style={flattenStyle([styles.statValue, isDark ? styles.statValueDark : styles.statValueLight])}>
-      {value}
-    </Text>
-    <VStack space="none" style={{ alignItems: 'center' }}>
+    <HStack space="xs" style={styles.statHeader}>
+      <Icon size={12} color="#9CA3AF" />
       <Text style={flattenStyle([styles.statLabelText, isDark ? styles.textMutedDark : styles.textMutedLight])}>
         {label}
+      </Text>
+    </HStack>
+    <VStack space="none" style={{ alignItems: 'center' }}>
+      <Text style={flattenStyle([styles.statValue, isDark ? styles.statValueDark : styles.statValueLight])}>
+        {value}
       </Text>
       {subtitle && <Text style={styles.statSubtitle}>{subtitle}</Text>}
     </VStack>
@@ -410,9 +412,9 @@ const styles = StyleSheet.create({
   },
   statItem: {
     width: '32%',
-    padding: 8,
-    borderRadius: 16,
-    minHeight: 85,
+    padding: 10,
+    borderRadius: 20,
+    minHeight: 90,
     justifyContent: 'center',
     alignItems: 'center',
     gap: 2,
@@ -422,19 +424,17 @@ const styles = StyleSheet.create({
   },
   statItemDark: {
     backgroundColor: '#111827',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  statLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    marginBottom: 4,
   },
   statLabelText: {
-    fontSize: 11,
+    fontSize: 10,
+    color: '#9CA3AF',
     fontWeight: '600',
+    textAlign: 'center',
+  },
+  statHeader: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
   },
   textMutedLight: {
     color: '#6B7280',
@@ -444,7 +444,7 @@ const styles = StyleSheet.create({
   },
   statValue: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
     textAlign: 'center',
   },
   statValueDark: {
