@@ -117,44 +117,16 @@ const KOMMUNE_PALETTE = FYLKE_PALETTE.map(p => ({
 }));
 
 const CustomMountainIcon = ({ isChecked }: { isChecked: boolean }) => {
-  const color = isChecked ? "#FFFFFF" : "#10B981";
   return (
-    <View style={{ width: 22, height: 16, position: "relative" }}>
-      {/* Main peak */}
-      <View
-        style={{
-          position: "absolute",
-          bottom: 0,
-          left: 1,
-          width: 0,
-          height: 0,
-          borderStyle: "solid",
-          borderLeftWidth: 8,
-          borderRightWidth: 8,
-          borderBottomWidth: 14,
-          borderLeftColor: "transparent",
-          borderRightColor: "transparent",
-          borderBottomColor: color,
-        }}
-      />
-      {/* Sub peak */}
-      <View
-        style={{
-          position: "absolute",
-          bottom: 0,
-          left: 10,
-          width: 0,
-          height: 0,
-          borderStyle: "solid",
-          borderLeftWidth: 6,
-          borderRightWidth: 6,
-          borderBottomWidth: 10,
-          borderLeftColor: "transparent",
-          borderRightColor: "transparent",
-          borderBottomColor: color,
-        }}
-      />
-    </View>
+    <Image
+      source={require("../../assets/images/mountains.png")}
+      style={{
+        width: 20,
+        height: 16,
+        tintColor: isChecked ? "#FFFFFF" : "#10B981",
+      }}
+      resizeMode="contain"
+    />
   );
 };
 
@@ -167,6 +139,7 @@ export default function MapScreen() {
   const mapboxMapRef = useRef<any>(null);
   const mapboxCameraRef = useRef<any>(null);
   const hasInitialRegionSet = useRef(false);
+  const currentHeading = useRef(0);
 
   const [loading, setLoading] = useState(true);
   const [peaks, setPeaks] = useState<Peak[]>([]);
@@ -502,45 +475,63 @@ export default function MapScreen() {
       setActiveTab("kart");
     }
 
-    // Zoom to peak if using Mapbox
+    const headingRad = (currentHeading.current * Math.PI) / 180;
+
     if (isMapboxAvailable && isMapboxLayer && mapboxCameraRef.current) {
       try {
-        mapboxCameraRef.current.setCamera({
-          centerCoordinate: [peak.longitude, peak.latitude],
-          zoomLevel: 14,
-          pitch: is3DEnabled ? 60 : 0,
-          animationDuration: 1000,
-          padding: {
-            bottom: is3DEnabled ? screenHeight * 1.15 : screenHeight * 0.85,
-            top: 0,
-            left: 0,
-            right: 0,
-          },
-        } as any);
+        if (is3DEnabled) {
+          const latOffset = 0.012;
+          const centerLat = peak.latitude - latOffset * Math.cos(headingRad);
+          const centerLng = peak.longitude - latOffset * Math.sin(headingRad);
+
+          mapboxCameraRef.current.setCamera({
+            centerCoordinate: [centerLng, centerLat],
+            zoomLevel: 14,
+            pitch: 60,
+            animationDuration: 1000,
+            heading: currentHeading.current,
+          });
+        } else {
+          mapboxCameraRef.current.setCamera({
+            centerCoordinate: [peak.longitude, peak.latitude],
+            zoomLevel: 14,
+            pitch: 0,
+            animationDuration: 1000,
+            padding: {
+              bottom: screenHeight * 0.7,
+              top: 0, left: 0, right: 0
+            },
+            heading: currentHeading.current,
+          });
+        }
       } catch (err) {
         console.warn("Failed to set Mapbox camera center to selected peak:", err);
       }
     } else if (mapRef.current) {
       try {
-        const camera = {
-          center: {
-            latitude: peak.latitude,
-            longitude: peak.longitude,
-          },
-          zoom: 14,
-          pitch: is3DEnabled ? 60 : 0,
-          heading: 0,
-        };
+        if (is3DEnabled) {
+          const latOffset = 0.012;
+          const centerLat = peak.latitude - latOffset * Math.cos(headingRad);
+          const centerLng = peak.longitude - latOffset * Math.sin(headingRad);
 
-        // The user explicitly requested using the padding property in animateCamera
-        (camera as any).padding = {
-          bottom: is3DEnabled ? screenHeight * 1.15 : screenHeight * 0.85,
-          top: 0,
-          left: 0,
-          right: 0,
-        };
-
-        mapRef.current.animateCamera(camera, { duration: 1000 });
+          mapRef.current.animateCamera({
+            center: { latitude: centerLat, longitude: centerLng },
+            zoom: 14,
+            pitch: 60,
+            heading: currentHeading.current,
+          }, { duration: 1000 });
+        } else {
+          mapRef.current.animateCamera({
+            center: { latitude: peak.latitude, longitude: peak.longitude },
+            zoom: 14,
+            pitch: 0,
+            heading: currentHeading.current,
+            padding: {
+              bottom: screenHeight * 0.7,
+              top: 0, left: 0, right: 0
+            },
+          } as any, { duration: 1000 });
+        }
       } catch (err) {
         console.warn("Failed to animate Google Maps camera:", err);
       }
@@ -812,10 +803,22 @@ export default function MapScreen() {
     if (state?.properties?.zoom) {
       setCurrentZoom(state.properties.zoom);
     }
+    if (state?.properties?.heading !== undefined) {
+      currentHeading.current = state.properties.heading;
+    }
   };
 
   const handleRegionChangeComplete = async (currentRegion: any, details: any) => {
     setRegion(currentRegion);
+
+    if (mapRef.current) {
+      try {
+        const camera = await mapRef.current.getCamera();
+        if (camera.heading !== undefined) {
+          currentHeading.current = camera.heading;
+        }
+      } catch (err) {}
+    }
 
     // Approximate zoom from latitudeDelta
     const zoom = Math.log2(360 / currentRegion.latitudeDelta);

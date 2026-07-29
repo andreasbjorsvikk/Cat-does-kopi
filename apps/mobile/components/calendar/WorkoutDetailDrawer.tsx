@@ -84,6 +84,39 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
   const isDark = colorScheme === 'dark';
   const mapRef = React.useRef<MapView | null>(null);
 
+  const decodedRoute = React.useMemo(() => 
+    session?.summaryPolyline ? decodePolyline(session.summaryPolyline) : []
+  , [session?.summaryPolyline]);
+
+  const initialRegion = React.useMemo(() => 
+    decodedRoute.length > 0 
+      ? {
+          latitude: decodedRoute[0].latitude,
+          longitude: decodedRoute[0].longitude,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
+        }
+      : {
+          latitude: 59.9139,
+          longitude: 10.7522,
+          latitudeDelta: 0.1,
+          longitudeDelta: 0.1,
+        }
+  , [decodedRoute]);
+
+  React.useEffect(() => {
+    if (isOpen && session && decodedRoute.length > 0 && mapRef.current) {
+      // Use a small timeout to ensure map is ready
+      const timer = setTimeout(() => {
+        mapRef.current?.fitToCoordinates(decodedRoute, {
+          edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+          animated: false,
+        });
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, session, decodedRoute]);
+
   if (!session || !isOpen) return null;
 
   const formattedDate = new Date(session.date).toLocaleDateString('no-NO', {
@@ -103,35 +136,6 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
   const durationText = session.durationMinutes >= 60
     ? `${Math.floor(session.durationMinutes / 60)} t ${session.durationMinutes % 60} min`
     : `${session.durationMinutes} min`;
-
-  const decodedRoute = session.summaryPolyline ? decodePolyline(session.summaryPolyline) : [];
-
-  const initialRegion = decodedRoute.length > 0 
-    ? {
-        latitude: decodedRoute[0].latitude,
-        longitude: decodedRoute[0].longitude,
-        latitudeDelta: 0.05,
-        longitudeDelta: 0.05,
-      }
-    : {
-        latitude: 59.9139,
-        longitude: 10.7522,
-        latitudeDelta: 0.1,
-        longitudeDelta: 0.1,
-      };
-
-  React.useEffect(() => {
-    if (isOpen && session && decodedRoute.length > 0 && mapRef.current) {
-      // Use a small timeout to ensure map is ready
-      const timer = setTimeout(() => {
-        mapRef.current?.fitToCoordinates(decodedRoute, {
-          edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
-          animated: false,
-        });
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [isOpen, session, decodedRoute]);
 
   return (
     <Actionsheet isOpen={isOpen} onClose={onClose}>
@@ -175,7 +179,7 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
                   )}
                 </MapView>
               ) : (
-                <View style={[styles.mapPlaceholder, isDark ? styles.placeholderDark : styles.placeholderLight]}>
+                <View style={flattenStyle([styles.mapPlaceholder, isDark ? styles.placeholderDark : styles.placeholderLight])}>
                   <MapPin size={48} color={isDark ? "#4B5563" : "#D1D5DB"} />
                   <Text style={styles.placeholderText}>Kart er utilgjengelig på web</Text>
                 </View>
@@ -237,7 +241,7 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
               />
             </View>
 
-            <TouchableOpacity style={[styles.moreBtn, isDark ? styles.btnDark : styles.btnLight]}>
+            <TouchableOpacity style={flattenStyle([styles.moreBtn, isDark ? styles.btnDark : styles.btnLight])}>
               <HStack space="xs" style={{ alignItems: 'center', justifyContent: 'center' }}>
                 <ChevronDown size={18} color={isDark ? "#9CA3AF" : "#4B5563"} />
                 <Text style={styles.moreText}>Mer detaljer</Text>
@@ -247,7 +251,7 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
             {session.notes && (
               <VStack space="xs">
                 <Text style={styles.sectionTitle}>Notater</Text>
-                <View style={[styles.notesBox, isDark ? styles.btnDark : styles.btnLight]}>
+                <View style={flattenStyle([styles.notesBox, isDark ? styles.btnDark : styles.btnLight])}>
                   <Text style={styles.notesText}>{session.notes}</Text>
                 </View>
               </VStack>
@@ -260,16 +264,16 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
         <VStack space="md" style={styles.footer}>
           <HStack space="md" style={{ width: '100%' }}>
             <TouchableOpacity 
-              style={[styles.editFooterBtn, isDark ? styles.btnDark : styles.btnLight]}
+              style={flattenStyle([styles.editFooterBtn, isDark ? styles.btnDark : styles.btnLight])}
               onPress={() => onEdit(session)}
             >
               <HStack space="xs" style={styles.btnContent}>
                 <Pencil size={18} color={isDark ? "#FFFFFF" : "#1F2937"} />
-                <Text style={[styles.btnText, { color: isDark ? "#FFFFFF" : "#1F2937" }]}>Rediger</Text>
+                <Text style={flattenStyle([styles.btnText, { color: isDark ? "#FFFFFF" : "#1F2937" }])}>Rediger</Text>
               </HStack>
             </TouchableOpacity>
             <TouchableOpacity 
-              style={[styles.deleteFooterBtn, isDark ? styles.btnDark : styles.btnLight]}
+              style={flattenStyle([styles.deleteFooterBtn, isDark ? styles.btnDark : styles.btnLight])}
               onPress={() => {/* Handle delete */}}
             >
               <Trash2 size={18} color="#EF4444" />
@@ -278,21 +282,21 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
 
           <HStack space="md" style={{ width: '100%' }}>
             <TouchableOpacity 
-              style={[styles.footerBtn, styles.workoutBtn]}
+              style={flattenStyle([styles.footerBtn, styles.workoutBtn])}
               onPress={onAddWorkout}
             >
               <HStack space="xs" style={styles.btnContent}>
                 <Plus size={18} color={isDark ? "#FFFFFF" : "#1F2937"} />
-                <Text style={[styles.btnText, { color: isDark ? "#FFFFFF" : "#1F2937" }]}>Legg til økt</Text>
+                <Text style={flattenStyle([styles.btnText, { color: isDark ? "#FFFFFF" : "#1F2937" }])}>Legg til økt</Text>
               </HStack>
             </TouchableOpacity>
             <TouchableOpacity 
-              style={[styles.footerBtn, styles.healthBtn]}
+              style={flattenStyle([styles.footerBtn, styles.healthBtn])}
               onPress={onAddHealthEvent}
             >
               <HStack space="xs" style={styles.btnContent}>
                 <Ambulance size={18} color="#EF4444" />
-                <Text style={[styles.btnText, { color: '#EF4444' }]}>Ny helsehendelse</Text>
+                <Text style={flattenStyle([styles.btnText, { color: '#EF4444' }])}>Ny helsehendelse</Text>
               </HStack>
             </TouchableOpacity>
           </HStack>
@@ -423,7 +427,6 @@ const styles = StyleSheet.create({
   },
   notesText: {
     fontSize: 14,
-    lineHeight: 20,
   },
   footer: {
     padding: 16,
