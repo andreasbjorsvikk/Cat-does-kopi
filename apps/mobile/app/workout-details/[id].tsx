@@ -394,29 +394,25 @@ export default function WorkoutDetailsPage() {
       const minLng = Math.min(...lngs);
       const maxLng = Math.max(...lngs);
 
-      const focusOnRoute = () => {
-        if (mapboxCameraRef.current) {
-          // To make the route "closer" in 3D terrain with high pitch (65°),
-          // we increase the top padding significantly. This pushes the route
-          // towards the bottom of the screen which is "closer" to the viewer
-          // in perspective view.
+      const focusOnRoute = (duration: number = 2000) => {
+        if (mapboxCameraRef.current && decodedRoute.length > 0) {
           mapboxCameraRef.current.setCamera({
             bounds: {
               ne: [maxLng, maxLat],
               sw: [minLng, minLat],
-              paddingTop: 180, // Push route down/forward
-              paddingRight: 40,
-              paddingBottom: 40,
-              paddingLeft: 40,
+              paddingTop: 50,
+              paddingRight: 50,
+              paddingBottom: 50,
+              paddingLeft: 50,
             },
-            pitch: 65,
-            animationDuration: 2500,
+            pitch: 60,
+            animationDuration: duration,
           });
         }
       };
 
-      const timer1 = setTimeout(focusOnRoute, 800);
-      const timer2 = setTimeout(focusOnRoute, 3500);
+      const timer1 = setTimeout(() => focusOnRoute(1500), 500);
+      const timer2 = setTimeout(() => focusOnRoute(1000), 3000);
       
       return () => {
         clearTimeout(timer1);
@@ -525,10 +521,10 @@ export default function WorkoutDetailsPage() {
                 ref={mapboxCameraRef}
                 defaultSettings={{
                   centerCoordinate: decodedRoute.length > 0 
-                    ? [decodedRoute[0].longitude, decodedRoute[0].latitude] 
+                    ? [(minLng + maxLng) / 2, (minLat + maxLat) / 2] 
                     : [10.7522, 59.9139],
-                  zoomLevel: 14,
-                  pitch: 65,
+                  zoomLevel: 12,
+                  pitch: 60,
                 }}
               />
               
