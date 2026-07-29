@@ -451,7 +451,34 @@ export default function MapScreen() {
   };
 
   const handlePeakSelect = (peak: Peak) => {
+    console.log("Peak selected:", peak.name);
     setSelectedPeak(peak);
+    
+    // Ensure we are on the map tab when a peak is selected
+    if (activeTab !== "kart") {
+      setActiveTab("kart");
+    }
+
+    // Zoom to peak if using Mapbox
+    if (isMapboxAvailable && isMapboxLayer && mapboxCameraRef.current) {
+      try {
+        mapboxCameraRef.current.setCamera({
+          centerCoordinate: [peak.longitude, peak.latitude],
+          zoomLevel: 14,
+          animationDuration: 1000,
+        });
+      } catch (err) {
+        console.warn("Failed to set Mapbox camera center to selected peak:", err);
+      }
+    } else if (mapRef.current) {
+      // Zoom to peak if using standard MapView
+      mapRef.current.animateToRegion({
+        latitude: peak.latitude,
+        longitude: peak.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      }, 1000);
+    }
   };
 
   const distanceToPeak = React.useMemo(() => {
@@ -633,20 +660,6 @@ export default function MapScreen() {
       setCheckinLoading(false);
     }
   };
-
-  useEffect(() => {
-    if (selectedPeak && isMapboxAvailable && mapType === "terrain" && mapboxCameraRef.current) {
-      try {
-        mapboxCameraRef.current.setCamera({
-          centerCoordinate: [selectedPeak.longitude, selectedPeak.latitude],
-          zoomLevel: 12,
-          duration: 1000,
-        });
-      } catch (err) {
-        console.warn("Failed to set Mapbox camera center to selected peak:", err);
-      }
-    }
-  }, [selectedPeak, mapType]);
 
   const handleMapLongPress = (event: any) => {
     if (event?.nativeEvent?.coordinate) {
@@ -935,37 +948,31 @@ export default function MapScreen() {
               pitch: is3DEnabled ? 60 : 0,
             }}
           />
-          {peaks.map((peak) => {
-            const isChecked = checkedPeakIds.has(peak.id);
-            return (
-              <MapboxMarkerView
-                key={peak.id}
-                id={peak.id}
-                coordinate={[peak.longitude, peak.latitude]}
-              >
-                <TouchableOpacity 
-                  onPress={() => handlePeakSelect(peak)}
-                  style={styles.customMarkerContainer}
-                  activeOpacity={0.8}
-                >
-                  <View style={flattenStyle([
-                    styles.customMarkerCircle,
-                    !isChecked ? { backgroundColor: "#FFFFFF", borderColor: "#10B981" } : null
-                  ])}>
-                    <Mountain size={14} color={isChecked ? "#FFFFFF" : "#10B981"} />
-                  </View>
-                  <View style={styles.customMarkerPill}>
-                    <Text style={styles.customMarkerLabel} numberOfLines={1}>
-                      {peak.name}
-                    </Text>
-                    <Text style={styles.customMarkerSubLabel}>
-                      {peak.heightMoh} moh
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              </MapboxMarkerView>
-            );
-          })}
+          {peaks.map((peak) => (
+            <Mapbox.PointAnnotation
+              key={peak.id}
+              id={peak.id}
+              coordinate={[peak.longitude, peak.latitude]}
+              onSelected={() => handlePeakSelect(peak)}
+            >
+              <View style={styles.customMarkerContainer}>
+                <View style={flattenStyle([
+                  styles.customMarkerCircle,
+                  !checkedPeakIds.has(peak.id) ? { backgroundColor: "#FFFFFF", borderColor: "#10B981" } : null
+                ])}>
+                  <Mountain size={14} color={checkedPeakIds.has(peak.id) ? "#FFFFFF" : "#10B981"} />
+                </View>
+                <View style={styles.customMarkerPill}>
+                  <Text style={styles.customMarkerLabel} numberOfLines={1}>
+                    {peak.name}
+                  </Text>
+                  <Text style={styles.customMarkerSubLabel}>
+                    {peak.heightMoh} moh
+                  </Text>
+                </View>
+              </View>
+            </Mapbox.PointAnnotation>
+          ))}
         </MapboxMapView>
       ) : (
         <MapView

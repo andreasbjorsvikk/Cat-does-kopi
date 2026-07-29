@@ -30,6 +30,7 @@ Monorepo project with a Vite/React web app and an Expo mobile app.
 
 ## Key Files
 - `apps/mobile/app/(tabs)/map.tsx`: Native map implementation and main navigation hub for map-related features.
+- `apps/mobile/components/PeakProfileSheet.tsx`: Detailed view for a specific peak with weather, feed, and leaderboard.
 - `apps/mobile/components/LeaderboardView.tsx`: Global/Friends leaderboard list and filters.
 - `apps/mobile/components/leaderboard/PeakLeaderboard.tsx`: Top 10 leaderboard for a specific peak.
 - `apps/mobile/services/leaderboardService.ts`: Core logic for fetching and aggregating leaderboard data.

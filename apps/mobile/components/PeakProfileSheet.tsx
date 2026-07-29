@@ -442,10 +442,20 @@ function PeakSpecificFeed({ peakId }: { peakId: string }) {
 
 const styles = StyleSheet.create({
   container: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    top: Platform.OS === "ios" ? 100 : 80,
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
-    flex: 1,
+    zIndex: 100,
     overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
+    elevation: 20,
   },
   header: {
     paddingTop: 20,
