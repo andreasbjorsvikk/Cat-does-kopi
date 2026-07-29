@@ -152,7 +152,7 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
       onClose={onClose}
     >
       <ActionsheetBackdrop />
-      <ActionsheetContent style={flattenStyle([styles.sheetContent, { paddingHorizontal: 0 }])}>
+      <ActionsheetContent style={flattenStyle([styles.sheetContent, isDark ? styles.sheetContentDark : null, { paddingHorizontal: 0 }])}>
         <ActionsheetDragIndicatorWrapper style={styles.dragWrapper}>
           <ActionsheetDragIndicator />
         </ActionsheetDragIndicatorWrapper>
@@ -333,6 +333,9 @@ const styles = StyleSheet.create({
   sheetContent: {
     paddingBottom: Platform.OS === 'ios' ? 20 : 10,
   },
+  sheetContentDark: {
+    backgroundColor: '#030712',
+  },
   scroll: {
     width: '100%',
   },
@@ -424,7 +427,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
   },
   statItemDark: {
-    backgroundColor: '#111827',
+    backgroundColor: '#0F172A', // Slightly lighter than #030712 to pop against background
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
   },
   statLabelText: {
     fontSize: 10,

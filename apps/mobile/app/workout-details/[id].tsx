@@ -394,25 +394,29 @@ export default function WorkoutDetailsPage() {
       const minLng = Math.min(...lngs);
       const maxLng = Math.max(...lngs);
 
-      const focusOnRoute = (padding: number = 40) => {
+      const focusOnRoute = () => {
         if (mapboxCameraRef.current) {
+          // To make the route "closer" in 3D terrain with high pitch (65°),
+          // we increase the top padding significantly. This pushes the route
+          // towards the bottom of the screen which is "closer" to the viewer
+          // in perspective view.
           mapboxCameraRef.current.setCamera({
             bounds: {
               ne: [maxLng, maxLat],
               sw: [minLng, minLat],
-              paddingTop: padding,
-              paddingRight: padding,
-              paddingBottom: padding,
-              paddingLeft: padding,
+              paddingTop: 180, // Push route down/forward
+              paddingRight: 40,
+              paddingBottom: 40,
+              paddingLeft: 40,
             },
             pitch: 65,
-            animationDuration: 2000,
+            animationDuration: 2500,
           });
         }
       };
 
-      const timer1 = setTimeout(() => focusOnRoute(60), 800);
-      const timer2 = setTimeout(() => focusOnRoute(60), 3000);
+      const timer1 = setTimeout(focusOnRoute, 800);
+      const timer2 = setTimeout(focusOnRoute, 3500);
       
       return () => {
         clearTimeout(timer1);
