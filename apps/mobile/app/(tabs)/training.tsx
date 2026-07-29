@@ -1263,14 +1263,14 @@ export default function TrainingScreen() {
             <TouchableOpacity 
               activeOpacity={1}
               onPress={() => setTooltipIndex(null)}
-              style={flattenStyle([styles.chartCard, dynamicCardStyle, { marginHorizontal: 16, marginTop: 4, padding: 16, paddingTop: 24 }])}
+              style={flattenStyle([styles.chartCard, dynamicCardStyle, { marginHorizontal: 16, marginTop: 4, padding: 16, paddingTop: 32 }])}
             >
-              <View style={styles.chartContainer}>
+              <View style={flattenStyle([styles.chartContainer, { height: 260 }])}>
                 
                 {/* Absolute Y Axis and Grid Lines */}
                 <View style={StyleSheet.absoluteFill}>
                   {yAxisGridLines.map((val, idx) => {
-                    const topPosition = idx * 50; // Squeeze 5 grid lines evenly into 200px height
+                    const topPosition = idx * 55; // Squeeze 5 grid lines evenly into 220px height
                     return (
                       <View 
                         key={idx} 
@@ -1296,7 +1296,7 @@ export default function TrainingScreen() {
                   horizontal 
                   showsHorizontalScrollIndicator={isScrollEnabled}
                   scrollEnabled={isScrollEnabled}
-                  contentContainerStyle={{ paddingLeft: 40, paddingRight: 10, height: 235, overflow: 'visible' }}
+                  contentContainerStyle={{ paddingLeft: 40, paddingRight: 10, height: 255, overflow: 'visible' }}
                   bounces={false}
                   overScrollMode="never"
                 >
@@ -1310,9 +1310,9 @@ export default function TrainingScreen() {
                   {chartType === "bar" ? (
                     
                     /* STACKED BAR CHART MODE */
-                    <VStack style={{ height: 235, zIndex: 1 }}>
+                    <VStack style={{ height: 255, zIndex: 1 }}>
                       {/* Graph Bars Area (aligned cleanly above y=0 baseline at exactly 150px height) */}
-                      <HStack style={{ alignItems: "flex-end", height: 200, gap: barGap }}>
+                      <HStack style={{ alignItems: "flex-end", height: 220, gap: barGap }}>
                         {chartData.map((bucket, bIdx) => {
                           return (
                             <TouchableOpacity 
@@ -1355,12 +1355,12 @@ export default function TrainingScreen() {
                             style={flattenStyle([
                               {
                                 position: 'absolute',
-                                bottom: 140,
+                                bottom: 60,
                                 left: Math.max(0, Math.min(lineChartWidth - 120, tooltipIndex * (barWidth + barGap) + (barWidth / 2) - 60)),
-                                width: 120,
+                                width: 130,
                                 backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
                                 borderRadius: 8,
-                                padding: 8,
+                                padding: 6,
                                 shadowColor: '#000',
                                 shadowOffset: { width: 0, height: 2 },
                                 shadowOpacity: 0.25,
@@ -1372,10 +1372,13 @@ export default function TrainingScreen() {
                               }
                             ])}
                           >
-                            <Text style={{ fontSize: 11, fontWeight: 'bold', color: isDark ? '#FFFFFF' : '#111827', marginBottom: 4 }}>
-                              Total: {chartMetric === 'minutes' ? formatMinutes(Number(chartData[tooltipIndex]._total)) : (chartMetric === 'distance' ? `${chartData[tooltipIndex]._total} km` : chartData[tooltipIndex]._total)}
+                            <Text style={{ fontSize: 10, fontWeight: '800', color: isDark ? '#10B981' : '#059669', marginBottom: 2 }}>
+                              {chartData[tooltipIndex].label} {period === 'month' ? MONTH_NAMES[selectedMonth] : ''} {selectedYear}
                             </Text>
-                            <View style={{ gap: 2 }}>
+                            <Text style={{ fontSize: 11, fontWeight: 'bold', color: isDark ? '#FFFFFF' : '#111827', marginBottom: 3 }}>
+                              Total: {chartMetric === 'minutes' ? formatMinutes(Number(chartData[tooltipIndex]._total)) : (chartMetric === 'distance' ? `${Number(chartData[tooltipIndex]._total).toFixed(1)} km` : chartData[tooltipIndex]._total)}
+                            </Text>
+                            <View style={{ gap: 1 }}>
                               {WORKOUT_TYPES.map(type => {
                                 const val = Number(chartData[tooltipIndex][type.id] || 0);
                                 if (val === 0) return null;
@@ -1388,7 +1391,7 @@ export default function TrainingScreen() {
                                       </Text>
                                     </HStack>
                                     <Text style={{ fontSize: 9, fontWeight: '600', color: isDark ? '#FFFFFF' : '#111827' }}>
-                                      {chartMetric === 'minutes' ? formatMinutes(val) : (chartMetric === 'distance' ? `${val} km` : val)}
+                                      {chartMetric === 'minutes' ? formatMinutes(val) : (chartMetric === 'distance' ? `${val.toFixed(1)} km` : val)}
                                     </Text>
                                   </HStack>
                                 );
@@ -1399,7 +1402,7 @@ export default function TrainingScreen() {
                       </HStack>
 
                       {/* X Axis Labels Area (placed strictly under the baseline in the 35px bottom area) */}
-                      <HStack style={{ height: 35, alignItems: "center", gap: barGap }}>
+                      <HStack style={{ height: 25, alignItems: "center", gap: barGap }}>
                         {chartData.map((bucket, bIdx) => {
                           return (
                             <View key={bIdx} style={{ width: barWidth, alignItems: "center", justifyContent: "center" }}>
@@ -1412,8 +1415,8 @@ export default function TrainingScreen() {
                   ) : (
                     
                     /* SMOOTH SVG GRADIENT LINE CHART MODE */
-                    <View style={{ height: 235, width: lineChartWidth }}>
-                      <Svg height={200} width="100%">
+                    <View style={{ height: 255, width: lineChartWidth }}>
+                      <Svg height={220} width="100%">
                         <Defs>
                           <LinearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
                             <Stop offset="0%" stopColor="#10B981" stopOpacity="0.35" />
@@ -1421,7 +1424,7 @@ export default function TrainingScreen() {
                           </LinearGradient>
                         </Defs>
                         {(() => {
-                          const chartHeight = 200;
+                          const chartHeight = 220;
                           const columnWidth = lineChartWidth / chartData.length;
                           
                           // Compute coordinate pairs
@@ -1466,7 +1469,7 @@ export default function TrainingScreen() {
                       </Svg>
                       
                       {/* X Axis Labels under SVG */}
-                      <HStack style={{ width: "100%", height: 35, alignItems: "center" }}>
+                      <HStack style={{ width: "100%", height: 25, alignItems: "center" }}>
                         {chartData.map((bucket, idx) => {
                           const columnWidth = lineChartWidth / chartData.length;
                           return (
