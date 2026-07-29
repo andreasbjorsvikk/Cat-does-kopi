@@ -124,7 +124,7 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
       // Use a small timeout to ensure map is ready
       const timer = setTimeout(() => {
         mapRef.current?.fitToCoordinates(decodedRoute, {
-          edgePadding: { top: 140, right: 140, bottom: 140, left: 140 },
+          edgePadding: { top: 70, right: 70, bottom: 70, left: 70 },
           animated: true,
         });
       }, 800);
@@ -204,7 +204,7 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
           <VStack space="xl">
             <View style={flattenStyle([styles.header, { alignItems: 'center' }])}>
               <HStack space="md" style={{ flex: 1, alignItems: 'center' }}>
-                <View style={flattenStyle([styles.iconContainer, activityColors ? { backgroundColor: activityColors.badge } : null])}>
+                <View style={flattenStyle([styles.iconContainer, activityColors ? { backgroundColor: activityColors.bg } : null])}>
                   <ActivityIcon type={session.type} size={28} color={activityColors?.text || "#FFFFFF"} />
                 </View>
                 <VStack style={{ flex: 1 }}>

@@ -396,7 +396,7 @@ export default function WorkoutDetailsPage() {
     if (session && decodedRoute.length > 0 && mapRef.current) {
       setTimeout(() => {
         mapRef.current?.fitToCoordinates(decodedRoute, {
-          edgePadding: { top: 100, right: 100, bottom: 100, left: 100 },
+          edgePadding: { top: 60, right: 60, bottom: 60, left: 60 },
           animated: true,
         });
       }, 500);
@@ -405,14 +405,22 @@ export default function WorkoutDetailsPage() {
     if (session && decodedRoute.length > 0 && isMapboxAvailable && mapboxCameraRef.current && routeBounds) {
       const focusOnRoute = (duration: number = 2000) => {
         if (mapboxCameraRef.current && decodedRoute.length > 0) {
+          // Calculate latitude span to adjust top padding for tilted view
+          const latSpan = routeBounds.maxLat - routeBounds.minLat;
+          
+          // Smart padding: base + a factor of the span to ensure large routes aren't cut off
+          // while small routes don't zoom out too far.
+          const basePadding = 60;
+          const topPadding = latSpan > 0.05 ? 140 : 100; // More room at top for large routes due to pitch
+
           mapboxCameraRef.current.setCamera({
             bounds: {
               ne: [routeBounds.maxLng, routeBounds.maxLat],
               sw: [routeBounds.minLng, routeBounds.minLat],
-              paddingTop: 80,
-              paddingRight: 80,
-              paddingBottom: 80,
-              paddingLeft: 80,
+              paddingTop: topPadding,
+              paddingRight: basePadding,
+              paddingBottom: basePadding,
+              paddingLeft: basePadding,
             },
             pitch: 60,
             animationDuration: duration,
@@ -420,8 +428,8 @@ export default function WorkoutDetailsPage() {
         }
       };
 
-      const timer1 = setTimeout(() => focusOnRoute(1500), 500);
-      const timer2 = setTimeout(() => focusOnRoute(1000), 3000);
+      const timer1 = setTimeout(() => focusOnRoute(1500), 800);
+      const timer2 = setTimeout(() => focusOnRoute(1200), 3500);
       
       return () => {
         clearTimeout(timer1);
@@ -610,7 +618,7 @@ export default function WorkoutDetailsPage() {
         <VStack space="xl" style={{ padding: 16 }}>
           {/* Session Info */}
           <HStack space="md" style={{ alignItems: 'center' }}>
-            <View style={flattenStyle([styles.typeIconContainer, activityColors ? { backgroundColor: activityColors.badge } : null])}>
+            <View style={flattenStyle([styles.typeIconContainer, activityColors ? { backgroundColor: activityColors.bg } : null])}>
               <ActivityIcon type={session.type} size={28} color={activityColors?.text || "#FFFFFF"} />
             </View>
             <VStack style={{ flex: 1 }}>
