@@ -274,6 +274,7 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
             <TouchableOpacity 
               style={flattenStyle([styles.moreBtn, isDark ? styles.btnDark : styles.btnLight])}
               onPress={() => {
+                onClose();
                 router.push({
                   pathname: "/workout-details/[id]",
                   params: { id: session.id }
@@ -540,10 +541,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   dragWrapper: {
-    paddingTop: 10,
-    paddingBottom: 25,
+    paddingTop: 15,
+    paddingBottom: 35, // More vertical space for dragging
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
 });

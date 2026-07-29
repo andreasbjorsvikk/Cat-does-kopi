@@ -111,9 +111,10 @@ const Chart = ({
   const chartWidth = width - 32;
   const padding = 15;
   const bottomPadding = 30;
-  const topPadding = 40; // Space for tooltip at top
+  const topPadding = 30; // Reduced space for tooltip at top
   
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const interactionTimerRef = useRef<any>(null);
   
   const values = data.map(d => d.value);
   // Even tighter scaling to use full vertical area, but with a small buffer
@@ -159,15 +160,27 @@ const Chart = ({
   const handleInteraction = (evt: any) => {
     const x = evt.nativeEvent.locationX;
     const index = Math.round(((x - padding) / (chartWidth - padding * 2)) * (data.length - 1));
+    
     if (index >= 0 && index < data.length) {
       if (activeIndex === null) {
-        onInteractionChange?.(true);
+        // If not already interacting, start a small timer to distinguish from vertical scroll
+        if (!interactionTimerRef.current) {
+          interactionTimerRef.current = setTimeout(() => {
+            setActiveIndex(index);
+            onInteractionChange?.(true);
+          }, 150); // 150ms delay
+        }
+      } else {
+        setActiveIndex(index);
       }
-      setActiveIndex(index);
     }
   };
 
   const handleRelease = () => {
+    if (interactionTimerRef.current) {
+      clearTimeout(interactionTimerRef.current);
+      interactionTimerRef.current = null;
+    }
     setActiveIndex(null);
     onInteractionChange?.(false);
   };
@@ -238,10 +251,10 @@ const Chart = ({
               
               {/* Tooltip always at top of line */}
               <Rect
-                x={Math.max(padding, Math.min(chartWidth - padding - 75, getX(activeIndex) - 37.5))}
-                y={5}
-                width="75"
-                height="24"
+                x={Math.max(padding, Math.min(chartWidth - padding - 85, getX(activeIndex) - 42.5))}
+                y={2}
+                width="85"
+                height="26"
                 rx="8"
                 fill={isDark ? "#1F2937" : "#FFFFFF"}
                 stroke={color}
@@ -249,13 +262,13 @@ const Chart = ({
               />
               <SvgText
                 x={Math.max(padding + 37.5, Math.min(chartWidth - padding - 37.5, getX(activeIndex)))}
-                y={21}
+                y={20}
                 fontSize="12"
                 fontWeight="bold"
                 fill={isDark ? "#FFFFFF" : "#111827"}
                 textAnchor="middle"
               >
-                {data[activeIndex].value} {unit.trim()}
+                {data[activeIndex].value}  {unit.trim()}
               </SvgText>
             </>
           )}

@@ -95,6 +95,15 @@ export const CalendarView: React.FC = () => {
   }, [monthLayouts]);
 
 
+  // Re-open detail drawer if returning from details page
+  useFocusEffect(
+    useCallback(() => {
+      if (selectedSession && !isDetailDrawerOpen && !isWorkoutModalOpen && !isDayDrawerOpen) {
+        setIsDetailDrawerOpen(true);
+      }
+    }, [selectedSession, isDetailDrawerOpen, isWorkoutModalOpen, isDayDrawerOpen])
+  );
+
   // Handles:
   // 1. Scrolling to today when initialised or focused (with reset)
   // 2. Adjusting the FlatList's offset instantly when past months are prepended,
