@@ -1,6 +1,6 @@
 import { Tabs } from "expo-router";
 import { Platform } from "react-native";
-import { Home, Calendar, Map, Dumbbell, Users, Settings } from "lucide-react-native";
+import { Home, Calendar, Mountain, Dumbbell, Users, Settings } from "lucide-react-native";
 import useColorScheme from "@/hooks/useColorScheme";
 
 export default function TabLayout() {
@@ -50,8 +50,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="map"
         options={{
-          title: "Kart",
-          tabBarIcon: ({ color, size }) => <Map size={size || 24} color={color} />,
+          title: "Fjellkart",
+          tabBarIcon: ({ color, size }) => <Mountain size={size || 24} color={color} />,
         }}
       />
       <Tabs.Screen

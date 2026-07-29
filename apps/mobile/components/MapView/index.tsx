@@ -92,7 +92,7 @@ try {
 const isMapboxAvailable = !!MapboxMapView;
 
 const TABS = [
-  { id: "kart", label: "Kart", icon: Map },
+  { id: "kart", label: "Fjellkart", icon: Mountain },
   { id: "topper", label: "Topper", icon: Mountain },
   { id: "feed", label: "Feed", icon: Rss },
   { id: "lederliste", label: "Lederliste", icon: Trophy },
@@ -123,6 +123,7 @@ export default function MapScreen() {
   const mapRef = useRef<MapView | null>(null);
   const mapboxMapRef = useRef<any>(null);
   const mapboxCameraRef = useRef<any>(null);
+  const hasInitialRegionSet = useRef(false);
 
   const [loading, setLoading] = useState(true);
   const [peaks, setPeaks] = useState<Peak[]>([]);
@@ -339,12 +340,39 @@ export default function MapScreen() {
         } else {
           let { status } = await Location.requestForegroundPermissionsAsync();
           if (status === "granted") {
-            let loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+            let loc = await Location.getCurrentPositionAsync({ 
+              accuracy: Location.Accuracy.Balanced 
+            }).catch(() => null);
+
+            // Fallback to last known position if current is unavailable
+            if (!loc) {
+              loc = await Location.getLastKnownPositionAsync();
+            }
+
             if (loc?.coords && isMounted) {
-              setUserLocation({
+              const newLocation = {
                 latitude: loc.coords.latitude,
                 longitude: loc.coords.longitude,
-              });
+              };
+              setUserLocation(newLocation);
+
+              // Auto-center once on initial load
+              if (!hasInitialRegionSet.current) {
+                if (isMapboxAvailable && isMapboxLayer && mapboxCameraRef.current) {
+                  mapboxCameraRef.current.setCamera({
+                    centerCoordinate: [newLocation.longitude, newLocation.latitude],
+                    zoomLevel: 12,
+                    animationDuration: 1000,
+                  });
+                } else if (mapRef.current) {
+                  mapRef.current.animateToRegion({
+                    ...newLocation,
+                    latitudeDelta: 0.05,
+                    longitudeDelta: 0.05,
+                  }, 1000);
+                }
+                hasInitialRegionSet.current = true;
+              }
             }
             
             subscription = await Location.watchPositionAsync(
