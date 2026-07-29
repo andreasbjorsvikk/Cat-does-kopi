@@ -401,7 +401,8 @@ export default function WorkoutDetailsPage() {
   }, [session, isDark]);
 
   const [streams, setStreams] = useState<WorkoutStreams | null>(null);
-  const [loadingStreams, setLoadingStreams] = useState(false);
+  const [loadingHR, setLoadingHR] = useState(false);
+  const [loadingAlt, setLoadingAlt] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isStyleLoaded, setIsStyleLoaded] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -416,17 +417,20 @@ export default function WorkoutDetailsPage() {
     setLoading(false);
   };
 
-  const loadRealStreams = async () => {
-    if (!session || !session.stravaActivityId || streams || loadingStreams) return;
+  const loadRealStreams = async (type: 'hr' | 'alt') => {
+    if (!session || !session.stravaActivityId || streams) return;
     
-    setLoadingStreams(true);
+    if (type === 'hr') setLoadingHR(true);
+    else setLoadingAlt(true);
+    
     try {
       const streamData = await stravaService.fetchStreams(session.id, session.stravaActivityId);
       setStreams(streamData);
     } catch (err) {
       console.warn("Failed to fetch real streams from Strava:", err);
     } finally {
-      setLoadingStreams(false);
+      setLoadingHR(false);
+      setLoadingAlt(false);
     }
   };
 
@@ -702,14 +706,14 @@ export default function WorkoutDetailsPage() {
                   <View style={flattenStyle([styles.typeIconContainer, activityColors ? { backgroundColor: activityColors.bg } : null])}>
                     <ActivityIcon type={session.type} size={28} color={activityColors?.text || "#FFFFFF"} />
                   </View>
-                  <HStack style={{ flex: 1, alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                  <HStack style={{ flex: 1, alignItems: 'stretch', justifyContent: 'space-between' }}>
                     <VStack style={{ flex: 1 }}>
                       <Heading size="lg" numberOfLines={1}>
                         {session.title || session.type.charAt(0).toUpperCase() + session.type.slice(1)}
                       </Heading>
                       <Text style={styles.dateText}>{displayDate}</Text>
                     </VStack>
-                    <VStack space="xs" style={{ alignItems: 'flex-end' }}>
+                    <VStack style={{ alignItems: 'flex-end', justifyContent: 'space-between' }}>
                       <Badge 
                         size="md" 
                         variant="solid" 
@@ -724,12 +728,13 @@ export default function WorkoutDetailsPage() {
                           {session.type.charAt(0).toUpperCase() + session.type.slice(1)}
                         </BadgeText>
                       </Badge>
-                      <HStack space="sm">
+                      <View style={{ flex: 1, minHeight: 8 }} />
+                      <HStack space="md" style={{ alignItems: 'center' }}>
                         <TouchableOpacity onPress={() => setIsEditModalOpen(true)}>
-                          <Pencil size={18} color={isDark ? "#9CA3AF" : "#6B7280"} />
+                          <Pencil size={22} color={isDark ? "#9CA3AF" : "#6B7280"} />
                         </TouchableOpacity>
                         <TouchableOpacity onPress={handleDelete}>
-                          <Trash2 size={18} color="#EF4444" />
+                          <Trash2 size={22} color="#EF4444" />
                         </TouchableOpacity>
                       </HStack>
                     </VStack>
@@ -740,7 +745,7 @@ export default function WorkoutDetailsPage() {
           </GestureDetector>
 
           <ScrollView 
-            scrollEnabled={scrollEnabled && !isMinimized}
+            scrollEnabled={scrollEnabled && (!isMinimized || showHRChart || showAltChart)}
             showsVerticalScrollIndicator={false} 
             contentContainerStyle={{ paddingBottom: 100 }}
           >
@@ -826,11 +831,12 @@ export default function WorkoutDetailsPage() {
                       style={flattenStyle([styles.loadChartBtn, isDark ? styles.cardDark : styles.cardLight])}
                       onPress={() => {
                         setShowHRChart(true);
-                        loadRealStreams();
+                        loadRealStreams('hr');
+                        if (isMinimized) snapToExpanded();
                       }}
                     >
                       <HStack space="sm" style={{ alignItems: 'center' }}>
-                        {loadingStreams ? <ActivityIndicator size="small" color="#EF4444" /> : <Heart size={16} color="#EF4444" />}
+                        {loadingHR ? <ActivityIndicator size="small" color="#EF4444" /> : <Heart size={16} color="#EF4444" />}
                         <Text style={styles.loadChartText}>Vis pulsgraf</Text>
                       </HStack>
                     </TouchableOpacity>
@@ -855,18 +861,19 @@ export default function WorkoutDetailsPage() {
                       style={flattenStyle([styles.loadChartBtn, isDark ? styles.cardDark : styles.cardLight])}
                       onPress={() => {
                         setShowAltChart(true);
-                        loadRealStreams();
+                        loadRealStreams('alt');
+                        if (isMinimized) snapToExpanded();
                       }}
                     >
                       <HStack space="sm" style={{ alignItems: 'center' }}>
-                        {loadingStreams ? <ActivityIndicator size="small" color="#10B981" /> : <Mountain size={16} color="#10B981" />}
+                        {loadingAlt ? <ActivityIndicator size="small" color="#10B981" /> : <Mountain size={16} color="#10B981" />}
                         <Text style={styles.loadChartText}>Vis høydeprofil</Text>
                       </HStack>
                     </TouchableOpacity>
                   )
                 )}
 
-                {((showHRChart && hrData.length === 0) || (showAltChart && altitudeData.length === 0)) && !loadingStreams && (
+                {((showHRChart && hrData.length === 0) || (showAltChart && altitudeData.length === 0)) && !loadingHR && !loadingAlt && (
                   <View style={flattenStyle([styles.noDataBox, isDark ? styles.cardDark : styles.cardLight])}>
                     <Text style={styles.noDataText}>Ingen detaljerte data tilgjengelig for denne økten</Text>
                   </View>
