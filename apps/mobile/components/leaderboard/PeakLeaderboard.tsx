@@ -64,13 +64,14 @@ export const PeakLeaderboard = ({ peakId }: PeakLeaderboardProps) => {
           const isMe = user && item.userId === user.id;
 
           // Define dynamic colors for readability in dark mode
-          let bgColor = isMe 
-            ? (isDark ? 'rgba(16, 185, 129, 0.25)' : '#ECFDF5') 
-            : (isDark ? '#1F2937' : '#F9FAFB');
+          // Boxes should be dark and text light for everyone in dark mode
+          let bgColor = isDark 
+            ? '#1F2937' 
+            : (isMe ? '#ECFDF5' : '#F9FAFB');
           
-          let borderColor = isMe 
-            ? 'rgba(16, 185, 129, 0.5)' 
-            : (isDark ? '#374151' : '#F3F4F6');
+          let borderColor = isDark
+            ? (isMe ? 'rgba(16, 185, 129, 0.5)' : '#374151')
+            : (isMe ? 'rgba(16, 185, 129, 0.5)' : '#F3F4F6');
           
           let textColor = isDark ? "#F9FAFB" : "#111827";
 

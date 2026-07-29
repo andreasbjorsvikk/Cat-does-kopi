@@ -27,7 +27,6 @@ import {
   Trophy,
   Info,
   User,
-  Heart,
   CheckCircle,
 } from "lucide-react-native";
 import { Peak } from "@/services/peakDbService";
@@ -168,7 +167,7 @@ export function PeakProfileSheet({
       styles.container, 
       { 
         backgroundColor: isDark ? "#111827" : "#FFFFFF",
-        top: Dimensions.get("window").height * 0.7
+        top: Dimensions.get("window").height * 0.3
       }
     ])}>
       {/* Header */}
