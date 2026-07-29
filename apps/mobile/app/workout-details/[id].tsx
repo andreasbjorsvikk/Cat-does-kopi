@@ -320,13 +320,14 @@ export default function WorkoutDetailsPage() {
   const isDark = colorScheme === 'dark';
   const mapRef = useRef<MapView | null>(null);
   const mapboxCameraRef = useRef<any>(null);
-  
+
+  const [session, setSession] = useState<WorkoutSession | null>(null);
+
   const activityColors = useMemo(() => {
     if (!session) return null;
     return getActivityColors(session.type, isDark);
   }, [session, isDark]);
 
-  const [session, setSession] = useState<WorkoutSession | null>(null);
   const [streams, setStreams] = useState<WorkoutStreams | null>(null);
   const [loadingStreams, setLoadingStreams] = useState(false);
   const [showHRChart, setShowHRChart] = useState(false);
@@ -409,10 +410,8 @@ export default function WorkoutDetailsPage() {
           // Calculate latitude span to adjust top padding for tilted view
           const latSpan = routeBounds.maxLat - routeBounds.minLat;
           
-          // Smart padding: base + a factor of the span to ensure large routes aren't cut off
-          // while small routes don't zoom out too far.
-          const basePadding = 30;
-          const topPadding = latSpan > 0.05 ? 80 : 50; // More room at top for large routes due to pitch
+          const basePadding = 60;
+          const topPadding = latSpan > 0.05 ? 140 : 100;
 
           mapboxCameraRef.current.setCamera({
             bounds: {
@@ -541,7 +540,7 @@ export default function WorkoutDetailsPage() {
                   centerCoordinate: routeBounds 
                     ? [(routeBounds.minLng + routeBounds.maxLng) / 2, (routeBounds.minLat + routeBounds.maxLat) / 2] 
                     : [10.7522, 59.9139],
-                  zoomLevel: 16,
+                  zoomLevel: 14,
                   pitch: 65,
                 }}
               />
@@ -631,7 +630,7 @@ export default function WorkoutDetailsPage() {
                   size="md" 
                   variant="solid" 
                   style={flattenStyle([{ 
-                    backgroundColor: activityColors?.badge,
+                    backgroundColor: activityColors?.bg,
                     borderRadius: 12,
                     paddingHorizontal: 10,
                     paddingVertical: 2
