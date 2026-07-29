@@ -130,8 +130,8 @@ export function PeakProfileSheet({
   }, [peak.id]);
 
   const themeClasses = {
-    text: isDark ? "text-typography-50" : "text-typography-900",
-    textMuted: isDark ? "text-typography-400" : "text-typography-500",
+    text: "text-typography-900 dark:text-typography-50",
+    textMuted: "text-typography-500 dark:text-typography-400",
     bg: isDark ? "bg-background-950" : "bg-white",
     cardBg: isDark ? "bg-background-900" : "bg-background-50",
     tabActive: "bg-emerald-500",
@@ -270,7 +270,7 @@ export function PeakProfileSheet({
                 <Sun size={20} color="#EAB308" />
                 <VStack>
                   <Text style={{ fontSize: 10 }} className="text-yellow-700 dark:text-yellow-500 font-bold uppercase tracking-wider">Soloppgang</Text>
-                  <Text className="text-xl font-bold dark:text-typography-50">{astronomy?.sunrise || "--:--"}</Text>
+                  <Text className={`text-xl font-bold ${themeClasses.text}`}>{astronomy?.sunrise || "--:--"}</Text>
                 </VStack>
               </View>
               <View 
@@ -282,14 +282,14 @@ export function PeakProfileSheet({
                 <Moon size={20} color="#8B5CF6" />
                 <VStack>
                   <Text style={{ fontSize: 10 }} className="text-violet-700 dark:text-violet-500 font-bold uppercase tracking-wider">Solnedgang</Text>
-                  <Text className="text-xl font-bold dark:text-typography-50">{astronomy?.sunset || "--:--"}</Text>
+                  <Text className={`text-xl font-bold ${themeClasses.text}`}>{astronomy?.sunset || "--:--"}</Text>
                 </VStack>
               </View>
             </HStack>
 
             {/* Description */}
             <VStack space="xs" className="mt-2">
-              <Heading size="xs" className="text-typography-500 uppercase tracking-widest font-bold">Beskrivelse</Heading>
+              <Heading size="xs" className="text-typography-500 dark:text-typography-400 uppercase tracking-widest font-bold">Beskrivelse</Heading>
               <Text className={`text-sm leading-relaxed ${themeClasses.textMuted}`}>
                 {peak.description || "Ingen beskrivelse tilgjengelig for denne toppen ennå."}
               </Text>
@@ -321,7 +321,7 @@ export function PeakProfileSheet({
                   </HStack>
                 ))}
              </View>
-             <Text className="text-center text-xs text-typography-400 italic">
+             <Text className="text-center text-xs text-typography-400 dark:text-typography-500 italic">
                Værdata er simulert for denne demoen.
              </Text>
           </VStack>
@@ -333,7 +333,8 @@ export function PeakProfileSheet({
 
 // Sub-component for peak specific feed
 function PeakSpecificFeed({ peakId }: { peakId: string }) {
-  const isDark = useColorScheme() === "dark";
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === "dark";
   const [feed, setFeed] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -375,7 +376,7 @@ function PeakSpecificFeed({ peakId }: { peakId: string }) {
     return (
       <View className="py-20 items-center justify-center">
         <Rss size={48} color={isDark ? "#374151" : "#E2E8F0"} />
-        <Text className="text-typography-500 mt-4 text-center">
+        <Text className="text-typography-500 dark:text-typography-400 mt-4 text-center">
           Ingen innsjekkinger her ennå.{"\n"}Bli den første!
         </Text>
       </View>
@@ -410,8 +411,8 @@ function PeakSpecificFeed({ peakId }: { peakId: string }) {
                 )}
               </View>
               <VStack>
-                <Text className="font-bold dark:text-typography-50">{username}</Text>
-                <Text size="xs" className="text-typography-500">
+                <Text className="font-bold text-typography-900 dark:text-typography-50">{username}</Text>
+                <Text size="xs" className="text-typography-500 dark:text-typography-400">
                   {new Date(item.checked_in_at).toLocaleDateString("no-NO", {
                     day: "2-digit",
                     month: "short",
@@ -430,7 +431,7 @@ function PeakSpecificFeed({ peakId }: { peakId: string }) {
             <HStack className="justify-between items-center">
                <TouchableOpacity className="flex-row items-center">
                  <Heart size={16} color={isDark ? "#9CA3AF" : "#64748B"} />
-                 <Text size="xs" className="ml-1 text-typography-500">Lik</Text>
+                 <Text size="xs" className="ml-1 text-typography-500 dark:text-typography-400">Lik</Text>
                </TouchableOpacity>
             </HStack>
           </View>
@@ -446,7 +447,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    top: Platform.OS === "ios" ? 100 : 80,
+    top: "55%",
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     zIndex: 100,

@@ -459,6 +459,9 @@ export default function MapScreen() {
       setActiveTab("kart");
     }
 
+    const screenHeight = Dimensions.get("window").height;
+    const bottomPadding = screenHeight * 0.45; // Account for the sheet covering ~45% (top: 55%)
+
     // Zoom to peak if using Mapbox
     if (isMapboxAvailable && isMapboxLayer && mapboxCameraRef.current) {
       try {
@@ -466,18 +469,18 @@ export default function MapScreen() {
           centerCoordinate: [peak.longitude, peak.latitude],
           zoomLevel: 14,
           animationDuration: 1000,
+          padding: { bottom: bottomPadding, top: 0, left: 0, right: 0 }
         });
       } catch (err) {
         console.warn("Failed to set Mapbox camera center to selected peak:", err);
       }
     } else if (mapRef.current) {
       // Zoom to peak if using standard MapView
-      mapRef.current.animateToRegion({
-        latitude: peak.latitude,
-        longitude: peak.longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-      }, 1000);
+      mapRef.current.animateCamera({
+        center: { latitude: peak.latitude, longitude: peak.longitude },
+        zoom: 14,
+        padding: { bottom: bottomPadding, top: 0, left: 0, right: 0 }
+      }, { duration: 1000 });
     }
   };
 
@@ -960,7 +963,7 @@ export default function MapScreen() {
                   styles.customMarkerCircle,
                   !checkedPeakIds.has(peak.id) ? { backgroundColor: "#FFFFFF", borderColor: "#10B981" } : null
                 ])}>
-                  <Mountain size={14} color={checkedPeakIds.has(peak.id) ? "#FFFFFF" : "#10B981"} />
+                  <Mountain size={16} color={checkedPeakIds.has(peak.id) ? "#FFFFFF" : "#10B981"} strokeWidth={2} />
                 </View>
                 <View style={styles.customMarkerPill}>
                   <Text style={styles.customMarkerLabel} numberOfLines={1}>
@@ -1019,7 +1022,7 @@ export default function MapScreen() {
                     styles.customMarkerCircle,
                     !isChecked ? { backgroundColor: "#FFFFFF", borderColor: "#10B981" } : null
                   ])}>
-                    <Mountain size={14} color={isChecked ? "#FFFFFF" : "#10B981"} />
+                    <Mountain size={16} color={isChecked ? "#FFFFFF" : "#10B981"} strokeWidth={2} />
                   </View>
                   <View style={styles.customMarkerPill}>
                     <Text style={styles.customMarkerLabel} numberOfLines={1}>
