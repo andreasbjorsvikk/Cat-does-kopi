@@ -8,6 +8,7 @@ import { Trophy } from 'lucide-react-native';
 import { getPeakLeaderboardData, LeaderboardEntry } from '@/services/leaderboardService';
 import { useAuth } from '@/hooks/useAuth';
 import useColorScheme from '@/hooks/useColorScheme';
+import { flattenStyle } from '@/utils/flatten-style';
 
 interface PeakLeaderboardProps {
   peakId: string;
@@ -62,19 +63,38 @@ export const PeakLeaderboard = ({ peakId }: PeakLeaderboardProps) => {
           const trophyColor = rank === 1 ? '#FBBF24' : rank === 2 ? '#9CA3AF' : '#D97706';
           const isMe = user && item.userId === user.id;
 
+          // Define dynamic colors for readability in dark mode
+          let bgColor = isMe 
+            ? (isDark ? 'rgba(16, 185, 129, 0.25)' : '#ECFDF5') 
+            : (isDark ? '#1F2937' : '#F9FAFB');
+          
+          let borderColor = isMe 
+            ? 'rgba(16, 185, 129, 0.5)' 
+            : (isDark ? '#374151' : '#F3F4F6');
+          
+          let textColor = isDark ? "#F9FAFB" : "#111827";
+
           return (
             <HStack 
               key={item.userId} 
-              className={`items-center p-3 rounded-xl border ${
-                isMe ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-500/50' : 'bg-background-50 dark:bg-background-900 border-outline-50 dark:border-outline-800'
-              }`}
-              style={{ gap: 10 }}
+              style={flattenStyle([
+                { 
+                  backgroundColor: bgColor,
+                  borderColor: borderColor,
+                  borderWidth: 1,
+                  padding: 12,
+                  borderRadius: 12,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 10
+                }
+              ])}
             >
               <View className="w-6 items-center">
                 {isTop3 ? (
                   <Trophy size={16} color={trophyColor} fill={trophyColor + '20'} />
                 ) : (
-                  <Text className="text-xs text-typography-400 font-bold">{rank}</Text>
+                  <Text style={{ color: isDark ? "#9CA3AF" : "#6B7280", fontSize: 12, fontWeight: 'bold' }}>{rank}</Text>
                 )}
               </View>
 
@@ -95,13 +115,13 @@ export const PeakLeaderboard = ({ peakId }: PeakLeaderboardProps) => {
                 )}
               </View>
 
-              <Text className="flex-1 text-sm font-medium dark:text-typography-50" numberOfLines={1}>
+              <Text style={{ flex: 1, fontSize: 14, fontWeight: '500', color: textColor }} numberOfLines={1}>
                 {item.name}
               </Text>
 
               <HStack className="items-baseline" style={{ gap: 2 }}>
-                <Text className="font-bold text-sm dark:text-typography-50">{item.totalTrips}</Text>
-                <Text className="text-[10px] text-typography-500">{item.totalTrips === 1 ? 'tur' : 'turer'}</Text>
+                <Text style={{ fontWeight: 'bold', fontSize: 14, color: textColor }}>{item.totalTrips}</Text>
+                <Text style={{ fontSize: 10, color: isDark ? "#9CA3AF" : "#6B7280" }}>{item.totalTrips === 1 ? 'tur' : 'turer'}</Text>
               </HStack>
             </HStack>
           );

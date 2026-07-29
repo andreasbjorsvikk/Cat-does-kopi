@@ -460,7 +460,7 @@ export default function MapScreen() {
     }
 
     const screenHeight = Dimensions.get("window").height;
-    const bottomPadding = screenHeight * 0.82; // Position even higher to ensure it's in the top section
+    const bottomPadding = screenHeight * 0.8; // Center at top 20%
 
     // Zoom to peak if using Mapbox
     if (isMapboxAvailable && isMapboxLayer && mapboxCameraRef.current) {
@@ -470,7 +470,7 @@ export default function MapScreen() {
           zoomLevel: 14,
           animationDuration: 1000,
           padding: { bottom: bottomPadding, top: 0, left: 0, right: 0 }
-        });
+        } as any);
       } catch (err) {
         console.warn("Failed to set Mapbox camera center to selected peak:", err);
       }
@@ -480,7 +480,7 @@ export default function MapScreen() {
         center: { latitude: peak.latitude, longitude: peak.longitude },
         zoom: 14,
         padding: { bottom: bottomPadding, top: 0, left: 0, right: 0 }
-      }, { duration: 1000 });
+      } as any, { duration: 1000 });
     }
   };
 
@@ -923,21 +923,21 @@ export default function MapScreen() {
           )}
           {isStyleLoaded && styleHasPeakLayers && (
             <>
-              {/* Hide built-in Mapbox peak layers */}
+              {/* Show built-in Mapbox peak layers */}
               <Mapbox.SymbolLayer
                 id="mountain_peak"
                 existing={true}
-                style={{ visibility: "none" }}
+                style={{ visibility: "visible" }}
               />
               <Mapbox.SymbolLayer
                 id="mountain_peak-label"
                 existing={true}
-                style={{ visibility: "none" }}
+                style={{ visibility: "visible" }}
               />
               <Mapbox.SymbolLayer
                 id="natural-point-label"
                 existing={true}
-                style={{ visibility: "none" }}
+                style={{ visibility: "visible" }}
               />
             </>
           )}
@@ -960,13 +960,18 @@ export default function MapScreen() {
               anchor={{ x: 0.5, y: 0.5 }}
             >
               <View style={styles.customMarkerContainer}>
-                <View style={flattenStyle([
-                  styles.customMarkerCircle,
-                  !checkedPeakIds.has(peak.id) ? { backgroundColor: "#FFFFFF", borderColor: "#10B981" } : null
-                ])}>
-                  <View style={{ zIndex: 10, elevation: 10 }}>
-                    <Mountain size={18} color={checkedPeakIds.has(peak.id) ? "#FFFFFF" : "#10B981"} strokeWidth={2.5} />
-                  </View>
+                <View 
+                  style={flattenStyle([
+                    styles.customMarkerCircle,
+                    !checkedPeakIds.has(peak.id) ? { backgroundColor: "#FFFFFF", borderColor: "#10B981" } : null
+                  ])} 
+                />
+                <View style={{ position: "absolute", top: 0, width: 32, height: 32, alignItems: 'center', justifyContent: 'center', zIndex: 999, elevation: 999 }}>
+                  <Mountain 
+                    size={18} 
+                    color={checkedPeakIds.has(peak.id) ? "#FFFFFF" : "#10B981"} 
+                    strokeWidth={3} 
+                  />
                 </View>
                 <View style={styles.customMarkerPill}>
                   <Text style={styles.customMarkerLabel} numberOfLines={1}>
@@ -1022,13 +1027,18 @@ export default function MapScreen() {
                 anchor={{ x: 0.5, y: 0.5 }}
               >
                 <View style={styles.customMarkerContainer}>
-                  <View style={flattenStyle([
-                    styles.customMarkerCircle,
-                    !isChecked ? { backgroundColor: "#FFFFFF", borderColor: "#10B981" } : null
-                  ])}>
-                    <View style={{ zIndex: 10, elevation: 10 }}>
-                      <Mountain size={18} color={isChecked ? "#FFFFFF" : "#10B981"} strokeWidth={2.5} />
-                    </View>
+                  <View 
+                    style={flattenStyle([
+                      styles.customMarkerCircle,
+                      !isChecked ? { backgroundColor: "#FFFFFF", borderColor: "#10B981" } : null
+                    ])} 
+                  />
+                  <View style={{ position: "absolute", top: 0, width: 32, height: 32, alignItems: 'center', justifyContent: 'center', zIndex: 999, elevation: 999 }}>
+                    <Mountain 
+                      size={18} 
+                      color={isChecked ? "#FFFFFF" : "#10B981"} 
+                      strokeWidth={3} 
+                    />
                   </View>
                   <View style={styles.customMarkerPill}>
                     <Text style={styles.customMarkerLabel} numberOfLines={1}>
@@ -1593,6 +1603,7 @@ const styles = StyleSheet.create({
   customMarkerContainer: {
     alignItems: "center",
     justifyContent: "center",
+    overflow: "visible",
   },
   customMarkerCircle: {
     width: 32,

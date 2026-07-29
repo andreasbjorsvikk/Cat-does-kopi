@@ -168,7 +168,7 @@ export function PeakProfileSheet({
       styles.container, 
       { 
         backgroundColor: isDark ? "#111827" : "#FFFFFF",
-        top: Dimensions.get("window").height * 0.4
+        top: Dimensions.get("window").height * 0.7
       }
     ])}>
       {/* Header */}
@@ -508,12 +508,6 @@ function PeakSpecificFeed({ peakId }: { peakId: string }) {
                 className="mb-3"
               />
             )}
-            <HStack className="justify-between items-center">
-               <TouchableOpacity className="flex-row items-center">
-                 <Heart size={16} color={isDark ? "#9CA3AF" : "#64748B"} />
-                 <Text size="xs" className="ml-1 text-typography-500 dark:text-typography-400">Lik</Text>
-               </TouchableOpacity>
-            </HStack>
           </View>
         );
       })}
