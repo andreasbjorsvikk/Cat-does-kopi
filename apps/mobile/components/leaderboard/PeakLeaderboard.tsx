@@ -1,0 +1,106 @@
+import React, { useState, useEffect } from 'react';
+import { View, ActivityIndicator, Image } from 'react-native';
+import { VStack } from '@/components/ui/vstack';
+import { HStack } from '@/components/ui/hstack';
+import { Text } from '@/components/ui/text';
+import { Heading } from '@/components/ui/heading';
+import { Trophy } from 'lucide-react-native';
+import { getPeakLeaderboardData, LeaderboardEntry } from '@/services/leaderboardService';
+import { useAuth } from '@/hooks/useAuth';
+
+interface PeakLeaderboardProps {
+  peakId: string;
+}
+
+export const PeakLeaderboard = ({ peakId }: PeakLeaderboardProps) => {
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const data = await getPeakLeaderboardData(peakId);
+        setEntries(data);
+      } catch (err) {
+        console.error('Peak leaderboard fetch error:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [peakId]);
+
+  if (loading) {
+    return (
+      <View className="py-10 items-center justify-center">
+        <ActivityIndicator size="small" color="#10B981" />
+      </View>
+    );
+  }
+
+  if (entries.length === 0) return null;
+
+  return (
+    <VStack className="mt-8 mb-4" style={{ gap: 12 }}>
+      <Heading size="xs" className="text-typography-600 uppercase tracking-wider font-semibold">
+        Topp 10 på denne toppen
+      </Heading>
+      
+      <VStack style={{ gap: 8 }}>
+        {entries.map((item, index) => {
+          const rank = index + 1;
+          const isTop3 = rank <= 3;
+          const trophyColor = rank === 1 ? '#FBBF24' : rank === 2 ? '#9CA3AF' : '#D97706';
+          const isMe = item.userId === user?.id;
+
+          return (
+            <HStack 
+              key={item.userId} 
+              className={`items-center p-3 rounded-xl border ${
+                isMe ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-500/50' : 'bg-background-50 dark:bg-background-900 border-outline-50 dark:border-outline-800'
+              }`}
+              style={{ gap: 10 }}
+            >
+              <View className="w-6 items-center">
+                {isTop3 ? (
+                  <Trophy size={16} color={trophyColor} fill={trophyColor + '20'} />
+                ) : (
+                  <Text className="text-xs text-typography-400 font-bold">{rank}</Text>
+                )}
+              </View>
+
+              <View className="relative">
+                {item.avatarUrl ? (
+                  <Image source={{ uri: item.avatarUrl }} className="w-8 h-8 rounded-full" />
+                ) : (
+                  <View className="w-8 h-8 rounded-full bg-background-200 dark:bg-background-800 items-center justify-center">
+                    <Text className="text-[10px] text-typography-500 font-bold">
+                      {item.name.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+                {item.isChild && (
+                  <View className="absolute -right-1 -bottom-1 bg-white dark:bg-background-950 rounded-full w-4 h-4 items-center justify-center border border-outline-50 shadow-sm">
+                    <Text className="text-[8px]">{item.emoji || '👶'}</Text>
+                  </View>
+                )}
+              </View>
+
+              <Text className="flex-1 text-sm font-medium dark:text-typography-50" numberOfLines={1}>
+                {item.name}
+              </Text>
+
+              <HStack className="items-baseline" style={{ gap: 2 }}>
+                <Text className="font-bold text-sm dark:text-typography-50">{item.totalTrips}</Text>
+                <Text className="text-[10px] text-typography-500">{item.totalTrips === 1 ? 'tur' : 'turer'}</Text>
+              </HStack>
+            </HStack>
+          );
+        })}
+      </VStack>
+    </VStack>
+  );
+};

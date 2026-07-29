@@ -62,6 +62,8 @@ import {
 import { PeakFeed } from "../PeakFeed";
 import { ChildCheckinSheet } from "../ChildCheckinSheet";
 import { PeaksList } from "../PeaksList";
+import { LeaderboardView } from "../LeaderboardView";
+import { PeakLeaderboard } from "../leaderboard/PeakLeaderboard";
 import { fetchBoundary } from "@/services/boundaryService";
 import KOMMUNER_DATA from "@/data/kommuner.json";
 
@@ -1221,23 +1223,12 @@ export default function MapScreen() {
                 loading={loading}
               />
             </View>
+          ) : activeTab === "lederliste" ? (
+            <View style={{ flex: 1, width: '100%' }}>
+              <LeaderboardView />
+            </View>
           ) : (
             <VStack style={styles.placeholderContent} className="items-center justify-center p-6 text-center">
-            {activeTab === "lederliste" && (
-              <>
-                <Trophy size={48} color="#10B981" />
-                <Heading className={`text-xl font-bold mt-4 ${themeClasses.text}`}>Lederliste</Heading>
-                <Text className={`text-sm text-center mt-2 ${themeClasses.textMuted}`} style={{ paddingBottom: 16 }}>
-                  Hvem har besteget flest topper i år? Konkurrer mot venner og andre fjellklatrere om førsteplassen.
-                </Text>
-                <TouchableOpacity 
-                  style={styles.placeholderBtn} 
-                  onPress={() => setActiveTab("kart")}
-                >
-                  <Text style={styles.placeholderBtnText}>Tilbake til kartet</Text>
-                </TouchableOpacity>
-              </>
-            )}
             {activeTab === "ar" && (
               <>
                 <Sparkles size={48} color="#10B981" />
@@ -1385,6 +1376,8 @@ export default function MapScreen() {
                 })}
               </View>
             )}
+
+            <PeakLeaderboard peakId={selectedPeak.id} />
           </ScrollView>
         </View>
       )}

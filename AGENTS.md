@@ -23,19 +23,19 @@ Monorepo project with a Vite/React web app and an Expo mobile app.
 ## Implementation Details (Mobile)
 - **Navigation**: 6-tab bottom navigation (Hjem, Kalender, Kart, Trening, Fellesskap, Settings).
 - **Authentication**: Powered by Supabase Auth with AsyncStorage persistence.
-- **Data Services**: Modular services in `apps/mobile/services/` for Peak DB, Workout sessions, and more.
-- **Mapping**: Uses `react-native-maps` on native devices and a custom list-view fallback on web for the preview.
-- **Styling**: Emerald green (`#10B981`) accent color used throughout for a consistent outdoor/fitness theme.
+- **Data Services**: Modular services in `apps/mobile/services/` for Peak DB, Leaderboards, Workout sessions, and more.
+- **Mapping**: Uses `react-native-maps` on native devices and a custom list-view fallback on web for the preview. Includes Mapbox integration for advanced layers (Terrain, Atmosphere, Boundaries).
+- **Leaderboards**: Client-side aggregation of `peak_checkins` for Global, Friends, and Per-Peak views. Supports filtering by period (Month, Year, Total) and metric (Unique Peaks, Total Trips). Handles child profiles with 👶 emoji.
+- **Styling**: Emerald green (`#10B981`) accent color used throughout for a consistent outdoor/fitness theme. Full Dark Mode support.
 
 ## Key Files
-- `apps/mobile/app/(tabs)/_layout.tsx`: Main navigation structure.
-- `apps/mobile/lib/supabase.ts`: Supabase client configuration.
-- `apps/mobile/app/(tabs)/map.tsx`: Native map implementation.
+- `apps/mobile/app/(tabs)/map.tsx`: Native map implementation and main navigation hub for map-related features.
+- `apps/mobile/components/LeaderboardView.tsx`: Global/Friends leaderboard list and filters.
+- `apps/mobile/components/leaderboard/PeakLeaderboard.tsx`: Top 10 leaderboard for a specific peak.
+- `apps/mobile/services/leaderboardService.ts`: Core logic for fetching and aggregating leaderboard data.
 - `apps/mobile/app/(tabs)/index.tsx`: Dashboard with weekly metrics.
 - `apps/mobile/app/(tabs)/calendar.tsx`: Calendar entry point.
 - `apps/mobile/components/calendar/CalendarView.tsx`: Main calendar component with infinite scroll.
-- `apps/mobile/components/calendar/MonthGrid.tsx`: Monthly grid view.
-- `apps/mobile/components/calendar/CalendarDayCell.tsx`: Individual day cell.
 
 ## Calendar Modular Structure
 The calendar is implemented using a modular approach:
