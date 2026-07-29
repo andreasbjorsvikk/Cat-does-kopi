@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import MapView, { Polyline } from 'react-native-maps';
-import Svg, { Path, Defs, LinearGradient, Stop, Text as SvgText, Circle, Rect } from 'react-native-svg';
+import Svg, { Path, Defs, LinearGradient, Stop, Text as SvgText, Circle, Rect, G, Line } from 'react-native-svg';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { HStack } from '@/components/ui/hstack';
@@ -35,6 +35,29 @@ import { decodePolyline } from '@/utils/polyline';
 import { flattenStyle } from '@/utils/flatten-style';
 import useColorScheme from '@/hooks/useColorScheme';
 import { WorkoutModal } from '@/components/WorkoutModal';
+import Constants from "expo-constants";
+
+let Mapbox: any = null;
+let MapboxMapView: any = null;
+let MapboxCamera: any = null;
+
+try {
+  if (Platform.OS !== "web") {
+    const RNMapbox = require("@rnmapbox/maps");
+    Mapbox = RNMapbox.default;
+    MapboxMapView = RNMapbox.MapView;
+    MapboxCamera = RNMapbox.Camera;
+
+    const token = Constants.expoConfig?.extra?.mapboxAccessToken;
+    if (token) {
+      Mapbox.setAccessToken(token);
+    }
+  }
+} catch (err) {
+  console.warn("Failed to load @rnmapbox/maps native modules:", err);
+}
+
+const isMapboxAvailable = !!MapboxMapView;
 
 const { width } = Dimensions.get('window');
 
@@ -70,7 +93,8 @@ const Chart = ({
   maxValue, 
   minValue,
   avgValue,
-  durationMinutes = 60
+  durationMinutes = 60,
+  onInteractionChange
 }: { 
   data: { x: number; value: number }[]; 
   color: string; 
@@ -80,22 +104,28 @@ const Chart = ({
   maxValue?: number;
   minValue?: number;
   avgValue?: number;
-  durationMinutes?: number;
+  durationMinutes?: number,
+  onInteractionChange?: (active: boolean) => void;
 }) => {
-  const chartHeight = 180;
+  const chartHeight = 240;
   const chartWidth = width - 32;
-  const padding = 20;
-  const bottomPadding = 40;
+  const padding = 10;
+  const bottomPadding = 60;
+  const topPadding = 50; // Space for tooltip at top
   
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   
   const values = data.map(d => d.value);
-  const min = minValue !== undefined ? Math.min(minValue, ...values) : Math.min(...values);
-  const max = maxValue !== undefined ? Math.max(maxValue, ...values) : Math.max(...values);
-  const range = max - min || 1;
+  // Even tighter scaling to use full vertical area
+  const rawMin = Math.min(...values);
+  const rawMax = Math.max(...values);
+  const rangeWidth = rawMax - rawMin || 1;
+  const min = Math.max(0, rawMin - rangeWidth * 0.05);
+  const max = rawMax + rangeWidth * 0.05;
+  const range = (max - min) || 1;
 
   const getX = (index: number) => (index / (data.length - 1)) * (chartWidth - padding * 2) + padding;
-  const getY = (value: number) => (chartHeight - bottomPadding - padding) - ((value - min) / range) * (chartHeight - bottomPadding - padding * 2) + padding;
+  const getY = (value: number) => (chartHeight - bottomPadding) - ((value - min) / range) * (chartHeight - bottomPadding - topPadding);
 
   const points = data.map((d, i) => ({ x: getX(i), y: getY(d.value) }));
   
@@ -130,8 +160,14 @@ const Chart = ({
     const x = evt.nativeEvent.locationX;
     const index = Math.round(((x - padding) / (chartWidth - padding * 2)) * (data.length - 1));
     if (index >= 0 && index < data.length) {
+      if (activeIndex === null) onInteractionChange?.(true);
       setActiveIndex(index);
     }
+  };
+
+  const handleRelease = () => {
+    setActiveIndex(null);
+    onInteractionChange?.(false);
   };
 
   return (
@@ -145,10 +181,12 @@ const Chart = ({
       </HStack>
       
       <View 
-        style={flattenStyle([styles.chartContainer, isDark ? styles.cardDark : styles.cardLight])}
+        style={flattenStyle([styles.chartContainer, isDark ? styles.cardDark : styles.cardLight, { height: chartHeight }])}
         onStartShouldSetResponder={() => true}
+        onMoveShouldSetResponder={() => true}
         onResponderMove={handleTouch}
-        onResponderRelease={() => setActiveIndex(null)}
+        onResponderRelease={handleRelease}
+        onResponderTerminate={handleRelease}
       >
         <Svg width={chartWidth} height={chartHeight}>
           <Defs>
@@ -175,28 +213,11 @@ const Chart = ({
           <Path d={areaData} fill={`url(#grad-${label})`} />
           <Path d={pathData} fill="none" stroke={color} strokeWidth="2" />
           
-          {/* X Labels */}
-          {xLabels.map((m, i) => {
-            const x = (m / durationMinutes) * (chartWidth - padding * 2) + padding;
-            return (
-              <SvgText 
-                key={i} 
-                x={x} 
-                y={chartHeight - 10} 
-                fontSize="10" 
-                fill="#9CA3AF" 
-                textAnchor="middle"
-              >
-                {formatTime(m)}
-              </SvgText>
-            );
-          })}
-
           {/* Active Indicator */}
           {activeIndex !== null && data[activeIndex] && (
             <>
               <Path 
-                d={`M ${getX(activeIndex)} ${padding} L ${getX(activeIndex)} ${chartHeight - bottomPadding}`} 
+                d={`M ${getX(activeIndex)} ${topPadding} L ${getX(activeIndex)} ${chartHeight - bottomPadding}`} 
                 stroke={isDark ? "#9CA3AF" : "#6B7280"} 
                 strokeWidth="1" 
               />
@@ -208,9 +229,11 @@ const Chart = ({
                 stroke="#FFF" 
                 strokeWidth="2" 
               />
+              
+              {/* Tooltip always at top of line */}
               <Rect
                 x={Math.max(padding, Math.min(chartWidth - padding - 60, getX(activeIndex) - 30))}
-                y={Math.max(padding, getY(data[activeIndex].value) - 35)}
+                y={10}
                 width="60"
                 height="22"
                 rx="6"
@@ -220,7 +243,7 @@ const Chart = ({
               />
               <SvgText
                 x={Math.max(padding + 30, Math.min(chartWidth - padding - 30, getX(activeIndex)))}
-                y={Math.max(padding + 15, getY(data[activeIndex].value) - 20)}
+                y={25}
                 fontSize="12"
                 fontWeight="bold"
                 fill={isDark ? "#FFFFFF" : "#111827"}
@@ -231,9 +254,35 @@ const Chart = ({
             </>
           )}
 
-          {/* Min/Max values */}
-          <SvgText x={padding} y={getY(min) + 14} fontSize="10" fill="#9CA3AF">{min}{unit}</SvgText>
-          <SvgText x={padding} y={getY(max) - 4} fontSize="10" fill="#9CA3AF">{max}{unit}</SvgText>
+          {/* Min/Max indicators */}
+          <SvgText x={padding + 5} y={getY(min) - 5} fontSize="10" fill="#9CA3AF" fontWeight="bold">{Math.round(min)}{unit}</SvgText>
+          <SvgText x={padding + 5} y={getY(max) + 12} fontSize="10" fill="#9CA3AF" fontWeight="bold">{Math.round(max)}{unit}</SvgText>
+
+          {/* X Labels at the very bottom */}
+          {xLabels.map((m, i) => {
+            const x = (m / durationMinutes) * (chartWidth - padding * 2) + padding;
+            if (x > chartWidth - 5) return null;
+            return (
+              <G key={i}>
+                <Line 
+                  x1={x} y1={chartHeight - bottomPadding} 
+                  x2={x} y2={chartHeight - bottomPadding + 5} 
+                  stroke={isDark ? "#374151" : "#E5E7EB"} 
+                  strokeWidth="1" 
+                />
+                <SvgText 
+                  x={x} 
+                  y={chartHeight - 15} 
+                  fontSize="11" 
+                  fill={isDark ? "#9CA3AF" : "#6B7280"} 
+                  textAnchor="middle"
+                  fontWeight="600"
+                >
+                  {formatTime(m)}
+                </SvgText>
+              </G>
+            );
+          })}
         </Svg>
       </View>
     </VStack>
@@ -246,10 +295,12 @@ export default function WorkoutDetailsPage() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const mapRef = useRef<MapView | null>(null);
+  const mapboxCameraRef = useRef<any>(null);
 
   const [session, setSession] = useState<WorkoutSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [scrollEnabled, setScrollEnabled] = useState(true);
 
   const fetchSession = async () => {
     if (!id) return;
@@ -281,6 +332,25 @@ export default function WorkoutDetailsPage() {
         mapRef.current?.fitToCoordinates(decodedRoute, {
           edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
           animated: true,
+        });
+      }, 500);
+    }
+
+    if (session && decodedRoute.length > 0 && isMapboxAvailable && mapboxCameraRef.current) {
+      const coordinates = decodedRoute.map(c => [c.longitude, c.latitude]);
+      setTimeout(() => {
+        mapboxCameraRef.current?.setCamera({
+          bounds: {
+            ne: [Math.max(...coordinates.map(c => c[0])), Math.max(...coordinates.map(c => c[1]))],
+            sw: [Math.min(...coordinates.map(c => c[0])), Math.min(...coordinates.map(c => c[1]))],
+            paddingTop: 50,
+            paddingRight: 50,
+            paddingBottom: 50,
+            paddingLeft: 50,
+          },
+          pitch: 45,
+          pitch: 60,
+          animationDuration: 1500,
         });
       }, 500);
     }
@@ -366,10 +436,44 @@ export default function WorkoutDetailsPage() {
         </HStack>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+      <ScrollView 
+        scrollEnabled={scrollEnabled}
+        showsVerticalScrollIndicator={false} 
+        contentContainerStyle={{ paddingBottom: 40 }}
+      >
         {/* Map Section */}
         <View style={styles.mapSection}>
-          {Platform.OS !== 'web' ? (
+          {isMapboxAvailable ? (
+            <MapboxMapView
+              style={styles.map}
+              styleURL="mapbox://styles/mapbox/satellite-streets-v12"
+            >
+              <MapboxCamera ref={mapboxCameraRef} />
+              {decodedRoute.length > 0 && (
+                <Mapbox.ShapeSource
+                  id="routeSource"
+                  shape={{
+                    type: 'Feature',
+                    geometry: {
+                      type: 'LineString',
+                      coordinates: decodedRoute.map(c => [c.longitude, c.latitude]),
+                    },
+                    properties: {},
+                  }}
+                >
+                  <Mapbox.LineLayer
+                    id="routeLayer"
+                    style={{
+                      lineColor: '#F97316',
+                      lineWidth: 4,
+                      lineCap: 'round',
+                      lineJoin: 'round',
+                    }}
+                  />
+                </Mapbox.ShapeSource>
+              )}
+            </MapboxMapView>
+          ) : Platform.OS !== 'web' ? (
             <MapView
               ref={mapRef}
               style={styles.map}
@@ -429,13 +533,19 @@ export default function WorkoutDetailsPage() {
               <Text style={styles.statLabel}>Tempo</Text>
               <Text style={styles.statValue}>{pace}</Text>
             </View>
-            <View style={flattenStyle([styles.statCard, isDark ? styles.cardDark : styles.cardLight])}>
-              <Heart size={16} color="#6B7280" />
-              <Text style={styles.statLabel}>Puls snitt / maks</Text>
-              <Text style={styles.statValue}>
+            <VStack 
+              style={flattenStyle([styles.statCard, isDark ? styles.cardDark : styles.cardLight])}
+              space="xs"
+            >
+              <HStack space="xs" style={{ alignItems: 'center', justifyContent: 'center' }}>
+                <Heart size={14} color="#6B7280" />
+                <Text style={styles.statLabel}>Puls</Text>
+              </HStack>
+              <Text style={flattenStyle([styles.statValue, isDark ? { color: '#FFF' } : null])}>
                 {session.averageHeartrate || "--"} / {session.maxHeartrate || "--"}
               </Text>
-            </View>
+              <Text style={{ fontSize: 10, color: '#6B7280', textAlign: 'center' }}>snitt / maks</Text>
+            </VStack>
             <View style={flattenStyle([styles.statCard, isDark ? styles.cardDark : styles.cardLight])}>
               <Flame size={16} color="#6B7280" />
               <Text style={styles.statLabel}>Kalorier</Text>
@@ -453,6 +563,7 @@ export default function WorkoutDetailsPage() {
             avgValue={session.averageHeartrate}
             maxValue={session.maxHeartrate}
             durationMinutes={session.durationMinutes}
+            onInteractionChange={setScrollEnabled}
           />
 
           <Chart 
@@ -463,6 +574,7 @@ export default function WorkoutDetailsPage() {
             isDark={isDark}
             avgValue={Math.round(altitudeData.reduce((acc, d) => acc + d.value, 0) / altitudeData.length)}
             durationMinutes={session.durationMinutes}
+            onInteractionChange={setScrollEnabled}
           />
 
           {session.notes && (
@@ -607,8 +719,7 @@ const styles = StyleSheet.create({
   chartContainer: {
     padding: 0,
     borderRadius: 24,
-    overflow: 'hidden',
-    height: 150,
+    overflow: 'visible',
   },
   notesContainer: {
     padding: 16,

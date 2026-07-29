@@ -65,7 +65,9 @@ const StatsBox = ({
       <Icon size={14} color="#6B7280" />
       <Text style={styles.statLabelText}>{label}</Text>
     </View>
-    <Text style={styles.statValue}>{value}</Text>
+    <Text style={flattenStyle([styles.statValue, isDark ? styles.statValueDark : styles.statValueLight])}>
+      {value}
+    </Text>
     {subtitle && <Text style={styles.statSubtitle}>{subtitle}</Text>}
   </View>
 );
@@ -137,9 +139,21 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
     ? `${Math.floor(session.durationMinutes / 60)} t ${session.durationMinutes % 60} min`
     : `${session.durationMinutes} min`;
   return (
-    <Actionsheet isOpen={isOpen} onClose={onClose}>
+    <Actionsheet 
+      isOpen={isOpen} 
+      onClose={onClose}
+    >
       <ActionsheetBackdrop />
-      <ActionsheetContent style={flattenStyle([styles.sheetContent, { paddingHorizontal: 0 }])}>
+      <ActionsheetContent
+        {...({
+          drag: "y",
+          dragConstraints: { top: 0 },
+          onDragEnd: (e: any, info: any) => {
+            if (info.offset.y > 100) onClose();
+          }
+        } as any)}
+        style={flattenStyle([styles.sheetContent, { paddingHorizontal: 0 }])}
+      >
         <ActionsheetDragIndicatorWrapper>
           <ActionsheetDragIndicator />
         </ActionsheetDragIndicatorWrapper>
@@ -406,6 +420,8 @@ const styles = StyleSheet.create({
   },
   statItemDark: {
     backgroundColor: '#111827',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   statLabel: {
     flexDirection: 'row',
@@ -423,6 +439,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     textAlign: 'center',
+  },
+  statValueDark: {
+    color: '#FFFFFF',
+  },
+  statValueLight: {
+    color: '#1F2937',
   },
   statSubtitle: {
     fontSize: 10,

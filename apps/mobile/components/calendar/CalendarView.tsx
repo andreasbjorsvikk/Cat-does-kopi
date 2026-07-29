@@ -94,14 +94,6 @@ export const CalendarView: React.FC = () => {
     return monthLayouts[index].offset;
   }, [monthLayouts]);
 
-  // Focus effect to reset when navigating back
-  useFocusEffect(
-    useCallback(() => {
-      setSelectedDate(new Date().toISOString().split('T')[0]);
-      reset();
-      shouldScrollToTodayRef.current = true;
-    }, [reset])
-  );
 
   // Handles:
   // 1. Scrolling to today when initialised or focused (with reset)
