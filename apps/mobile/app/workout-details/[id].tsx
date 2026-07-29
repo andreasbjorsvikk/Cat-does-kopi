@@ -74,8 +74,8 @@ const isMapboxAvailable = !!MapboxMapView;
 
 const { width, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const TOP_HEADER_HEIGHT = Platform.OS === 'ios' ? 100 : 80;
-const MINIMIZED_DRAWER_HEIGHT = 160;
-const SNAP_TOP = TOP_HEADER_HEIGHT + 20;
+const MINIMIZED_DRAWER_HEIGHT = 180;
+const SNAP_TOP = SCREEN_HEIGHT * 0.45;
 const SNAP_BOTTOM = SCREEN_HEIGHT - MINIMIZED_DRAWER_HEIGHT;
 
 // Mock stream data generator
@@ -340,9 +340,9 @@ export default function WorkoutDetailsPage() {
 
   const [session, setSession] = useState<WorkoutSession | null>(null);
 
-  const translateY = useSharedValue(SNAP_BOTTOM);
+  const translateY = useSharedValue(SNAP_TOP);
   const context = useSharedValue({ y: 0 });
-  const [isMinimized, setIsMinimized] = useState(true);
+  const [isMinimized, setIsMinimized] = useState(false);
 
   const snapToMinimized = useCallback(() => {
     translateY.value = withSpring(SNAP_BOTTOM);
