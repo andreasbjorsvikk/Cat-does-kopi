@@ -661,22 +661,24 @@ export default function TrainingScreen() {
 
   // Toggle multi-select activity type filters
   const handleToggleTypeFilter = (type: SessionType | "alle") => {
-    if (type === "alle") {
-      if (selectedTypes.length === WORKOUT_TYPES.length) {
-        setSelectedTypes([WORKOUT_TYPES[0].id]);
-      } else {
-        setSelectedTypes(WORKOUT_TYPES.map(t => t.id));
-      }
-    } else {
-      setSelectedTypes(prev => {
-        if (prev.includes(type)) {
-          if (prev.length === 1) return prev;
-          return prev.filter(t => t !== type);
+    withAnimation(() => {
+      if (type === "alle") {
+        if (selectedTypes.length === WORKOUT_TYPES.length) {
+          setSelectedTypes([WORKOUT_TYPES[0].id]);
         } else {
-          return [...prev, type];
+          setSelectedTypes(WORKOUT_TYPES.map(t => t.id));
         }
-      });
-    }
+      } else {
+        setSelectedTypes(prev => {
+          if (prev.includes(type)) {
+            if (prev.length === 1) return prev;
+            return prev.filter(t => t !== type);
+          } else {
+            return [...prev, type];
+          }
+        });
+      }
+    });
   };
 
   const isAllTypesSelected = selectedTypes.length === WORKOUT_TYPES.length;
@@ -847,7 +849,7 @@ export default function TrainingScreen() {
     return val.toFixed(0);
   };
 
-  const handlePrevDate = useCallback(() => {
+  const handlePrevDate = useCallback(() => withAnimation(() => {
     if (period === "month") {
       if (selectedMonth === 0) {
         setSelectedMonth(11);
@@ -858,9 +860,9 @@ export default function TrainingScreen() {
     } else if (period === "year") {
       setSelectedYear(prev => prev - 1);
     }
-  }, [period, selectedMonth]);
+  }), [period, selectedMonth, withAnimation]);
 
-  const handleNextDate = useCallback(() => {
+  const handleNextDate = useCallback(() => withAnimation(() => {
     if (period === "month") {
       if (selectedMonth === 11) {
         setSelectedMonth(0);
@@ -871,7 +873,7 @@ export default function TrainingScreen() {
     } else if (period === "year") {
       setSelectedYear(prev => prev + 1);
     }
-  }, [period, selectedMonth]);
+  }), [period, selectedMonth, withAnimation]);
 
   // Responsive bar width and spacing calculator
   const { barWidth, barGap, isScrollEnabled, lineChartWidth } = useMemo(() => {
@@ -1089,13 +1091,13 @@ export default function TrainingScreen() {
             <HStack style={flattenStyle([styles.dateSelectorContainer, { marginBottom: 4, paddingTop: 8 }])}>
               {period !== "total" ? (
                 <>
-                  <TouchableOpacity onPress={() => withAnimation(handlePrevDate)} style={styles.dateSelectorArrow}>
+                  <TouchableOpacity onPress={handlePrevDate} style={styles.dateSelectorArrow}>
                     <ChevronLeft size={18} color={isDark ? "#FFFFFF" : "#111827"} />
                   </TouchableOpacity>
                   <Text style={flattenStyle([styles.dateSelectorLabel, { color: isDark ? "#FFFFFF" : "#111827", fontSize: 26, lineHeight: 34 }])}>
                     {period === "month" ? `${MONTH_NAMES[selectedMonth]} ${selectedYear}` : selectedYear.toString()}
                   </Text>
-                  <TouchableOpacity onPress={() => withAnimation(handleNextDate)} style={styles.dateSelectorArrow}>
+                  <TouchableOpacity onPress={handleNextDate} style={styles.dateSelectorArrow}>
                     <ChevronRight size={18} color={isDark ? "#FFFFFF" : "#111827"} />
                   </TouchableOpacity>
                 </>
@@ -1372,10 +1374,10 @@ export default function TrainingScreen() {
                               }
                             ])}
                           >
-                            <Text style={{ fontSize: 9, fontWeight: '800', color: isDark ? '#10B981' : '#059669', marginBottom: 0 }}>
+                            <Text style={{ fontSize: 9, fontWeight: '800', color: isDark ? '#10B981' : '#059669', marginBottom: -2, lineHeight: 12 }}>
                               {period === 'month' ? `${tooltipIndex + 1}. ${MONTH_NAMES[selectedMonth]}` : (period === 'year' ? MONTH_NAMES[tooltipIndex] : chartData[tooltipIndex].label)}
                             </Text>
-                            <Text style={{ fontSize: 10, fontWeight: 'bold', color: isDark ? '#FFFFFF' : '#111827', marginBottom: 1 }}>
+                            <Text style={{ fontSize: 10, fontWeight: 'bold', color: isDark ? '#FFFFFF' : '#111827', marginBottom: 0, lineHeight: 14 }}>
                               Total: {chartMetric === 'minutes' ? formatMinutes(Number(chartData[tooltipIndex]._total)) : (chartMetric === 'distance' ? `${Number(chartData[tooltipIndex]._total).toFixed(1)} km` : chartData[tooltipIndex]._total)}
                             </Text>
                             <View style={{ gap: 0 }}>
@@ -1383,14 +1385,14 @@ export default function TrainingScreen() {
                                 const val = Number(chartData[tooltipIndex][type.id] || 0);
                                 if (val === 0) return null;
                                 return (
-                                  <HStack key={type.id} style={{ alignItems: 'center', justifyContent: 'space-between' }}>
+                                  <HStack key={type.id} style={{ alignItems: 'center', justifyContent: 'space-between', height: 12 }}>
                                     <HStack style={{ alignItems: 'center', gap: 4 }}>
                                       <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: isDark ? type.colors.darkSelectedBg : type.colors.lightSelectedBg }} />
-                                      <Text style={{ fontSize: 9, color: isDark ? '#9CA3AF' : '#6B7280' }}>
+                                      <Text style={{ fontSize: 8.5, color: isDark ? '#9CA3AF' : '#6B7280', lineHeight: 10 }}>
                                         {type.label}
                                       </Text>
                                     </HStack>
-                                    <Text style={{ fontSize: 9, fontWeight: '600', color: isDark ? '#FFFFFF' : '#111827' }}>
+                                    <Text style={{ fontSize: 8.5, fontWeight: '600', color: isDark ? '#FFFFFF' : '#111827', lineHeight: 10 }}>
                                       {chartMetric === 'minutes' ? formatMinutes(val) : (chartMetric === 'distance' ? `${val.toFixed(1)} km` : val)}
                                     </Text>
                                   </HStack>
