@@ -62,16 +62,16 @@ const StatsBox = ({
   <View
     style={flattenStyle([styles.statItem, isDark ? styles.statItemDark : styles.statItemLight])}
   >
-    <View style={styles.statLabel}>
-      <Icon size={14} color={isDark ? "#9CA3AF" : "#6B7280"} />
-      <Text style={flattenStyle([styles.statLabelText, isDark ? styles.textMutedDark : styles.textMutedLight])}>
-        {label}
-      </Text>
-    </View>
+    <Icon size={14} color={isDark ? "#D1D5DB" : "#6B7280"} />
     <Text style={flattenStyle([styles.statValue, isDark ? styles.statValueDark : styles.statValueLight])}>
       {value}
     </Text>
-    {subtitle && <Text style={styles.statSubtitle}>{subtitle}</Text>}
+    <VStack space="none" style={{ alignItems: 'center' }}>
+      <Text style={flattenStyle([styles.statLabelText, isDark ? styles.textMutedDark : styles.textMutedLight])}>
+        {label}
+      </Text>
+      {subtitle && <Text style={styles.statSubtitle}>{subtitle}</Text>}
+    </VStack>
   </View>
 );
 
@@ -155,39 +155,39 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
           <ActionsheetDragIndicator />
         </ActionsheetDragIndicatorWrapper>
         
-        <View style={styles.mapContainer}>
-          {Platform.OS !== 'web' ? (
-            <MapView
-              ref={mapRef}
-              style={styles.map}
-              initialCamera={{
-                center: initialRegion,
-                pitch: 50,
-                heading: 0,
-                altitude: 1000,
-                zoom: 12,
-              }}
-              scrollEnabled={false}
-              zoomEnabled={false}
-              rotateEnabled={false}
-              pitchEnabled={true}
-              mapType="satellite"
-            >
-              {decodedRoute.length > 0 && (
+        {decodedRoute.length > 0 && (
+          <View style={styles.mapContainer}>
+            {Platform.OS !== 'web' ? (
+              <MapView
+                ref={mapRef}
+                style={styles.map}
+                initialCamera={{
+                  center: initialRegion,
+                  pitch: 60,
+                  heading: 0,
+                  altitude: 1000,
+                  zoom: 14,
+                }}
+                scrollEnabled={false}
+                zoomEnabled={false}
+                rotateEnabled={false}
+                pitchEnabled={true}
+                mapType="satellite"
+              >
                 <Polyline
                   coordinates={decodedRoute}
                   strokeColor="#F97316"
                   strokeWidth={4}
                 />
-              )}
-            </MapView>
-          ) : (
-            <View style={flattenStyle([styles.mapPlaceholder, isDark ? styles.placeholderDark : styles.placeholderLight])}>
-              <MapPin size={48} color={isDark ? "#4B5563" : "#D1D5DB"} />
-              <Text style={styles.placeholderText}>Kart er utilgjengelig på web</Text>
-            </View>
-          )}
-        </View>
+              </MapView>
+            ) : (
+              <View style={flattenStyle([styles.mapPlaceholder, isDark ? styles.placeholderDark : styles.placeholderLight])}>
+                <MapPin size={48} color={isDark ? "#4B5563" : "#D1D5DB"} />
+                <Text style={styles.placeholderText}>Kart er utilgjengelig på web</Text>
+              </View>
+            )}
+          </View>
+        )}
 
         <ScrollView 
           style={styles.scroll} 
@@ -410,11 +410,12 @@ const styles = StyleSheet.create({
   },
   statItem: {
     width: '32%',
-    padding: 10,
+    padding: 8,
     borderRadius: 16,
-    minHeight: 90,
+    minHeight: 85,
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 2,
   },
   statItemLight: {
     backgroundColor: '#F9FAFB',

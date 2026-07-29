@@ -739,9 +739,9 @@ const styles = StyleSheet.create({
   },
   statCard: {
     width: (width - 56) / 3,
-    padding: 12,
+    padding: 10,
     borderRadius: 20,
-    gap: 4,
+    gap: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
