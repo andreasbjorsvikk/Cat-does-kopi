@@ -222,7 +222,8 @@ export const ArchivedGoalsSection = ({
       if (!inDate) return false;
       
       if (goal.activityType === 'all') return true;
-      return goal.activityType.split(',').includes(s.type);
+      const types = goal.activityType.split(',').map(t => t.toLowerCase());
+      return s.type && types.includes(s.type.toLowerCase());
     });
     
     const progress = computeProgress(periodSessions, goal.metric);

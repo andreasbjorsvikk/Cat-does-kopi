@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { HStack } from '@/components/ui/hstack';
 import { VStack } from '@/components/ui/vstack';
-import { Compass, Home, Pencil, Archive, Trash2 } from "lucide-react-native";
+import { Compass, Home, Pencil, Archive, Trash2, Repeat } from "lucide-react-native";
 import { ExtraGoal, WorkoutSession } from '@/types/workout';
 import { MountainIcon, BoltIcon, ClockIcon, RouteIcon } from './GoalProgressIcon';
 import useColorScheme from '@/hooks/useColorScheme';
@@ -249,9 +249,14 @@ export const OtherGoalCard = memo(({
         )}
 
         {/* Period Text */}
-        <Text style={{ fontSize: 12, color: isDark ? '#9CA3AF' : '#6B7280', marginTop: 4, textAlign: 'center' }}>
-          {goal.period === 'week' ? 'Denne uken' : goal.period === 'month' ? 'Denne måneden' : goal.period === 'year' ? 'Dette året' : 'Tilpasset'}
-        </Text>
+        <HStack style={{ alignItems: 'center', justifyContent: 'center', marginTop: 4, gap: 4 }}>
+          {goal.repeating && (
+            <Repeat size={10} color={isDark ? '#9CA3AF' : '#6B7280'} />
+          )}
+          <Text style={{ fontSize: 12, color: isDark ? '#9CA3AF' : '#6B7280', textAlign: 'center' }}>
+            {goal.period === 'week' ? 'Denne uken' : goal.period === 'month' ? 'Denne måneden' : goal.period === 'year' ? 'Dette året' : 'Tilpasset'}
+          </Text>
+        </HStack>
 
         {/* Days left text */}
         {!isReached && remainingDays > 0 && (

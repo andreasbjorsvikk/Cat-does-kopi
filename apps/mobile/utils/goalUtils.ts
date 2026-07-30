@@ -15,9 +15,10 @@ export function getSessionsInPeriod(
     filtered = sessions;
   } else if (activityType.includes(',')) {
     const types = activityType.split(',');
-    filtered = sessions.filter(s => types.includes(s.type));
+    filtered = sessions.filter(s => s.type && types.includes(s.type.toLowerCase()));
   } else {
-    filtered = sessions.filter(s => s.type === activityType);
+    const targetType = activityType.toLowerCase();
+    filtered = sessions.filter(s => s.type && s.type.toLowerCase() === targetType);
   }
 
   if (period === 'custom' && customStart && customEnd) {
@@ -45,7 +46,9 @@ export function getSessionsInPeriod(
     filtered = filtered.filter(s => new Date(s.date).getFullYear() === now.getFullYear());
   }
 
-  if (customStart) {
+  // Only apply customStart boundary if period is 'custom'.
+  // For standard periods (week, month, year), we want the whole period regardless of when the goal was created.
+  if (period === 'custom' && customStart) {
     const startBoundary = new Date(customStart);
     startBoundary.setHours(0, 0, 0, 0);
     filtered = filtered.filter(s => new Date(s.date) >= startBoundary);
@@ -200,10 +203,10 @@ export function calculateGoalHistory(
       
       if (goal.activityType === 'all') return true;
       if (goal.activityType.includes(',')) {
-        const types = goal.activityType.split(',');
-        return types.includes(s.type);
+        const types = goal.activityType.split(',').map(t => t.toLowerCase());
+        return s.type && types.includes(s.type.toLowerCase());
       }
-      return s.type === goal.activityType;
+      return s.type && s.type.toLowerCase() === goal.activityType.toLowerCase();
     });
 
     const progress = computeProgress(periodSessions, goal.metric);

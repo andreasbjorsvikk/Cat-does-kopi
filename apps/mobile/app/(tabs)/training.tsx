@@ -581,7 +581,7 @@ export default function TrainingScreen() {
   // Handle Archive Extra Goal
   const handleArchiveExtraGoal = async (id: string) => {
     const goal = extraGoals.find(g => g.id === id);
-    if (!goal || goal.repeating) return;
+    if (!goal) return;
 
     // Check if goal is reached and period is over
     const periodSessions = getSessionsInPeriod(
