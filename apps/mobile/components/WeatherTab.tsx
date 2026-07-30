@@ -17,7 +17,7 @@ import Svg, { Path, Rect, G, Line, Circle, Text as SvgText, TSpan, Polygon } fro
 import { Image } from 'expo-image';
 import useColorScheme from '@/hooks/useColorScheme';
 import { flattenStyle } from '@/utils/flatten-style';
-import { mapWmoCodeToSymbol, getWeatherIconUrl } from '@/utils/weatherUtils';
+import { mapWmoCodeToEmoji } from '@/utils/weatherUtils';
 
 interface WeatherTabProps {
   latitude: number;
@@ -79,7 +79,7 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
           const snowDepth = hourly.snow_depth_metno_nordic?.[i] ?? hourly.snow_depth_best_match?.[i] ?? hourly.snow_depth?.[i] ?? 0;
           
           const weatherCode = hourly.weather_code_best_match?.[i] ?? hourly.weather_code?.[i] ?? 0;
-          const symbol = mapWmoCodeToSymbol(weatherCode);
+          const emoji = mapWmoCodeToEmoji(weatherCode);
 
           return {
             time,
@@ -87,7 +87,7 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
             precip: hourly.precipitation_best_match?.[i] ?? hourly.precipitation?.[i] ?? 0,
             windSpeed,
             windDir: hourly.wind_direction_10m_best_match?.[i] ?? hourly.wind_direction_10m?.[i] ?? 0,
-            symbol,
+            symbol: emoji,
             snowDepth,
           };
         });
@@ -448,7 +448,7 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
             </G>
           </Svg>
 
-          {/* Icons positioned over points (using expo-image for reliable SVG rendering) */}
+          {/* Icons positioned over points (using emojis for standard iOS look) */}
           {graphPoints.map((h, i) => {
              const x = getXFromPointIndex(i);
              const y = getYTemp(h.temp);
@@ -458,20 +458,15 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
                  pointerEvents="none"
                  style={{ 
                    position: 'absolute', 
-                   left: x - 12, 
-                   top: y - 36,
-                   width: 24,
-                   height: 24,
+                   left: x - 15, 
+                   top: y - 40,
+                   width: 30,
+                   height: 30,
                    alignItems: 'center',
                    justifyContent: 'center'
                  }}
                >
-                 <Image 
-                    source={{ uri: getWeatherIconUrl(h.symbol) }}
-                    style={{ width: 22, height: 22 }}
-                    contentFit="contain"
-                    priority="high"
-                 />
+                 <Text style={{ fontSize: 20 }}>{h.symbol}</Text>
                </View>
              );
           })}

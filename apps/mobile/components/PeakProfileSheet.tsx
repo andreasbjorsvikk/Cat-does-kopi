@@ -35,7 +35,7 @@ import { flattenStyle } from "@/utils/flatten-style";
 import { PeakLeaderboard } from "./leaderboard/PeakLeaderboard";
 import { supabase } from "@/lib/supabase";
 import { WeatherTab } from "./WeatherTab";
-import { getWeatherIconUrl } from "@/utils/weatherUtils";
+import { mapWmoCodeToEmoji } from "@/utils/weatherUtils";
 
 interface PeakProfileSheetProps {
   peak: Peak;
@@ -115,7 +115,7 @@ export function PeakProfileSheet({
         setWeatherData({
           temp: mockTemp,
           wind: 4 + Math.floor(Math.random() * 8),
-          symbol: "partlycloudy_day",
+          symbol: "🌤️",
           description: "Delvis skyet",
         });
 
@@ -248,11 +248,9 @@ export function PeakProfileSheet({
             <View style={flattenStyle([styles.infoCard, { backgroundColor: isDark ? "#1F2937" : "#F8FAFC" }])}>
               <HStack className="justify-between items-center">
                 <HStack space="md" className="items-center">
-                  <ExpoImage 
-                    source={{ uri: getWeatherIconUrl(weatherData?.symbol || "cloudy") }}
-                    style={{ width: 52, height: 52 }}
-                    contentFit="contain"
-                  />
+                  <View className="w-12 h-12 items-center justify-center">
+                    <Text style={{ fontSize: 32 }}>{weatherData?.symbol || "☁️"}</Text>
+                  </View>
                   <VStack>
                     <Text 
                       className="font-semibold"

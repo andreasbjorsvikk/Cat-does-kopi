@@ -18,7 +18,7 @@ import { VStack } from '@/components/ui/vstack';
 import { MapPin, Calendar, Heart, Compass, Users, User, Mountain } from 'lucide-react-native';
 import useColorScheme from '@/hooks/useColorScheme';
 import { flattenStyle } from '@/utils/flatten-style';
-import { getWeatherIconUrl } from '@/utils/weatherUtils';
+import { mapWmoCodeToEmoji } from '@/utils/weatherUtils';
 
 export interface Participant {
   id: string;
@@ -304,9 +304,18 @@ export function PeakFeed() {
           const current = data.properties.timeseries[0].data.instant.details;
           const symbol = data.properties.timeseries[0].data.next_1_hours?.summary.symbol_code || 'clearsky_day';
           
+          // Use a simple mapping from MET symbol strings to emojis for consistency
+          let emoji = '☁️';
+          if (symbol.includes('clearsky') || symbol.includes('fair')) emoji = '☀️';
+          else if (symbol.includes('partlycloudy')) emoji = '🌤️';
+          else if (symbol.includes('rain')) emoji = '🌧️';
+          else if (symbol.includes('snow')) emoji = '🌨️';
+          else if (symbol.includes('thunder')) emoji = '⛈️';
+          else if (symbol.includes('fog')) emoji = '🌫️';
+
           newWeatherData[peakId] = {
             temp: Math.round(current.air_temperature),
-            symbol: symbol
+            symbol: emoji
           };
           changed = true;
         } catch (err) {
@@ -392,11 +401,7 @@ export function PeakFeed() {
 
             {weather && (
               <View style={[styles.weatherBadge, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
-                <ExpoImage 
-                  source={{ uri: getWeatherIconUrl(weather.symbol) }}
-                  style={{ width: 20, height: 20 }}
-                  contentFit="contain"
-                />
+                <Text style={{ fontSize: 16 }}>{weather.symbol}</Text>
                 <Text style={{ fontSize: 12, fontWeight: '600', color: isDark ? '#D1D5DB' : '#4B5563', marginLeft: 4 }}>
                   {weather.temp}°
                 </Text>
