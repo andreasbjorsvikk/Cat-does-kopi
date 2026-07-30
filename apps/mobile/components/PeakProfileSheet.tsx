@@ -285,11 +285,16 @@ export function PeakProfileSheet({
             {/* Route Planning Button */}
             <Button
               onPress={showRouteOptions}
-              className="bg-background-100 dark:bg-background-950 h-12 rounded-xl border border-transparent dark:border-outline-800"
+              style={flattenStyle([
+                { height: 48, borderRadius: 12, borderWidth: 1, borderColor: 'transparent' },
+                isDark ? { backgroundColor: '#1F2937', borderColor: '#374151' } : { backgroundColor: '#F3F4F6' }
+              ])}
             >
               <HStack space="sm" className="items-center">
                 <Navigation size={18} color="#10B981" />
-                <ButtonText className="text-typography-900 dark:text-typography-50 font-bold">
+                <ButtonText 
+                  style={{ color: isDark ? '#F9FAFB' : '#111827', fontWeight: 'bold' }}
+                >
                   Lag rute
                 </ButtonText>
               </HStack>

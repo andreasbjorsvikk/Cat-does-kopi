@@ -35,7 +35,7 @@ interface WeatherData {
   snowDepth: number;
 }
 
-export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
+export function WeatherTab({ latitude, longitude, astronomy }: WeatherTabProps) {
   const isDark = useColorScheme() === 'dark';
   const [data, setData] = useState<WeatherData[]>([]);
   const [dailyInfo, setDailyInfo] = useState<Record<string, { sunrise: string; sunset: string }>>({});
@@ -326,7 +326,7 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
                       textAnchor="end"
                     >
                       <TSpan>{Math.round(t)}</TSpan>
-                      <TSpan dx="-1.5">°</TSpan>
+                      <TSpan dx="-2.5">°</TSpan>
                     </SvgText>
                   </G>
                 );
@@ -424,7 +424,7 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
                     textAnchor="middle"
                   >
                     <TSpan>{Math.round(h.temp)}</TSpan>
-                    <TSpan dx="-1.5">°</TSpan>
+                    <TSpan dx="-2.5">°</TSpan>
                   </SvgText>
 
                 </G>
