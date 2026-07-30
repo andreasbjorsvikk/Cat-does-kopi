@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Platform,
   Dimensions,
+  Image,
 } from "react-native";
 import { Image as ExpoImage } from "expo-image";
 import { Heading } from "@/components/ui/heading";
@@ -492,7 +493,11 @@ function PeakSpecificFeed({ peakId }: { peakId: string }) {
             <HStack space="md" className="items-center mb-3">
               <View className="w-10 h-10 rounded-full overflow-hidden bg-background-200 dark:bg-background-800">
                 {avatarUrl ? (
-                  <ExpoImage source={{ uri: avatarUrl }} className="w-full h-full" />
+                  <ExpoImage 
+                    source={{ uri: avatarUrl }} 
+                    style={{ width: '100%', height: '100%' }} 
+                    contentFit="cover"
+                  />
                 ) : (
                   <View className="w-full h-full items-center justify-center">
                     <Text>{emoji || "🏔️"}</Text>

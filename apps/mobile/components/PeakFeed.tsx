@@ -7,6 +7,7 @@ import {
   RefreshControl,
   TouchableOpacity,
   ScrollView,
+  Image,
 } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { supabase } from '@/lib/supabase';

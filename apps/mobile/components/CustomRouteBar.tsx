@@ -3,7 +3,7 @@ import { View, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-
 import { Text } from '@/components/ui/text';
 import { HStack } from '@/components/ui/hstack';
 import { VStack } from '@/components/ui/vstack';
-import { X, Navigation, Trash2, MapPin, Plus, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { X, Navigation, Trash2, MapPin, Plus, ChevronDown, ChevronUp, Mountain } from 'lucide-react-native';
 import { useRoute } from '@/context/RouteContext';
 import useColorScheme from '@/hooks/useColorScheme';
 import { flattenStyle } from '@/utils/flatten-style';
@@ -49,7 +49,7 @@ export function CustomRouteBar() {
 
           <VStack className="items-end">
             <HStack space="xs" className="items-center">
-              <ChevronUp size={14} color="#10B981" />
+              <Mountain size={14} color="#10B981" />
               <Text className="font-bold text-base" style={{ color: isDark ? '#FFFFFF' : '#111827' }}>
                 {formatElev(coveredGain)} / {formatElev(totalGain)}
               </Text>
