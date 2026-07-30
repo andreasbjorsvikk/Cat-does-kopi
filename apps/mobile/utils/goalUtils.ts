@@ -57,6 +57,49 @@ export function getSessionsInPeriod(
   return filtered;
 }
 
+export function getGoalPeriodBoundaries(goal: ExtraGoal): { start: Date; end: Date } {
+  let start: Date;
+  let end: Date;
+
+  if (goal.period === 'custom') {
+    start = goal.customStart ? new Date(goal.customStart) : new Date(goal.createdAt || Date.now());
+    end = goal.customEnd ? new Date(goal.customEnd) : new Date(start);
+    // Ensure end is end of day
+    end.setHours(23, 59, 59, 999);
+  } else {
+    // For standard periods, normalize start to the beginning of that period
+    start = goal.customStart ? new Date(goal.customStart) : new Date(goal.createdAt || Date.now());
+    
+    if (goal.period === 'week') {
+      const day = start.getDay();
+      const mondayOffset = day === 0 ? 6 : day - 1;
+      start.setDate(start.getDate() - mondayOffset);
+      start.setHours(0, 0, 0, 0);
+      
+      end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      end.setHours(23, 59, 59, 999);
+    } else if (goal.period === 'month') {
+      start.setDate(1);
+      start.setHours(0, 0, 0, 0);
+      
+      end = new Date(start.getFullYear(), start.getMonth() + 1, 0);
+      end.setHours(23, 59, 59, 999);
+    } else if (goal.period === 'year') {
+      start.setMonth(0, 1);
+      start.setHours(0, 0, 0, 0);
+      
+      end = new Date(start.getFullYear(), 11, 31);
+      end.setHours(23, 59, 59, 999);
+    } else {
+      end = goal.customEnd ? new Date(goal.customEnd) : new Date(start);
+      end.setHours(23, 59, 59, 999);
+    }
+  }
+  
+  return { start, end };
+}
+
 export function computeProgress(sessions: WorkoutSession[], metric: GoalMetric): number {
   switch (metric) {
     case 'sessions': return sessions.filter(s => !s.excludeFromCount).length;

@@ -14,10 +14,11 @@ import {
   RotateCcw, 
   Trash2, 
   Repeat,
-  Compass
+  Compass,
+  Target
 } from 'lucide-react-native';
 import { ExtraGoal, WorkoutSession } from '@/types/workout';
-import { calculateGoalHistory, computeProgress } from '@/utils/goalUtils';
+import { calculateGoalHistory, computeProgress, getGoalPeriodBoundaries } from '@/utils/goalUtils';
 import useColorScheme from '@/hooks/useColorScheme';
 import { flattenStyle } from '@/utils/flatten-style';
 import { ActivityIcon } from '@/components/ActivityIcon';
@@ -194,23 +195,7 @@ export const ArchivedGoalsSection = ({
   const renderArchivedGoal = (goal: ExtraGoal) => {
     const activityTypes = goal.activityType ? goal.activityType.split(",") : ["all"];
     
-    // Determine effective dates for session filtering and display
-    const startDate = goal.customStart ? new Date(goal.customStart) : (goal.createdAt ? new Date(goal.createdAt) : null);
-    let endDate: Date | null = null;
-    
-    if (goal.customEnd) {
-      endDate = new Date(goal.customEnd);
-    } else if (startDate) {
-      // Infer period end if missing (for legacy or non-custom goals)
-      if (goal.period === 'week') {
-        endDate = new Date(startDate);
-        endDate.setDate(startDate.getDate() + 6);
-      } else if (goal.period === 'month') {
-        endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
-      } else if (goal.period === 'year') {
-        endDate = new Date(startDate.getFullYear(), 11, 31);
-      }
-    }
+    const { start: startDate, end: endDate } = getGoalPeriodBoundaries(goal);
 
     const isExpired = endDate ? endDate < new Date() : false;
     
@@ -237,40 +222,54 @@ export const ArchivedGoalsSection = ({
         style={flattenStyle([
           styles.archivedCard,
           { 
-            backgroundColor: achieved 
-              ? (isDark ? "rgba(16, 185, 129, 0.1)" : "rgba(16, 185, 129, 0.05)")
-              : (isDark ? "rgba(239, 68, 68, 0.1)" : "rgba(239, 68, 68, 0.05)"),
-            borderColor: achieved 
-              ? (isDark ? "rgba(16, 185, 129, 0.3)" : "rgba(16, 185, 129, 0.2)")
-              : (isDark ? "rgba(239, 68, 68, 0.3)" : "rgba(239, 68, 68, 0.2)"),
+            backgroundColor: isDark ? "#1F2937" : "#FFFFFF",
+            borderColor: isDark ? "#374151" : "#E5E7EB",
             borderWidth: 1,
           }
         ])}
       >
         <HStack style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-          <VStack style={{ flex: 1 }}>
-            <HStack space="xs" style={{ alignItems: 'center', marginBottom: 2 }}>
-              <View style={flattenStyle([
-                styles.statusCircle,
-                { backgroundColor: achieved ? "#10B981" : "#EF4444", width: 16, height: 16 }
-              ])}>
-                {achieved ? (
-                  <Check size={10} color="#FFFFFF" strokeWidth={4} />
-                ) : (
-                  <XIcon size={10} color="#FFFFFF" strokeWidth={4} />
-                )}
-              </View>
-              <Text style={{ fontWeight: 'bold', color: isDark ? "#FFFFFF" : "#111827", fontSize: 13 }}>
-                {categoryLabels[goal.metric] || 'Mål'}: {progress} / {goal.target} {metricLabels[goal.metric] || 'økter'}
-              </Text>
-            </HStack>
-            
-            <HStack space="xs" style={{ alignItems: 'center' }}>
-               <HStack space="none" style={{ gap: 2 }}>
+          <HStack space="md" style={{ alignItems: 'center', flex: 1 }}>
+            <View style={flattenStyle([
+              styles.folderIconWrapper,
+              { backgroundColor: achieved ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)' }
+            ])}>
+              <Target size={20} color={achieved ? "#10B981" : "#EF4444"} />
+            </View>
+
+            <VStack style={{ flex: 1 }}>
+              <HStack space="xs" style={{ alignItems: 'center', marginBottom: 2 }}>
+                <Text style={{ fontWeight: 'bold', color: isDark ? "#FFFFFF" : "#111827", fontSize: 14 }}>
+                  {goal.target} {metricLabels[goal.metric] || 'økter'} {categoryLabels[goal.metric] ? `(${categoryLabels[goal.metric].toLowerCase()})` : ''}
+                </Text>
+                <View style={flattenStyle([
+                  styles.statusCircle,
+                  { backgroundColor: achieved ? "#10B981" : "#EF4444", width: 14, height: 14 }
+                ])}>
+                  {achieved ? (
+                    <Check size={10} color="#FFFFFF" strokeWidth={4} />
+                  ) : (
+                    <XIcon size={10} color="#FFFFFF" strokeWidth={4} />
+                  )}
+                </View>
+              </HStack>
+              
+              <HStack space="xs" style={{ alignItems: 'center' }}>
+                <HStack space="none" style={{ gap: 4 }}>
                   {activityTypes.map((type, idx) => {
                     const colors = getActivityColors(type as any, isDark);
                     return (
-                      <View key={idx} style={{ opacity: 0.8 }}>
+                      <View 
+                        key={idx} 
+                        style={{ 
+                          width: 18, 
+                          height: 18, 
+                          borderRadius: 9, 
+                          backgroundColor: colors.bg,
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
                         {type === 'all' ? (
                           <Compass size={12} color="#10B981" />
                         ) : (
@@ -279,17 +278,22 @@ export const ArchivedGoalsSection = ({
                       </View>
                     );
                   })}
-               </HStack>
-               <Text style={{ fontSize: 10, color: isDark ? "#9CA3AF" : "#6B7280" }}>
-                · {formatDate(startDate)} - {formatDate(endDate)}
+                </HStack>
+                <Text style={{ fontSize: 11, color: isDark ? "#9CA3AF" : "#6B7280", fontWeight: '600' }}>
+                  · {progress} / {goal.target} {metricLabels[goal.metric] || 'økter'}
+                </Text>
+              </HStack>
+              <Text style={{ fontSize: 10, color: isDark ? "#9CA3AF" : "#6B7280", marginTop: 1 }}>
+                {formatDate(startDate)} - {formatDate(endDate)}
               </Text>
-            </HStack>
-          </VStack>
+            </VStack>
+          </HStack>
 
           <HStack space="sm">
             {!isExpired && (
-              <TouchableOpacity onPress={() => onRestore(goal)} style={styles.actionBtn}>
+              <TouchableOpacity onPress={() => onRestore(goal)} style={flattenStyle([styles.actionBtn, { width: 'auto', paddingHorizontal: 10, gap: 4, flexDirection: 'row' }])}>
                 <RotateCcw size={14} color="#10B981" />
+                <Text style={{ fontSize: 10, fontWeight: '700', color: "#10B981" }}>GJENOPPRETT</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity onPress={() => onDelete(goal.id)} style={styles.actionBtn}>
