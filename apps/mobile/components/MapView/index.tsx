@@ -188,9 +188,9 @@ export default function MapScreen() {
       console.warn("Error getting Mapbox center:", err);
     }
 
-    // Fallback to current region
-    return { latitude: region.latitude, longitude: region.longitude };
-  }, [isMapboxLayer, region]);
+    // Fallback to current region ref
+    return { latitude: regionRef.current.latitude, longitude: regionRef.current.longitude };
+  }, [isMapboxLayer]);
 
   const loadPeaks = useCallback(async () => {
     setLoadingPeaks(true);
@@ -380,7 +380,8 @@ export default function MapScreen() {
   const isFirstLoad = useRef(true);
   const isCameraAnimating = useRef(false);
 
-  const [region, setRegion] = useState({
+  // Use a ref for the current camera state to avoid render loops.
+  const regionRef = useRef({
     latitude: 59.9139,
     longitude: 10.7522,
     latitudeDelta: 0.01,
@@ -394,8 +395,7 @@ export default function MapScreen() {
         const saved = await AsyncStorage.getItem('last_map_region');
         if (saved && isFirstLoad.current) {
           const parsed = JSON.parse(saved);
-          setRegion(parsed);
-          hasInitialRegionSet.current = true;
+          regionRef.current = parsed;
           
           if (isMapboxAvailable && isMapboxLayer && mapboxCameraRef.current) {
              mapboxCameraRef.current.setCamera({
@@ -418,13 +418,6 @@ export default function MapScreen() {
     };
     loadLastRegion();
   }, [isMapboxLayer]);
-
-  // Save region when it changes
-  useEffect(() => {
-    if (!isFirstLoad.current) {
-      AsyncStorage.setItem('last_map_region', JSON.stringify(region)).catch(() => {});
-    }
-  }, [region]);
 
   useEffect(() => {
     loadPeaks();
@@ -585,6 +578,9 @@ export default function MapScreen() {
   const handlePeakSelect = (peak: Peak) => {
     console.log("Peak selected:", peak.name);
     setSelectedPeak(peak);
+
+    // When a peak is selected, we consider the initial load "complete"
+    hasInitialRegionSet.current = true;
 
     // Ensure we are on the map tab when a peak is selected
     if (activeTab !== "kart") {
@@ -916,7 +912,13 @@ export default function MapScreen() {
   };
 
   const handleMapboxCameraChanged = (state: any) => {
-    const { center, zoom } = state.properties;
+    const { center, zoom, gesture } = state.properties;
+
+    // If the user moved the map, don't snap to GPS anymore
+    if (gesture) {
+      hasInitialRegionSet.current = true;
+    }
+
     if (state?.properties?.zoom) {
       // Only update if zoom is reasonable
       if (state.properties.zoom > 1) {
@@ -927,23 +929,29 @@ export default function MapScreen() {
       currentHeading.current = state.properties.heading;
     }
 
-    // Update region state so it's accurate when re-rendering
+    // Update ref and save to storage
     if (center && Array.isArray(center)) {
       // Guard against invalid coordinates that cause "jump to ocean/jordklode"
       if (Math.abs(center[1]) < 0.001 && Math.abs(center[0]) < 0.001) return;
       
-      setRegion(prev => ({
-        ...prev,
+      const newRegion = {
         latitude: center[1],
         longitude: center[0],
         latitudeDelta: 0.2 / Math.pow(2, (zoom || currentZoom || 15) - 12),
         longitudeDelta: 0.2 / Math.pow(2, (zoom || currentZoom || 15) - 12),
-      }));
+      };
+      regionRef.current = newRegion;
+      AsyncStorage.setItem('last_map_region', JSON.stringify(newRegion)).catch(() => {});
     }
   };
 
   const handleRegionChangeComplete = async (currentRegion: any, details: any) => {
-    setRegion(currentRegion);
+    regionRef.current = currentRegion;
+    AsyncStorage.setItem('last_map_region', JSON.stringify(currentRegion)).catch(() => {});
+    
+    if (details?.isGesture) {
+      hasInitialRegionSet.current = true;
+    }
 
     if (mapRef.current) {
       try {
@@ -1155,9 +1163,10 @@ export default function MapScreen() {
           )}
           <MapboxCamera
             ref={mapboxCameraRef}
-            centerCoordinate={[region.longitude, region.latitude]}
-            zoomLevel={currentZoom}
-            animationDuration={0}
+            defaultSettings={{
+              centerCoordinate: [regionRef.current.longitude, regionRef.current.latitude],
+              zoomLevel: currentZoom,
+            }}
             followUserLocation={false}
           />
           {activeRoute && (
@@ -1242,7 +1251,7 @@ export default function MapScreen() {
           key={mapType}
           ref={mapRef}
           style={styles.map}
-          initialRegion={region}
+          initialRegion={regionRef.current}
           mapType={resolvedMapType}
           pitchEnabled={true}
           rotateEnabled={true}
