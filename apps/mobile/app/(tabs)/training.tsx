@@ -330,11 +330,19 @@ export default function TrainingScreen() {
   const [chartType, setChartType] = useState<"bar" | "line">("bar");
   const [tooltipIndex, setTooltipIndex] = useState<number | null>(null);
 
+  // Ref for main ScrollView to reset scroll position on tab change
+  const scrollRef = useRef<ScrollView>(null);
+
   // Helper to animate state transitions
   const withAnimation = useCallback((fn: () => void) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     fn();
   }, []);
+
+  // Reset scroll position when sub-tab changes
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [activeSubTab]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -984,8 +992,7 @@ export default function TrainingScreen() {
               <Dumbbell size={20} color="#10B981" />
             </View>
             <VStack>
-              <Heading className={`text-lg font-bold ${themeClasses.text}`}>Trening</Heading>
-              <Text className={`text-xs ${themeClasses.textMuted}`}>Loggfør, analyser og nå dine mål</Text>
+              <Heading className={`text-2xl font-bold ${themeClasses.text}`}>Trening</Heading>
             </VStack>
           </HStack>
           
@@ -1037,6 +1044,7 @@ export default function TrainingScreen() {
 
       {/* Scrollable Page Body Content */}
       <ScrollView 
+        ref={scrollRef}
         style={{ flex: 1 }} 
         contentContainerStyle={{ paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
