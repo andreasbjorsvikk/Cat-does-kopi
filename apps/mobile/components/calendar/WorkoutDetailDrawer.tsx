@@ -1,6 +1,10 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView, Platform, Dimensions } from 'react-native';
-import MapView, { Polyline } from 'react-native-maps';
+
+// Only import react-native-maps on native platforms to avoid web bundling errors
+const MapView = Platform.OS !== 'web' ? require('react-native-maps').default : null;
+const Polyline = Platform.OS !== 'web' ? require('react-native-maps').Polyline : null;
+
 import { useRouter } from 'expo-router';
 import { 
   Actionsheet, 

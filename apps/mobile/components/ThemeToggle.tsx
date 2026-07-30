@@ -34,9 +34,9 @@ const styles = StyleSheet.create({
   themeToggle: {
   },
   themeToggleBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',

@@ -400,13 +400,13 @@ export default function MapScreen() {
           if (isMapboxAvailable && isMapboxLayer && mapboxCameraRef.current) {
              mapboxCameraRef.current.setCamera({
                centerCoordinate: [parsed.longitude, parsed.latitude],
-               zoomLevel: Math.log2(360 / parsed.latitudeDelta),
+               zoomLevel: Math.max(12, Math.log2(360 / parsed.latitudeDelta)),
                animationDuration: 0,
              });
           } else if (mapRef.current) {
              mapRef.current.setCamera({
                center: { latitude: parsed.latitude, longitude: parsed.longitude },
-               zoom: Math.log2(360 / parsed.latitudeDelta),
+               zoom: Math.max(12, Math.log2(360 / parsed.latitudeDelta)),
              });
           }
         }
@@ -918,7 +918,10 @@ export default function MapScreen() {
   const handleMapboxCameraChanged = (state: any) => {
     const { center, zoom } = state.properties;
     if (state?.properties?.zoom) {
-      setCurrentZoom(state.properties.zoom);
+      // Only update if zoom is reasonable
+      if (state.properties.zoom > 1) {
+        setCurrentZoom(state.properties.zoom);
+      }
     }
     if (state?.properties?.heading !== undefined) {
       currentHeading.current = state.properties.heading;
@@ -926,12 +929,15 @@ export default function MapScreen() {
 
     // Update region state so it's accurate when re-rendering
     if (center && Array.isArray(center)) {
+      // Guard against invalid coordinates that cause "jump to ocean/jordklode"
+      if (Math.abs(center[1]) < 0.001 && Math.abs(center[0]) < 0.001) return;
+      
       setRegion(prev => ({
         ...prev,
         latitude: center[1],
         longitude: center[0],
-        latitudeDelta: 0.2 / Math.pow(2, (zoom || currentZoom) - 12),
-        longitudeDelta: 0.2 / Math.pow(2, (zoom || currentZoom) - 12),
+        latitudeDelta: 0.2 / Math.pow(2, (zoom || currentZoom || 15) - 12),
+        longitudeDelta: 0.2 / Math.pow(2, (zoom || currentZoom || 15) - 12),
       }));
     }
   };
@@ -987,20 +993,24 @@ export default function MapScreen() {
 
   return (
     <View style={styles.container}>
-      {loadingPeaks && (
+      {loadingPeaks && peaks.length === 0 ? (
+        <View style={flattenStyle([styles.centered, isDark ? styles.bgDark : styles.bgLight])}>
+          <ActivityIndicator size="large" color="#10B981" />
+        </View>
+      ) : loadingPeaks ? (
         <View 
           style={{ 
             position: 'absolute', 
             top: 0, left: 0, right: 0, bottom: 0, 
             justifyContent: 'center', alignItems: 'center', 
-            backgroundColor: isDark ? 'rgba(3, 7, 18, 0.4)' : 'rgba(249, 250, 251, 0.4)',
+            backgroundColor: isDark ? 'rgba(3, 7, 18, 0.3)' : 'rgba(249, 250, 251, 0.3)',
             zIndex: 1000 
           }}
           pointerEvents="none"
         >
           <ActivityIndicator size="large" color="#10B981" />
         </View>
-      )}
+      ) : null}
 
       {isMapboxAvailable && isMapboxLayer ? (
         <MapboxMapView
@@ -1149,7 +1159,6 @@ export default function MapScreen() {
             zoomLevel={currentZoom}
             animationDuration={0}
             followUserLocation={false}
-            key={`camera-${region.latitude}-${region.longitude}`}
           />
           {activeRoute && (
             <>

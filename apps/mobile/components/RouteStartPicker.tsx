@@ -43,7 +43,7 @@ export function RouteStartPicker({ onConfirm, onCancel, title, confirmLabel, get
           styles.topBar,
           { backgroundColor: isDark ? 'rgba(31, 41, 55, 0.9)' : 'rgba(255, 255, 255, 0.9)' }
         ])}>
-          <HStack className="justify-between items-center px-4 py-4">
+          <HStack className="justify-between items-center px-4 py-5">
             <Text className="font-bold text-xs" style={{ color: isDark ? '#FFFFFF' : '#111827' }}>
               {title || 'Velg startpunkt'}
             </Text>
@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
     zIndex: 2000,
   },
   topBar: {
-    width: '50%',
+    width: '45%',
     borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
