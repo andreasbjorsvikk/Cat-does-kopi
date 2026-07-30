@@ -13,8 +13,7 @@ import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { HStack } from '@/components/ui/hstack';
 import { Wind, Cloud, Sun, Moon, CloudSnow } from 'lucide-react-native';
-import { Image } from 'expo-image';
-import Svg, { Path, Rect, G, Line, Circle, Text as SvgText, TSpan } from 'react-native-svg';
+import Svg, { Path, Rect, G, Line, Circle, Text as SvgText, TSpan, Image as SvgImage, Polygon } from 'react-native-svg';
 import useColorScheme from '@/hooks/useColorScheme';
 import { flattenStyle } from '@/utils/flatten-style';
 import { mapWmoCodeToSymbol, getWeatherIconUrl } from '@/utils/weatherUtils';
@@ -32,21 +31,6 @@ interface WeatherData {
   windDir: number;
   symbol: string;
   snowDepth: number;
-}
-
-function WeatherIcon({ symbol, size }: { symbol: string, size: number }) {
-  const iconUrl = getWeatherIconUrl(symbol);
-  
-  return (
-    <Image 
-      source={{ uri: iconUrl }} 
-      style={{ width: size, height: size }}
-      contentFit="contain"
-      priority="high"
-      cachePolicy="memory-disk"
-      transition={200}
-    />
-  );
 }
 
 export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
@@ -413,7 +397,8 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
                   {/* Wind Arrow & Speed */}
                   <G transform={`translate(${x}, 15)`}>
                     <G transform={`rotate(${h.windDir})`}>
-                      <Path d="M0 -6 L3 4 L0 2 L-3 4 Z" fill={isDark ? '#9CA3AF' : '#64748B'} />
+                      <Line x1="0" y1="-5" x2="0" y2="5" stroke={isDark ? '#9CA3AF' : '#64748B'} strokeWidth="1.2" strokeLinecap="round" />
+                      <Polygon points="0,-6 -2.5,-2 2.5,-2" fill={isDark ? '#9CA3AF' : '#64748B'} />
                     </G>
                     <SvgText
                       x="0"
@@ -430,7 +415,7 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
                   {/* Temperature label */}
                   <SvgText
                     x={x}
-                    y={y - 12}
+                    y={y - 4}
                     fontSize="11"
                     fontWeight="bold"
                     fill={isDark ? '#FFFFFF' : '#000000'}
@@ -439,6 +424,15 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
                     <TSpan>{Math.round(h.temp)}</TSpan>
                     <TSpan dx="-1.5">°</TSpan>
                   </SvgText>
+
+                  {/* Weather Icon (MET Norway) */}
+                  <SvgImage
+                    href={{ uri: getWeatherIconUrl(h.symbol) }}
+                    width="22"
+                    height="22"
+                    x={x - 11}
+                    y={y - 32}
+                  />
                 </G>
               );
             })}
@@ -460,28 +454,6 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
               ))}
             </G>
           </Svg>
-
-          {/* Icons positioned over points */}
-          {graphPoints.map((h, i) => {
-             const x = getXFromPointIndex(i);
-             const y = getYTemp(h.temp);
-             return (
-               <View 
-                 key={i} 
-                 style={{ 
-                   position: 'absolute', 
-                   left: x - 14, 
-                   top: y - 44,
-                   width: 28,
-                   height: 28,
-                   alignItems: 'center',
-                   justifyContent: 'center'
-                 }}
-               >
-                 <WeatherIcon symbol={h.symbol} size={28} />
-               </View>
-             );
-          })}
         </View>
 
         {/* Legend */}
