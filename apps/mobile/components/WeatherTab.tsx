@@ -92,13 +92,13 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
           };
         });
 
-        const dailyInfoMap: Record<string, { sunrise: string; sunset: string }> = {};
+        const dailyInfoMap: Record<string, { sunrise?: string; sunset?: string }> = {};
         if (daily && Array.isArray(daily.time)) {
           daily.time.forEach((date: string, i: number) => {
-            if (daily.sunrise?.[i] && daily.sunset?.[i]) {
+            if (daily.sunrise?.[i] || daily.sunset?.[i]) {
               dailyInfoMap[date] = {
-                sunrise: daily.sunrise[i],
-                sunset: daily.sunset[i],
+                sunrise: daily.sunrise?.[i],
+                sunset: daily.sunset?.[i],
               };
             }
           });
