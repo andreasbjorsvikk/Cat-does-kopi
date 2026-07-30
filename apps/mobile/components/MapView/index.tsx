@@ -155,7 +155,7 @@ export default function MapScreen() {
   const hasInitialRegionSet = useRef(false);
   const currentHeading = useRef(0);
 
-  const [loading, setLoading] = useState(true);
+  const [loadingPeaks, setLoadingPeaks] = useState(true);
   const [peaks, setPeaks] = useState<Peak[]>([]);
   const [selectedPeak, setSelectedPeak] = useState<Peak | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -173,7 +173,7 @@ export default function MapScreen() {
   const [mapType, setMapType] = useState<"satellite" | "terrain" | "norgeskart" | "satellite2">("satellite");
   const [areaStatsMode, setAreaStatsMode] = useState<'off' | 'kommune' | 'fylke'>('off');
   const [areaBoundaries, setAreaBoundaries] = useState<Record<string, any>>({});
-  const [currentZoom, setCurrentZoom] = useState(12);
+  const [currentZoom, setCurrentZoom] = useState(15);
 
   const getMapCenter = useCallback(async () => {
     try {
@@ -188,26 +188,31 @@ export default function MapScreen() {
       console.warn("Error getting Mapbox center:", err);
     }
 
-    // Fallback to region center (works for both react-native-maps and as a stale fallback for Mapbox)
+    // Fallback to current region
     return { latitude: region.latitude, longitude: region.longitude };
   }, [isMapboxLayer, region]);
 
-  const handleConfirmStart = async (coord: { latitude: number; longitude: number }) => {
-    console.log("[MapView] handleConfirmStart called with:", coord);
-    if (!selectedPeak) {
-      console.warn("[MapView] handleConfirmStart called but selectedPeak is null");
-      return;
-    }
-    if (loading) return;
-
+  const loadPeaks = useCallback(async () => {
+    setLoadingPeaks(true);
+    setError(null);
     try {
-      setLoading(true);
+      const data = await fetchPeaks();
+      setPeaks(data);
+    } catch (err) {
+      console.error("Error fetching peaks in MapScreen", err);
+      setError("Kunne ikke laste fjelltopper.");
+    } finally {
+      setLoadingPeaks(false);
+    }
+  }, []);
+
+  const handleConfirmStart = async (coord: { latitude: number; longitude: number }) => {
+    if (!selectedPeak) return;
+    try {
       await createRoute(coord, selectedPeak);
       setIsPickingStart(false);
     } catch (err) {
       Alert.alert("Feil", "Kunne ikke lage rute. Prøv igjen.");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -421,23 +426,9 @@ export default function MapScreen() {
     }
   }, [region]);
 
-  const loadPeaks = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await fetchPeaks();
-      setPeaks(data);
-    } catch (err) {
-      console.error("Error fetching peaks in MapScreen", err);
-      setError("Kunne ikke laste fjelltopper.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
     loadPeaks();
-  }, []);
+  }, [loadPeaks]);
 
   const loadUserCheckins = async () => {
     if (!user) return;
@@ -535,24 +526,21 @@ export default function MapScreen() {
   // Auto-center reliably on user location once it's available
   useEffect(() => {
     // Only auto-center if we haven't set a region yet (initial load)
-    if (userLocation && !hasInitialRegionSet.current) {
-      // Don't interrupt if we're still trying to load the last region from storage
-      if (isFirstLoad.current) return;
-
+    if (userLocation && !hasInitialRegionSet.current && !isFirstLoad.current) {
       let attempted = false;
       if (isMapboxAvailable && isMapboxLayer) {
         if (mapboxCameraRef.current) {
           mapboxCameraRef.current.setCamera({
             centerCoordinate: [userLocation.longitude, userLocation.latitude],
-            zoomLevel: 14,
-            animationDuration: 0, // Instant for initial load
+            zoomLevel: 15,
+            animationDuration: 0,
           });
           attempted = true;
         }
       } else if (mapRef.current) {
         mapRef.current.setCamera({
           center: { latitude: userLocation.latitude, longitude: userLocation.longitude },
-          zoom: 14,
+          zoom: 15,
         });
         attempted = true;
       }
@@ -997,16 +985,23 @@ export default function MapScreen() {
     }
   };
 
-  if (loading) {
-    return (
-      <View style={flattenStyle([styles.centered, isDark ? styles.bgDark : styles.bgLight])}>
-        <ActivityIndicator size="large" color="#10B981" />
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
+      {loadingPeaks && (
+        <View 
+          style={{ 
+            position: 'absolute', 
+            top: 0, left: 0, right: 0, bottom: 0, 
+            justifyContent: 'center', alignItems: 'center', 
+            backgroundColor: isDark ? 'rgba(3, 7, 18, 0.4)' : 'rgba(249, 250, 251, 0.4)',
+            zIndex: 1000 
+          }}
+          pointerEvents="none"
+        >
+          <ActivityIndicator size="large" color="#10B981" />
+        </View>
+      )}
+
       {isMapboxAvailable && isMapboxLayer ? (
         <MapboxMapView
           ref={mapboxMapRef}
@@ -1150,8 +1145,11 @@ export default function MapScreen() {
           )}
           <MapboxCamera
             ref={mapboxCameraRef}
+            centerCoordinate={[region.longitude, region.latitude]}
+            zoomLevel={currentZoom}
             animationDuration={0}
             followUserLocation={false}
+            key={`camera-${region.latitude}-${region.longitude}`}
           />
           {activeRoute && (
             <>
@@ -1551,7 +1549,7 @@ export default function MapScreen() {
                 checkins={userCheckins}
                 userLocation={userLocation}
                 onSelectPeak={handlePeakSelect}
-                loading={loading}
+                loading={loadingPeaks}
               />
             </View>
           ) : activeTab === "lederliste" ? (
