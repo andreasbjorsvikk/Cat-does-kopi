@@ -22,6 +22,7 @@ import { mapWmoCodeToEmoji } from '@/utils/weatherUtils';
 interface WeatherTabProps {
   latitude: number;
   longitude: number;
+  astronomy?: { sunrise: string; sunset: string } | null;
 }
 
 interface WeatherData {
@@ -228,8 +229,8 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
   const maxPrecip = Math.max(...hourlyData.map(h => h.precip), 2);
 
   const graphHeight = 240;
-  const paddingLeft = 45; 
-  const paddingRight = 40; 
+  const paddingLeft = 32; 
+  const paddingRight = 32; 
   const paddingTop = 60; 
   const paddingBottom = 35; 
   
@@ -311,7 +312,7 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
                     <Line 
                       x1={paddingLeft} 
                       y1={y} 
-                      x2={containerWidth - paddingRight + 5} 
+                      x2={containerWidth - paddingRight} 
                       y2={y} 
                       stroke={isDark ? '#1F2937' : '#E2E8F0'} 
                       strokeWidth="1"
@@ -496,13 +497,17 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
         <VStack className="items-center" space="xs">
           <Sun size={14} color="#FBBF24" />
           <Text style={styles.legendText}>Soloppgang</Text>
-          <Text style={flattenStyle([styles.infoValue, { color: isDark ? '#FFFFFF' : '#111827' }])}>{formatTime(currentDay?.sunrise)}</Text>
+          <Text style={flattenStyle([styles.infoValue, { color: isDark ? '#FFFFFF' : '#111827' }])}>
+            {selectedDayIndex === 0 && astronomy?.sunrise ? astronomy.sunrise : formatTime(currentDay?.sunrise)}
+          </Text>
         </VStack>
         
         <VStack className="items-center" space="xs">
           <Moon size={14} color="#60A5FA" />
           <Text style={styles.legendText}>Solnedgang</Text>
-          <Text style={flattenStyle([styles.infoValue, { color: isDark ? '#FFFFFF' : '#111827' }])}>{formatTime(currentDay?.sunset)}</Text>
+          <Text style={flattenStyle([styles.infoValue, { color: isDark ? '#FFFFFF' : '#111827' }])}>
+            {selectedDayIndex === 0 && astronomy?.sunset ? astronomy.sunset : formatTime(currentDay?.sunset)}
+          </Text>
         </VStack>
 
         <VStack className="items-center" space="xs">

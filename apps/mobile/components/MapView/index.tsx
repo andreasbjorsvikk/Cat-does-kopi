@@ -528,6 +528,7 @@ export default function MapScreen() {
           mapboxCameraRef.current.setCamera({
             centerCoordinate: [userLocation.longitude, userLocation.latitude],
             zoomLevel: 15,
+            pitch: 45,
             animationDuration: 0,
           });
           attempted = true;
@@ -536,6 +537,7 @@ export default function MapScreen() {
         mapRef.current.setCamera({
           center: { latitude: userLocation.latitude, longitude: userLocation.longitude },
           zoom: 15,
+          pitch: 45,
         });
         attempted = true;
       }

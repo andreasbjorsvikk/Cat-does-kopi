@@ -285,11 +285,11 @@ export function PeakProfileSheet({
             {/* Route Planning Button */}
             <Button
               onPress={showRouteOptions}
-              className="bg-background-100 h-12 rounded-xl border border-transparent dark:border-outline-800"
+              className="bg-background-100 dark:bg-background-950 h-12 rounded-xl border border-transparent dark:border-outline-800"
             >
               <HStack space="sm" className="items-center">
                 <Navigation size={18} color="#10B981" />
-                <ButtonText className="text-typography-900 font-bold">
+                <ButtonText className="text-typography-900 dark:text-typography-50 font-bold">
                   Lag rute
                 </ButtonText>
               </HStack>
@@ -392,7 +392,11 @@ export function PeakProfileSheet({
         )}
 
         {activeTab === "vær" && (
-          <WeatherTab latitude={peak.latitude} longitude={peak.longitude} />
+          <WeatherTab 
+            latitude={peak.latitude} 
+            longitude={peak.longitude} 
+            astronomy={astronomy}
+          />
         )}
       </ScrollView>
     </View>
