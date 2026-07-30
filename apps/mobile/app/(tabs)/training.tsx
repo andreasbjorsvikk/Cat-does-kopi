@@ -642,12 +642,12 @@ export default function TrainingScreen() {
       onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponderCapture: (_, gestureState) => {
         const { dx, dy } = gestureState;
-        return Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy);
+        return Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 0.5;
       },
       onMoveShouldSetPanResponder: (_, gestureState) => {
         const { dx, dy } = gestureState;
         // Sensitivity check for horizontal swipe
-        return Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy);
+        return Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 0.5;
       },
       onPanResponderGrant: () => {
         setPageScrollEnabled(false);
@@ -1612,7 +1612,7 @@ export default function TrainingScreen() {
                           <TouchableOpacity onPress={handlePrevGoalMonth} style={{ padding: 10 }}>
                             <ChevronLeft size={20} color={isDark ? "#9CA3AF" : "#4B5563"} />
                           </TouchableOpacity>
-                          <Text style={{ fontSize: 18, fontWeight: 'bold', color: isDark ? "#FFFFFF" : "#111827", minWidth: 100, textAlign: 'center' }}>
+                          <Text style={{ fontSize: 24, fontWeight: 'bold', color: isDark ? "#FFFFFF" : "#111827", minWidth: 140, textAlign: 'center' }}>
                             {MONTH_NAMES[targetMonth]}
                           </Text>
                           <TouchableOpacity onPress={handleNextGoalMonth} style={{ padding: 10 }}>
@@ -1623,7 +1623,7 @@ export default function TrainingScreen() {
                           <TouchableOpacity onPress={() => setTargetYear(y => y - 1)} style={{ padding: 6 }}>
                             <ChevronLeft size={14} color={isDark ? "#6B7280" : "#9CA3AF"} />
                           </TouchableOpacity>
-                          <Text style={{ fontSize: 14, fontWeight: 'bold', color: isDark ? "#9CA3AF" : "#6B7280", minWidth: 60, textAlign: 'center' }}>
+                          <Text style={{ fontSize: 18, fontWeight: 'bold', color: isDark ? "#9CA3AF" : "#6B7280", minWidth: 80, textAlign: 'center' }}>
                             {targetYear}
                           </Text>
                           <TouchableOpacity onPress={() => setTargetYear(y => y + 1)} style={{ padding: 6 }}>
@@ -1633,15 +1633,15 @@ export default function TrainingScreen() {
                       </VStack>
 
                       {/* Overlapping progress wheels side-by-side */}
-                      <HStack style={{ justifyContent: 'space-around', alignItems: 'center', marginBottom: 20 }}>
+                      <HStack style={{ justifyContent: 'space-around', alignItems: 'center', marginBottom: 8 }}>
                         <ProgressWheel title={MONTH_NAMES[targetMonth]} percent={monthData.percent} current={monthData.current} target={monthData.target} unit="økter" hasGoal={monthData.target > 0} expectedFraction={monthData.expectedFraction} paceDiff={monthData.diff} isDark={isDark} />
                         <ProgressWheel title={targetYear.toString()} percent={yearData.percent} current={yearData.current} target={yearData.target} unit="økter" hasGoal={yearData.target > 0} expectedFraction={yearData.expectedFraction} paceDiff={yearData.diff} isDark={isDark} />
                       </HStack>
 
                       {viewedGoal ? (
-                        <VStack style={{ alignItems: 'center', marginTop: 12, gap: 6 }}>
-                          <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: isDark ? "rgba(16, 185, 129, 0.1)" : "rgba(16, 185, 129, 0.05)", alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}>
-                            <Target size={20} color="#10B981" />
+                        <VStack style={{ alignItems: 'center', marginTop: 0, gap: 4 }}>
+                          <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: isDark ? "rgba(16, 185, 129, 0.1)" : "rgba(16, 185, 129, 0.05)", alignItems: 'center', justifyContent: 'center', marginBottom: 0 }}>
+                            <Target size={18} color="#10B981" />
                           </View>
                           <Text style={{ fontSize: 18, fontWeight: 'bold', color: isDark ? "#FFFFFF" : "#111827", textAlign: 'center' }}>
                             {viewedGoal.inputTarget} økter per {viewedGoal.inputPeriod === 'week' ? 'uke' : viewedGoal.inputPeriod === 'month' ? 'måned' : 'år'}

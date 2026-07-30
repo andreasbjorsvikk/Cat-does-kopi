@@ -162,7 +162,7 @@ const ProgressWheel = memo(function ProgressWheel({
       </View>
 
       {hasGoal && expectedFraction != null && !isSmall && (
-        <Text style={flattenStyle([styles.paceLabel, { color: mainColor }])}>
+        <Text style={flattenStyle([styles.paceLabel, { color: mainColor, fontSize: 13 }])}>
           {paceDiff != null ? (
             paceDiff >= 0.5 ? `${Math.round(paceDiff)} økter foran skjema` : 
             paceDiff <= -0.5 ? `${Math.round(Math.abs(paceDiff))} økter bak skjema` : 
