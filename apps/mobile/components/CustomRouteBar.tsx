@@ -67,7 +67,7 @@ export function CustomRouteBar() {
               onPress={toggleRoundTrip}
               className={`px-3 py-1.5 rounded-full ${activeRoute.isRoundTrip ? 'bg-emerald-500' : (isDark ? 'bg-gray-800' : 'bg-background-200')}`}
             >
-              <Text className={`text-xs font-bold ${activeRoute.isRoundTrip ? 'text-white' : (isDark ? 'text-gray-400' : 'text-typography-500')}`}>
+              <Text className={`text-xs font-bold ${activeRoute.isRoundTrip ? 'text-white' : (isDark ? 'text-gray-400' : 'text-typography-800')}`}>
                 Tur/retur
               </Text>
             </TouchableOpacity>
@@ -77,7 +77,7 @@ export function CustomRouteBar() {
               className={`px-3 py-1.5 rounded-full ${isDark ? 'bg-gray-800' : 'bg-background-200'} flex-row items-center`}
             >
               <Plus size={12} color="#10B981" />
-              <Text className={`text-xs font-bold ${isDark ? 'text-gray-400' : 'text-typography-500'} ml-1`}>
+              <Text className={`text-xs font-bold ${isDark ? 'text-gray-400' : 'text-typography-800'} ml-1`}>
                 Veipunkt
               </Text>
             </TouchableOpacity>
@@ -121,7 +121,7 @@ export function CustomRouteBar() {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 82 : 62, // Slightly lower to sit better on the tab bar
+    bottom: 12, // Positioned 12px above the tab bar (since MapScreen is inside a tab)
     left: 20,
     right: 20,
     borderRadius: 16,
