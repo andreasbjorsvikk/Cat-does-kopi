@@ -192,26 +192,43 @@ export const ArchivedGoalsSection = ({
   };
 
   const renderArchivedGoal = (goal: ExtraGoal) => {
-    const isExpired = goal.customEnd ? new Date(goal.customEnd) < new Date() : false;
     const activityTypes = goal.activityType ? goal.activityType.split(",") : ["all"];
+    
+    // Determine effective dates for session filtering and display
+    const startDate = goal.customStart ? new Date(goal.customStart) : (goal.createdAt ? new Date(goal.createdAt) : null);
+    let endDate: Date | null = null;
+    
+    if (goal.customEnd) {
+      endDate = new Date(goal.customEnd);
+    } else if (startDate) {
+      // Infer period end if missing (for legacy or non-custom goals)
+      if (goal.period === 'week') {
+        endDate = new Date(startDate);
+        endDate.setDate(startDate.getDate() + 6);
+      } else if (goal.period === 'month') {
+        endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
+      } else if (goal.period === 'year') {
+        endDate = new Date(startDate.getFullYear(), 11, 31);
+      }
+    }
+
+    const isExpired = endDate ? endDate < new Date() : false;
     
     // Calculate final status
     const periodSessions = sessions.filter(s => {
-      if (!goal.customStart || !goal.customEnd) return false;
+      if (!startDate || !endDate) return false;
       const d = new Date(s.date);
-      const inDate = d >= new Date(goal.customStart) && d <= new Date(goal.customEnd);
+      const inDate = d >= startDate && d <= endDate;
       if (!inDate) return false;
       
       if (goal.activityType === 'all') return true;
-      if (goal.activityType.includes(',')) {
-        const types = goal.activityType.split(',');
-        return types.includes(s.type);
-      }
-      return s.type === goal.activityType;
+      return goal.activityType.split(',').includes(s.type);
     });
     
     const progress = computeProgress(periodSessions, goal.metric);
     const achieved = progress >= goal.target;
+
+    const formatDate = (d: Date | null) => d ? d.toLocaleDateString('no-NO', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '';
 
     return (
       <Card 
@@ -263,7 +280,7 @@ export const ArchivedGoalsSection = ({
                   })}
                </HStack>
                <Text style={{ fontSize: 10, color: isDark ? "#9CA3AF" : "#6B7280" }}>
-                · {goal.customStart ? new Date(goal.customStart).toLocaleDateString('no-NO') : ''} - {goal.customEnd ? new Date(goal.customEnd).toLocaleDateString('no-NO') : ''}
+                · {formatDate(startDate)} - {formatDate(endDate)}
               </Text>
             </HStack>
           </VStack>

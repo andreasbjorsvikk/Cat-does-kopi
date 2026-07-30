@@ -117,13 +117,41 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
         const json = await response.json();
         const timeseries = json.properties.timeseries;
 
+        // First, collect all precipitation sources to distribute 6-hour blocks
+        const hourlyPrecipMap = new Map<string, number>();
+        timeseries.forEach((ts: any) => {
+          const timeStr = ts.time;
+          const hourKey = timeStr.substring(0, 16); // "2026-07-25T12:00"
+
+          // 1-hour granular data (preferred)
+          if (ts.data.next_1_hours?.details?.precipitation_amount != null) {
+            hourlyPrecipMap.set(hourKey, ts.data.next_1_hours.details.precipitation_amount);
+          }
+
+          // 6-hour block data (distribute if 1-hour data isn't present)
+          if (ts.data.next_6_hours?.details?.precipitation_amount != null) {
+            const total = ts.data.next_6_hours.details.precipitation_amount;
+            const perHour = total / 6;
+            const baseTime = new Date(timeStr);
+            
+            for (let i = 0; i < 6; i++) {
+              const h = new Date(baseTime);
+              h.setHours(baseTime.getHours() + i);
+              const hKey = h.toISOString().substring(0, 16);
+              // Only fill if more granular 1-hour data doesn't already exist for this hour
+              if (!hourlyPrecipMap.has(hKey)) {
+                hourlyPrecipMap.set(hKey, perHour);
+              }
+            }
+          }
+        });
+
         const formattedData: WeatherData[] = timeseries.map((ts: any) => ({
           time: ts.time,
           temp: ts.data.instant.details.air_temperature,
           windSpeed: ts.data.instant.details.wind_speed,
           windDir: ts.data.instant.details.wind_from_direction,
-          precip: ts.data.next_1_hours?.details?.precipitation_amount ?? 
-                  (ts.data.next_6_hours?.details?.precipitation_amount ? ts.data.next_6_hours.details.precipitation_amount / 6 : 0),
+          precip: hourlyPrecipMap.get(ts.time.substring(0, 16)) ?? 0,
           symbol: ts.data.next_1_hours?.summary?.symbol_code ?? 
                   ts.data.next_6_hours?.summary?.symbol_code ?? 'cloudy',
         }));
@@ -305,7 +333,7 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
                       textAnchor="end"
                     >
                       <TSpan>{Math.round(t)}</TSpan>
-                      <TSpan dx="-1">°</TSpan>
+                      <TSpan dx="-1.5">°</TSpan>
                     </SvgText>
                   </G>
                 );
@@ -402,7 +430,7 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
                     textAnchor="middle"
                   >
                     <TSpan>{Math.round(h.temp)}</TSpan>
-                    <TSpan dx="-1">°</TSpan>
+                    <TSpan dx="-1.5">°</TSpan>
                   </SvgText>
                 </G>
               );

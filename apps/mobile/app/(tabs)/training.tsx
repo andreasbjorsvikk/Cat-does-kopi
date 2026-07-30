@@ -577,15 +577,47 @@ export default function TrainingScreen() {
 
   // Handle Archive Extra Goal
   const handleArchiveExtraGoal = async (id: string) => {
-    try {
-      const goal = extraGoals.find(g => g.id === id);
-      if (goal?.repeating) return;
+    const goal = extraGoals.find(g => g.id === id);
+    if (!goal || goal.repeating) return;
 
-      await goalService.update(id, { archived: true, showOnHome: false });
-      await loadAllData();
-    } catch (err) {
-      console.warn("Could not archive extra goal:", err);
+    // Check if goal is reached and period is over
+    const periodSessions = getSessionsInPeriod(
+      sessions, 
+      goal.period, 
+      goal.activityType, 
+      goal.customStart, 
+      goal.customEnd
+    );
+    const progress = computeProgress(periodSessions, goal.metric);
+    const isReached = progress >= goal.target;
+    const remainingDays = getDaysRemainingInPeriod(goal.period, goal.customEnd);
+    const isPeriodOver = remainingDays <= 0;
+
+    let title = "Arkiver mål";
+    let message = "Er du sikker på at du vil arkivere dette målet? Det vil ikke lenger vises som aktivt.";
+
+    if (!isReached && !isPeriodOver) {
+      message = "Tidsperioden er ikke over for dette målet enda. Arkivere likevel?";
     }
+
+    Alert.alert(
+      title,
+      message,
+      [
+        { text: "Avbryt", style: "cancel" },
+        { 
+          text: "Arkiver", 
+          onPress: async () => {
+            try {
+              await goalService.update(id, { archived: true, showOnHome: false });
+              await loadAllData();
+            } catch (err) {
+              console.warn("Could not archive extra goal:", err);
+            }
+          }
+        }
+      ]
+    );
   };
 
   // Handle Unarchive Extra Goal
