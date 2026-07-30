@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   FlatList,
-  Image,
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { supabase } from '@/lib/supabase';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
@@ -18,6 +18,7 @@ import { VStack } from '@/components/ui/vstack';
 import { MapPin, Calendar, Heart, Compass, Users, User, Mountain } from 'lucide-react-native';
 import useColorScheme from '@/hooks/useColorScheme';
 import { flattenStyle } from '@/utils/flatten-style';
+import { getWeatherIconUrl } from '@/utils/weatherUtils';
 
 export interface Participant {
   id: string;
@@ -323,15 +324,6 @@ export function PeakFeed() {
     }
   }, [feed]);
 
-  const getWeatherIcon = (symbol: string) => {
-    // Map MET symbols to simple display icons or text
-    if (symbol.includes('cloud')) return '☁️';
-    if (symbol.includes('rain')) return '🌧️';
-    if (symbol.includes('snow')) return '❄️';
-    if (symbol.includes('sun') || symbol.includes('clear')) return '☀️';
-    return '🌤️';
-  };
-
   const renderFeedItem = ({ item }: { item: GroupedFeedItem }) => {
     const username = item.parentName;
     const avatarUrl = item.parentAvatarUrl;
@@ -367,7 +359,7 @@ export function PeakFeed() {
                 <HStack key={participant.id} style={{ alignItems: 'center', gap: 6 }}>
                   <View style={styles.participantAvatarContainer}>
                     {participant.avatar_url ? (
-                      <Image source={{ uri: participant.avatar_url }} style={styles.avatarImg} />
+                      <ExpoImage source={{ uri: participant.avatar_url }} style={styles.avatarImg} />
                     ) : (
                       <View style={[styles.avatarPlaceholder, { backgroundColor: isDark ? '#374151' : '#F3F4F6' }]}>
                         <Text size="xs">{participant.emoji || '👶'}</Text>
@@ -400,7 +392,11 @@ export function PeakFeed() {
 
             {weather && (
               <View style={[styles.weatherBadge, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
-                <Text style={{ fontSize: 12 }}>{getWeatherIcon(weather.symbol)}</Text>
+                <ExpoImage 
+                  source={{ uri: getWeatherIconUrl(weather.symbol) }}
+                  style={{ width: 20, height: 20 }}
+                  contentFit="contain"
+                />
                 <Text style={{ fontSize: 12, fontWeight: '600', color: isDark ? '#D1D5DB' : '#4B5563', marginLeft: 4 }}>
                   {weather.temp}°
                 </Text>
@@ -409,7 +405,11 @@ export function PeakFeed() {
           </HStack>
 
           {item.image_url && (
-            <Image source={{ uri: item.image_url }} style={[styles.feedImage, { marginTop: 4 }]} />
+            <ExpoImage 
+              source={{ uri: item.image_url }} 
+              style={[styles.feedImage, { marginTop: 4 }]} 
+              contentFit="cover"
+            />
           )}
         </VStack>
 

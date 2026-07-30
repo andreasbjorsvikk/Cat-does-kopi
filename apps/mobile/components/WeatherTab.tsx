@@ -12,10 +12,12 @@ import {
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { HStack } from '@/components/ui/hstack';
-import { Wind, Cloud, Sun, Moon, CloudRain, CloudLightning, CloudSnow, CloudSun, CloudDrizzle, CloudMoon } from 'lucide-react-native';
+import { Wind, Cloud, Sun, Moon, CloudSnow } from 'lucide-react-native';
+import { Image } from 'expo-image';
 import Svg, { Path, Rect, G, Line, Circle, Text as SvgText, TSpan } from 'react-native-svg';
 import useColorScheme from '@/hooks/useColorScheme';
 import { flattenStyle } from '@/utils/flatten-style';
+import { mapWmoCodeToSymbol, getWeatherIconUrl } from '@/utils/weatherUtils';
 
 interface WeatherTabProps {
   latitude: number;
@@ -32,115 +34,16 @@ interface WeatherData {
   snowDepth: number;
 }
 
-const WMO_TO_MET: Record<number, string> = {
-  0: 'clearsky',
-  1: 'fair',
-  2: 'partlycloudy',
-  3: 'cloudy',
-  45: 'fog',
-  48: 'fog',
-  51: 'lightrain',
-  53: 'lightrain',
-  55: 'lightrain',
-  56: 'lightrain',
-  57: 'lightrain',
-  61: 'lightrain',
-  63: 'rain',
-  65: 'heavyrain',
-  66: 'rain',
-  67: 'heavyrain',
-  71: 'lightsnow',
-  73: 'snow',
-  75: 'heavysnow',
-  77: 'lightsnow',
-  80: 'rainshowers',
-  81: 'rainshowers',
-  82: 'heavyrainshowers',
-  85: 'snowshowers',
-  86: 'heavysnowshowers',
-  95: 'rainandthunder',
-  96: 'rainandthunder',
-  99: 'heavyrainandthunder',
-};
-
-const WEATHER_SYMBOLS: Record<string, any> = {
-  clearsky: { day: Sun, night: Moon },
-  fair: { day: Sun, night: Moon },
-  partlycloudy: { day: CloudSun, night: CloudMoon },
-  cloudy: Cloud,
-  fog: Cloud,
-  lightrain: CloudDrizzle,
-  rain: CloudRain,
-  heavyrain: CloudRain,
-  lightrainshowers: CloudDrizzle,
-  rainshowers: CloudRain,
-  heavyrainshowers: CloudRain,
-  lightsnow: CloudSnow,
-  snow: CloudSnow,
-  heavysnow: CloudSnow,
-  lightsnowshowers: CloudSnow,
-  snowshowers: CloudSnow,
-  heavysnowshowers: CloudSnow,
-  lightrainandthunder: CloudLightning,
-  rainandthunder: CloudLightning,
-  heavyrainandthunder: CloudLightning,
-};
-
-function WeatherIcon({ symbol, size, color }: { symbol: string, size: number, color: string }) {
-  const [baseSymbol, period] = symbol.split('_');
-  const isNight = period === 'night';
-  const iconData = WEATHER_SYMBOLS[baseSymbol] || Cloud;
-  const IconComponent = iconData.day ? (isNight ? iconData.night : iconData.day) : iconData;
+function WeatherIcon({ symbol, size }: { symbol: string, size: number, color?: string }) {
+  const iconUrl = getWeatherIconUrl(symbol);
   
-  // Special handling for multi-color icons
-  const isSun = baseSymbol === 'clearsky' || baseSymbol === 'fair';
-  const isPartlyCloudy = baseSymbol === 'partlycloudy';
-  const isRain = baseSymbol.includes('rain') || baseSymbol.includes('drizzle');
-  const isThunder = baseSymbol.includes('thunder');
-  const isSnow = baseSymbol.includes('snow');
-
-  if (isPartlyCloudy) {
-    return (
-      <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-        <View style={{ position: 'absolute', top: -2, right: -2 }}>
-          {isNight ? (
-            <Moon size={size * 0.7} color="#FBBF24" />
-          ) : (
-            <Sun size={size * 0.7} color="#FBBF24" />
-          )}
-        </View>
-        <Cloud size={size * 0.8} color="#9CA3AF" style={{ position: 'absolute', bottom: 0, left: 0 }} />
-      </View>
-    );
-  }
-
-  if (isSun) {
-    return isNight ? <Moon size={size} color="#FBBF24" /> : <Sun size={size} color="#FBBF24" />;
-  }
-  
-  if (isRain || isThunder) {
-    return (
-      <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-        <Cloud size={size * 0.9} color="#9CA3AF" />
-        <View style={{ position: 'absolute', bottom: -4 }}>
-           <IconComponent size={size * 0.6} color="#3B82F6" />
-        </View>
-      </View>
-    );
-  }
-
-  if (isSnow) {
-    return (
-      <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-        <Cloud size={size * 0.9} color="#9CA3AF" />
-        <View style={{ position: 'absolute', bottom: -4 }}>
-           <CloudSnow size={size * 0.6} color="#FFFFFF" />
-        </View>
-      </View>
-    );
-  }
-
-  return <IconComponent size={size} color="#9CA3AF" />;
+  return (
+    <Image 
+      source={{ uri: iconUrl }} 
+      style={{ width: size, height: size }}
+      contentFit="contain"
+    />
+  );
 }
 
 export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
@@ -188,7 +91,7 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
           const snowDepth = hourly.snow_depth_metno_nordic?.[i] ?? hourly.snow_depth_best_match?.[i] ?? hourly.snow_depth?.[i] ?? 0;
           
           const weatherCode = hourly.weather_code_best_match?.[i] ?? hourly.weather_code?.[i] ?? 0;
-          const baseSymbol = WMO_TO_MET[weatherCode] || 'cloudy';
+          const baseSymbol = mapWmoCodeToSymbol(weatherCode);
           
           const dateStr = time?.split('T')[0];
           const dailyIndex = daily?.time?.indexOf(dateStr) ?? -1;

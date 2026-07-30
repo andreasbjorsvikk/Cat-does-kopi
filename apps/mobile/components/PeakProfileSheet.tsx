@@ -4,11 +4,11 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Image,
   ActivityIndicator,
   Platform,
   Dimensions,
 } from "react-native";
+import { Image as ExpoImage } from "expo-image";
 import { Heading } from "@/components/ui/heading";
 import { Text } from "@/components/ui/text";
 import { HStack } from "@/components/ui/hstack";
@@ -35,6 +35,7 @@ import { flattenStyle } from "@/utils/flatten-style";
 import { PeakLeaderboard } from "./leaderboard/PeakLeaderboard";
 import { supabase } from "@/lib/supabase";
 import { WeatherTab } from "./WeatherTab";
+import { getWeatherIconUrl } from "@/utils/weatherUtils";
 
 interface PeakProfileSheetProps {
   peak: Peak;
@@ -247,9 +248,11 @@ export function PeakProfileSheet({
             <View style={flattenStyle([styles.infoCard, { backgroundColor: isDark ? "#1F2937" : "#F8FAFC" }])}>
               <HStack className="justify-between items-center">
                 <HStack space="md" className="items-center">
-                  <View className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-xl">
-                    <Cloud size={24} color="#3B82F6" />
-                  </View>
+                  <ExpoImage 
+                    source={{ uri: getWeatherIconUrl(weatherData?.symbol || "cloudy") }}
+                    style={{ width: 44, height: 44 }}
+                    contentFit="contain"
+                  />
                   <VStack>
                     <Text 
                       className="font-semibold"
@@ -261,15 +264,6 @@ export function PeakProfileSheet({
                   </VStack>
                 </HStack>
                 <HStack space="sm" className="items-center">
-                  {weatherData && (
-                    <View className="mr-1">
-                      {weatherData.symbol.includes("cloud") ? (
-                        <Cloud size={24} color={isDark ? "#9CA3AF" : "#3B82F6"} />
-                      ) : (
-                        <Sun size={24} color={isDark ? "#FBBF24" : "#EAB308"} />
-                      )}
-                    </View>
-                  )}
                   <Text 
                     className="text-2xl font-bold"
                     style={{ color: isDark ? "#F9FAFB" : "#111827" }}
@@ -450,7 +444,7 @@ function PeakSpecificFeed({ peakId }: { peakId: string }) {
             <HStack space="md" className="items-center mb-3">
               <View className="w-10 h-10 rounded-full overflow-hidden bg-background-200 dark:bg-background-800">
                 {avatarUrl ? (
-                  <Image source={{ uri: avatarUrl }} className="w-full h-full" />
+                  <ExpoImage source={{ uri: avatarUrl }} className="w-full h-full" />
                 ) : (
                   <View className="w-full h-full items-center justify-center">
                     <Text>{emoji || "🏔️"}</Text>
@@ -474,9 +468,10 @@ function PeakSpecificFeed({ peakId }: { peakId: string }) {
               </VStack>
             </HStack>
             {item.image_url && (
-              <Image 
+              <ExpoImage 
                 source={{ uri: item.image_url }} 
                 style={styles.feedImage} 
+                contentFit="cover"
                 className="mb-3"
               />
             )}
