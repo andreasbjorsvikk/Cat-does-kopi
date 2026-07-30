@@ -12,7 +12,7 @@ import {
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { HStack } from '@/components/ui/hstack';
-import { Wind, ArrowDown, Cloud, Sun, CloudRain, CloudLightning, CloudSnow, CloudSun, CloudDrizzle } from 'lucide-react-native';
+import { Wind, Cloud, Sun, CloudRain, CloudLightning, CloudSnow, CloudSun, CloudDrizzle } from 'lucide-react-native';
 import Svg, { Path, Rect, G, Line, Circle, Text as SvgText } from 'react-native-svg';
 import useColorScheme from '@/hooks/useColorScheme';
 import { flattenStyle } from '@/utils/flatten-style';
@@ -57,10 +57,9 @@ function WeatherIcon({ symbol, size, color }: { symbol: string, size: number, co
   const baseSymbol = symbol.split('_')[0];
   const Icon = WEATHER_SYMBOLS[baseSymbol] || Cloud;
   
-  // Custom coloring for symbols to match "other app" look
   let iconColor = color;
-  if (baseSymbol === 'clearsky' || baseSymbol === 'fair') iconColor = '#FBBF24'; // Yellow
-  if (baseSymbol.includes('rain') || baseSymbol.includes('drizzle')) iconColor = '#3B82F6'; // Blue
+  if (baseSymbol === 'clearsky' || baseSymbol === 'fair') iconColor = '#FBBF24';
+  if (baseSymbol.includes('rain') || baseSymbol.includes('drizzle')) iconColor = '#3B82F6';
   
   return <Icon size={size} color={iconColor} />;
 }
@@ -91,8 +90,11 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
           temp: ts.data.instant.details.air_temperature,
           windSpeed: ts.data.instant.details.wind_speed,
           windDir: ts.data.instant.details.wind_from_direction,
-          precip: ts.data.next_1_hours?.details?.precipitation_amount || 0,
-          symbol: ts.data.next_1_hours?.summary?.symbol_code || 'cloudy',
+          // Precipitation can be in next_1_hours or next_6_hours (fallback)
+          precip: ts.data.next_1_hours?.details?.precipitation_amount ?? 
+                  (ts.data.next_6_hours?.details?.precipitation_amount ? ts.data.next_6_hours.details.precipitation_amount / 6 : 0),
+          symbol: ts.data.next_1_hours?.summary?.symbol_code ?? 
+                  ts.data.next_6_hours?.summary?.symbol_code ?? 'cloudy',
         }));
 
         setData(formattedData);
@@ -153,82 +155,101 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
 
   const currentDay = days[selectedDayIndex];
   
-  // Create 8 fixed points for the graph (00, 03, 06, 09, 12, 15, 18, 21)
-  const graphHours = [0, 3, 6, 9, 12, 15, 18, 21].map(hour => {
-    const timeStr = `${currentDay.date}T${String(hour).padStart(2, '0')}:00:00Z`;
-    // Find closest data point
-    const closest = currentDay.hours.find(h => h.time >= timeStr) || currentDay.hours[currentDay.hours.length - 1];
+  // Points for the temperature line and icons (every 3 hours)
+  const graphPoints = [0, 3, 6, 9, 12, 15, 18, 21].map(hour => {
+    const timeStr = `${currentDay.date}T${String(hour).padStart(2, '0')}:00:00`;
+    const closest = currentDay.hours.find(h => h.time.startsWith(timeStr)) || 
+                    currentDay.hours.find(h => h.time >= timeStr) || 
+                    currentDay.hours[currentDay.hours.length - 1];
     return {
       ...closest,
       label: String(hour).padStart(2, '0')
     };
   });
+
+  // Hourly data for the precipitation bars (all hours in currentDay)
+  const hourlyData = currentDay.hours;
   
-  const maxTemp = Math.max(...graphHours.map(h => h.temp));
-  const minTemp = Math.min(...graphHours.map(h => h.temp));
-  const tempRange = Math.max(maxTemp - minTemp, 4); // Min range of 4 degrees
+  const allTemps = hourlyData.map(h => h.temp);
+  const maxTemp = Math.max(...allTemps);
+  const minTemp = Math.min(...allTemps);
   const graphMinTemp = Math.floor(minTemp - 1);
-  const graphMaxTemp = Math.ceil(maxTemp + 3); // More space at top for icons
+  const graphMaxTemp = Math.ceil(maxTemp + 3);
 
-  const maxPrecip = Math.max(...graphHours.map(h => h.precip), 2);
+  const maxPrecip = Math.max(...hourlyData.map(h => h.precip), 2);
 
-  const graphHeight = 220;
-  const paddingLeft = 30;
-  const paddingRight = 30;
-  const paddingTop = 60; // Space for wind arrows
-  const paddingBottom = 40; // Space for X axis
+  const graphHeight = 240;
+  const paddingLeft = 35;
+  const paddingRight = 35;
+  const paddingTop = 70; 
+  const paddingBottom = 35; 
   
   const chartWidth = containerWidth - paddingLeft - paddingRight;
   const chartHeight = graphHeight - paddingTop - paddingBottom;
 
-  const getX = (index: number) => paddingLeft + (index / (graphHours.length - 1)) * chartWidth;
+  const getXFromTime = (time: string) => {
+    const date = new Date(time);
+    const hour = date.getHours();
+    return paddingLeft + (hour / 24) * chartWidth;
+  };
+
+  const getXFromPointIndex = (index: number) => {
+    // index corresponds to 0, 3, 6, 9, 12, 15, 18, 21 (which are 8 points covering the day)
+    // Actually let's just use the hour directly
+    const hour = index * 3;
+    return paddingLeft + (hour / 21) * chartWidth; 
+  };
+
   const getYTemp = (temp: number) => {
     const range = graphMaxTemp - graphMinTemp;
     return paddingTop + chartHeight - ((temp - graphMinTemp) / range) * chartHeight;
   };
+
   const getYPrecip = (precip: number) => {
-    return paddingTop + chartHeight - (precip / maxPrecip) * chartHeight;
+    return paddingTop + chartHeight - (Math.min(precip, maxPrecip) / maxPrecip) * chartHeight;
   };
 
-  const linePath = graphHours.map((h, i) => `${i === 0 ? 'M' : 'L'} ${getX(i)} ${getYTemp(h.temp)}`).join(' ');
+  const linePath = graphPoints.map((h, i) => `${i === 0 ? 'M' : 'L'} ${getXFromPointIndex(i)} ${getYTemp(h.temp)}`).join(' ');
 
   return (
-    <VStack style={{ gap: 16 }}>
-      {/* Day Selector */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.daysScroll}>
-        {days.map((day, index) => (
-          <TouchableOpacity
-            key={day.date}
-            onPress={() => setSelectedDayIndex(index)}
-            style={flattenStyle([
-              styles.dayButton,
-              selectedDayIndex === index 
-                ? { backgroundColor: isDark ? '#FFFFFF' : '#111827' }
-                : { backgroundColor: isDark ? '#1F2937' : '#F3F4F6' }
-            ])}
-          >
-            <Text style={flattenStyle([
-              styles.dayButtonText,
-              selectedDayIndex === index 
-                ? { color: isDark ? '#000000' : '#FFFFFF' } 
-                : { color: isDark ? '#9CA3AF' : '#111827' }
-            ])}>
-              {day.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+    <VStack style={{ gap: 8 }}>
+      {/* Day Selector - Narrower and less spacing */}
+      <View style={{ marginTop: 4, marginBottom: 4 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.daysScroll}>
+          {days.map((day, index) => (
+            <TouchableOpacity
+              key={day.date}
+              onPress={() => setSelectedDayIndex(index)}
+              style={flattenStyle([
+                styles.dayButton,
+                selectedDayIndex === index 
+                  ? { backgroundColor: isDark ? '#FFFFFF' : '#111827' }
+                  : { backgroundColor: isDark ? '#1F2937' : '#F3F4F6' }
+              ])}
+            >
+              <Text style={flattenStyle([
+                styles.dayButtonText,
+                selectedDayIndex === index 
+                  ? { color: isDark ? '#000000' : '#FFFFFF' } 
+                  : { color: isDark ? '#9CA3AF' : '#111827' }
+              ])}>
+                {day.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
 
       {/* Weather Card */}
       <View 
         onLayout={onLayout}
         style={flattenStyle([
           styles.weatherCard, 
-          { backgroundColor: isDark ? '#121212' : '#F8FAFC' }
+          { backgroundColor: isDark ? '#111827' : '#F8FAFC', paddingHorizontal: 12 }
         ])}
       >
         {/* Unit indicators */}
-        <HStack className="justify-between items-center mb-2">
+        <HStack className="justify-between items-center mb-1">
           <HStack space="xs" className="items-center">
             <Wind size={12} color={isDark ? '#9CA3AF' : '#64748B'} />
             <Text style={styles.unitText}>m/s</Text>
@@ -240,39 +261,44 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
 
         <View style={{ height: graphHeight }}>
           <Svg width={containerWidth} height={graphHeight}>
-            {/* Grid lines based on temperature */}
+            {/* Grid lines (Temperature) */}
             <G>
-              {[graphMinTemp, (graphMinTemp + graphMaxTemp) / 2, graphMaxTemp].map((t, i) => (
-                <G key={i}>
-                  <Line 
-                    x1={paddingLeft} 
-                    y1={getYTemp(t)} 
-                    x2={containerWidth - paddingRight} 
-                    y2={getYTemp(t)} 
-                    stroke={isDark ? '#333333' : '#E2E8F0'} 
-                    strokeWidth="1"
-                  />
-                  <SvgText
-                    x={paddingLeft - 8}
-                    y={getYTemp(t) + 4}
-                    fontSize="10"
-                    fill={isDark ? '#9CA3AF' : '#64748B'}
-                    textAnchor="end"
-                  >
-                    {Math.round(t)}°
-                  </SvgText>
-                </G>
-              ))}
+              {[graphMinTemp, (graphMinTemp + graphMaxTemp) / 2, graphMaxTemp].map((t, i) => {
+                const y = getYTemp(t);
+                return (
+                  <G key={i}>
+                    <Line 
+                      x1={paddingLeft} 
+                      y1={y} 
+                      x2={containerWidth - paddingRight} 
+                      y2={y} 
+                      stroke={isDark ? '#1F2937' : '#E2E8F0'} 
+                      strokeWidth="1"
+                    />
+                    <SvgText
+                      x={paddingLeft - 10}
+                      y={y + 4}
+                      fontSize="10"
+                      fontWeight="500"
+                      fill={isDark ? '#9CA3AF' : '#64748B'}
+                      textAnchor="end"
+                    >
+                      {Math.round(t)}°
+                    </SvgText>
+                  </G>
+                );
+              })}
             </G>
 
-            {/* Right Y-Axis (Precipitation) labels */}
+            {/* Grid lines (Precipitation Labels on right) */}
             <G>
                {[0, maxPrecip / 2, maxPrecip].map((p, i) => (
                  <SvgText
                     key={i}
-                    x={containerWidth - paddingRight + 8}
+                    x={containerWidth - paddingRight + 10}
                     y={getYPrecip(p) + 4}
                     fontSize="10"
+                    fontWeight="500"
                     fill={isDark ? '#9CA3AF' : '#64748B'}
                     textAnchor="start"
                   >
@@ -281,21 +307,22 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
                ))}
             </G>
 
-            {/* Precipitation Bars */}
+            {/* Precipitation Bars - Hourly */}
             <G>
-              {graphHours.map((h, i) => {
-                const barHeight = (h.precip / maxPrecip) * chartHeight;
-                if (barHeight === 0) return null;
+              {hourlyData.map((h, i) => {
+                const barHeight = chartHeight - (getYPrecip(h.precip) - paddingTop);
+                if (barHeight <= 1) return null;
+                const x = paddingLeft + (i / (hourlyData.length - 1)) * chartWidth;
                 return (
                   <Rect
                     key={i}
-                    x={getX(i) - 6}
+                    x={x - 4}
                     y={paddingTop + chartHeight - barHeight}
-                    width="12"
+                    width="8"
                     height={barHeight}
                     fill="#3B82F6"
                     opacity={0.4}
-                    rx="2"
+                    rx="1.5"
                   />
                 );
               })}
@@ -307,25 +334,27 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
               fill="none"
               stroke={isDark ? '#FFFFFF' : '#000000'}
               strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             />
 
             {/* Points and Labels */}
-            {graphHours.map((h, i) => {
-              const x = getX(i);
+            {graphPoints.map((h, i) => {
+              const x = getXFromPointIndex(i);
               const y = getYTemp(h.temp);
               return (
                 <G key={i}>
-                  {/* Point on the line */}
-                  <Circle cx={x} cy={y} r="3.5" fill={isDark ? '#FFFFFF' : '#000000'} stroke={isDark ? '#121212' : '#F8FAFC'} strokeWidth="1" />
+                  {/* Point */}
+                  <Circle cx={x} cy={y} r="3.5" fill={isDark ? '#FFFFFF' : '#000000'} stroke={isDark ? '#111827' : '#F8FAFC'} strokeWidth="1.5" />
                   
-                  {/* Wind Arrow & Speed at the very top */}
-                  <G transform={`translate(${x}, 15)`}>
+                  {/* Wind Arrow & Speed */}
+                  <G transform={`translate(${x}, 20)`}>
                     <G transform={`rotate(${h.windDir})`}>
-                      <Path d="M0 -6 L-3 2 L3 2 Z" fill={isDark ? '#9CA3AF' : '#64748B'} />
+                      <Path d="M0 -6 L4 6 L0 3 L-4 6 Z" fill={isDark ? '#9CA3AF' : '#64748B'} />
                     </G>
                     <SvgText
                       x="0"
-                      y="14"
+                      y="18"
                       fontSize="9"
                       fontWeight="bold"
                       fill={isDark ? '#9CA3AF' : '#64748B'}
@@ -335,11 +364,11 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
                     </SvgText>
                   </G>
 
-                  {/* Temperature label below the icon */}
+                  {/* Temperature label */}
                   <SvgText
                     x={x}
                     y={y - 12}
-                    fontSize="10"
+                    fontSize="11"
                     fontWeight="bold"
                     fill={isDark ? '#FFFFFF' : '#000000'}
                     textAnchor="middle"
@@ -350,14 +379,15 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
               );
             })}
 
-            {/* X-Axis Labels (Time) */}
-            <G transform={`translate(0, ${graphHeight - 15})`}>
-              {graphHours.map((h, i) => (
+            {/* X-Axis Labels */}
+            <G transform={`translate(0, ${graphHeight - 10})`}>
+              {graphPoints.map((h, i) => (
                 <SvgText
                   key={i}
-                  x={getX(i)}
+                  x={getXFromPointIndex(i)}
                   y="0"
                   fontSize="10"
+                  fontWeight="500"
                   fill={isDark ? '#9CA3AF' : '#64748B'}
                   textAnchor="middle"
                 >
@@ -367,22 +397,24 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
             </G>
           </Svg>
 
-          {/* Weather icons floating above the temperature points */}
-          {graphHours.map((h, i) => {
+          {/* Icons positioned over points */}
+          {graphPoints.map((h, i) => {
+             const x = getXFromPointIndex(i);
+             const y = getYTemp(h.temp);
              return (
                <View 
                  key={i} 
                  style={{ 
                    position: 'absolute', 
-                   left: getX(i) - 10, 
-                   top: getYTemp(h.temp) - 45,
+                   left: x - 10, 
+                   top: y - 48,
                    width: 20,
                    height: 20,
                    alignItems: 'center',
                    justifyContent: 'center'
                  }}
                >
-                 <WeatherIcon symbol={h.symbol} size={18} color={isDark ? '#FFFFFF' : '#111827'} />
+                 <WeatherIcon symbol={h.symbol} size={20} color={isDark ? '#FFFFFF' : '#111827'} />
                </View>
              );
           })}
@@ -401,7 +433,7 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
         </HStack>
       </View>
       
-      <Text className="text-center text-xs text-typography-400 dark:text-typography-500 italic">
+      <Text className="text-center text-xs text-typography-400 dark:text-typography-500 italic mt-1">
         Værdata hentet fra Yr.no
       </Text>
     </VStack>
@@ -415,51 +447,51 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   daysScroll: {
-    gap: 8,
-    paddingVertical: 4,
-    paddingHorizontal: 4,
+    gap: 6,
+    paddingVertical: 2,
+    paddingHorizontal: 8,
   },
   dayButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 14,
-    minWidth: 80,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    minWidth: 70,
     alignItems: 'center',
     justifyContent: 'center',
   },
   dayButtonText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
   },
   weatherCard: {
-    padding: 16,
-    borderRadius: 24,
+    padding: 12,
+    borderRadius: 20,
     overflow: 'hidden',
   },
   unitText: {
     fontSize: 10,
     color: '#9CA3AF',
-    fontWeight: '600',
+    fontWeight: '700',
   },
   chartFooter: {
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 16,
-    marginTop: 10,
+    marginTop: 8,
   },
   legendLine: {
     width: 16,
-    height: 2,
-    borderRadius: 1,
+    height: 2.5,
+    borderRadius: 1.25,
   },
   legendPill: {
-    width: 16,
+    width: 14,
     height: 8,
     borderRadius: 2,
   },
   legendText: {
     fontSize: 11,
     color: '#9CA3AF',
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });
