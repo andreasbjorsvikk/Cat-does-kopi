@@ -12,6 +12,7 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import { useAuth } from "@/hooks/useAuth";
 import * as Linking from "expo-linking";
 import { supabase } from "@/lib/supabase";
+import { RouteProvider } from "@/context/RouteContext";
 
 // Initialize CatDoes Watch for error tracking
 // Set EXPO_PUBLIC_CATDOES_WATCH_KEY in your environment to enable
@@ -121,7 +122,9 @@ export default function RootLayout() {
   return (
     <ErrorBoundary>
       <GluestackInitializer colorScheme={colorScheme}>
-        <InitialLayout />
+        <RouteProvider>
+          <InitialLayout />
+        </RouteProvider>
         <StatusBar style="auto" />
       </GluestackInitializer>
     </ErrorBoundary>

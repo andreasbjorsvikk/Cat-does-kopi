@@ -11,7 +11,7 @@ import {
   UIManager,
   Alert,
 } from "react-native";
-import MapView, { Marker, UrlTile } from "react-native-maps";
+import MapView, { Marker, UrlTile, Polyline } from "react-native-maps";
 import { Heading } from "@/components/ui/heading";
 import { Text } from "@/components/ui/text";
 import { Card } from "@/components/ui/card";
@@ -67,6 +67,9 @@ import { PeakLeaderboard } from "../leaderboard/PeakLeaderboard";
 import { PeakProfileSheet } from "../PeakProfileSheet";
 import { fetchBoundary } from "@/services/boundaryService";
 import KOMMUNER_DATA from "@/data/kommuner.json";
+import { useRoute } from "@/context/RouteContext";
+import { CustomRouteBar } from "../CustomRouteBar";
+import { RouteStartPicker } from "../RouteStartPicker";
 
 let Mapbox: any = null;
 let MapboxMapView: any = null;
@@ -134,6 +137,16 @@ export default function MapScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const { user, profile } = useAuth();
+  const { 
+    activeRoute, 
+    isPickingStart, 
+    isPickingWaypoint, 
+    setIsPickingStart, 
+    setIsPickingWaypoint,
+    createRoute,
+    updateRoute,
+    clearRoute
+  } = useRoute();
 
   const mapRef = useRef<MapView | null>(null);
   const mapboxMapRef = useRef<any>(null);
@@ -160,6 +173,45 @@ export default function MapScreen() {
   const [areaStatsMode, setAreaStatsMode] = useState<'off' | 'kommune' | 'fylke'>('off');
   const [areaBoundaries, setAreaBoundaries] = useState<Record<string, any>>({});
   const [currentZoom, setCurrentZoom] = useState(12);
+
+  const getMapCenter = useCallback(async () => {
+    if (isMapboxAvailable && isMapboxLayer && mapboxMapRef.current) {
+      // Mapbox center coordinate is [lng, lat]
+      const center = await mapboxMapRef.current.getCenter();
+      return { latitude: center[1], longitude: center[0] };
+    } else if (mapRef.current) {
+      // For react-native-maps, we usually track this via onRegionChangeComplete
+      return { latitude: region.latitude, longitude: region.longitude };
+    }
+    return { latitude: 0, longitude: 0 };
+  }, [isMapboxLayer, region]);
+
+  const handleConfirmStart = async (coord: { latitude: number; longitude: number }) => {
+    if (!selectedPeak) return;
+    try {
+      setLoading(true);
+      await createRoute(coord, selectedPeak);
+      setIsPickingStart(false);
+    } catch (err) {
+      Alert.alert("Feil", "Kunne ikke lage rute. Prøv igjen.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirmWaypoint = async (coord: { latitude: number; longitude: number }) => {
+    if (!activeRoute) return;
+    try {
+      setLoading(true);
+      const newWaypoints = [...activeRoute.waypoints, coord];
+      await updateRoute({ waypoints: newWaypoints });
+      setIsPickingWaypoint(false);
+    } catch (err) {
+      Alert.alert("Feil", "Kunne ikke legge til veipunkt.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const declutteredPeaks = React.useMemo(() => {
     // Show all peaks when zoomed in enough
@@ -1042,6 +1094,43 @@ export default function MapScreen() {
               pitch: is3DEnabled ? 60 : 0,
             }}
           />
+          {activeRoute && (
+            <>
+              <Mapbox.ShapeSource
+                id="routeSource"
+                shape={{
+                  type: "Feature",
+                  geometry: {
+                    type: "LineString",
+                    coordinates: activeRoute.points.map(p => [p.longitude, p.latitude])
+                  },
+                  properties: {}
+                }}
+              >
+                <Mapbox.LineLayer
+                  id="routeLayer"
+                  style={{
+                    lineColor: "#10B981",
+                    lineWidth: 4,
+                    lineCap: "round",
+                    lineJoin: "round"
+                  }}
+                />
+              </Mapbox.ShapeSource>
+
+              {activeRoute.waypoints.map((wp, idx) => (
+                <MapboxMarkerView
+                  key={`wp-${idx}`}
+                  id={`wp-${idx}`}
+                  coordinate={[wp.longitude, wp.latitude]}
+                >
+                  <View style={styles.waypointMarker}>
+                    <Text style={styles.waypointText}>{idx + 1}</Text>
+                  </View>
+                </MapboxMarkerView>
+              ))}
+            </>
+          )}
           {peaks.map((peak) => {
             // Always render the selected peak regardless of decluttering
             const isSelected = selectedPeak?.id === peak.id;
@@ -1105,6 +1194,28 @@ export default function MapScreen() {
             maxPitch: 90,
           } as any)}
         >
+          {activeRoute && (
+            <>
+              <Polyline
+                coordinates={activeRoute.points}
+                strokeColor="#10B981"
+                strokeWidth={4}
+                lineCap="round"
+                lineJoin="round"
+              />
+              {activeRoute.waypoints.map((wp, idx) => (
+                <Marker
+                  key={`wp-${idx}`}
+                  coordinate={wp}
+                  anchor={{ x: 0.5, y: 0.5 }}
+                >
+                  <View style={styles.waypointMarker}>
+                    <Text style={styles.waypointText}>{idx + 1}</Text>
+                  </View>
+                </Marker>
+              ))}
+            </>
+          )}
           {mapType === "norgeskart" && (
             <UrlTile
               key="norgeskart-tile"
@@ -1410,7 +1521,7 @@ export default function MapScreen() {
         </View>
       )}
 
-      {selectedPeak && activeTab === "kart" && (
+      {selectedPeak && activeTab === "kart" && !isPickingStart && !isPickingWaypoint && (
         <PeakProfileSheet
           peak={selectedPeak}
           userLocation={userLocation}
@@ -1418,6 +1529,26 @@ export default function MapScreen() {
           checkinLoading={checkinLoading}
           onCheckin={handleCheckinPress}
           onClose={() => setSelectedPeak(null)}
+        />
+      )}
+
+      {activeRoute && activeTab === "kart" && <CustomRouteBar />}
+
+      {isPickingStart && (
+        <RouteStartPicker 
+          onConfirm={handleConfirmStart}
+          onCancel={() => setIsPickingStart(false)}
+          getCenter={getMapCenter}
+        />
+      )}
+
+      {isPickingWaypoint && (
+        <RouteStartPicker 
+          onConfirm={handleConfirmWaypoint}
+          onCancel={() => setIsPickingWaypoint(false)}
+          title="Velg veipunkt"
+          confirmLabel="Legg til veipunkt"
+          getCenter={getMapCenter}
         />
       )}
 
@@ -1863,6 +1994,26 @@ const styles = StyleSheet.create({
   },
   statValue: {
     fontSize: 14,
+    fontWeight: "bold",
+  },
+  waypointMarker: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#10B981",
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  waypointText: {
+    color: "#FFFFFF",
+    fontSize: 10,
     fontWeight: "bold",
   },
 });

@@ -4,6 +4,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Alert,
   ActivityIndicator,
   Platform,
   Dimensions,
@@ -28,6 +29,7 @@ import {
   Info,
   User,
   CheckCircle,
+  Navigation,
 } from "lucide-react-native";
 import { Peak } from "@/services/peakDbService";
 import useColorScheme from "@/hooks/useColorScheme";
@@ -35,7 +37,8 @@ import { flattenStyle } from "@/utils/flatten-style";
 import { PeakLeaderboard } from "./leaderboard/PeakLeaderboard";
 import { supabase } from "@/lib/supabase";
 import { WeatherTab } from "./WeatherTab";
-import { mapWmoCodeToEmoji } from "@/utils/weatherUtils";
+import { mapWmoCodeToEmoji, getWeatherIconUrl } from "@/utils/weatherUtils";
+import { useRoute } from "@/context/RouteContext";
 
 interface PeakProfileSheetProps {
   peak: Peak;
@@ -56,6 +59,7 @@ export function PeakProfileSheet({
   onCheckin,
   onClose,
 }: PeakProfileSheetProps) {
+  const { createRoute, setIsPickingStart } = useRoute();
   const isDark = useColorScheme() === "dark";
   const [activeTab, setActiveTab] = useState<TabType>("info");
   const [weatherData, setWeatherData] = useState<{
@@ -129,6 +133,36 @@ export function PeakProfileSheet({
     };
     fetchWeather();
   }, [peak.id]);
+
+  const handleCreateRoute = async (fromGPS: boolean) => {
+    if (fromGPS) {
+      if (!userLocation) {
+        Alert.alert("Mangler posisjon", "Vi trenger din posisjon for å lage rute fra der du er.");
+        return;
+      }
+      try {
+        await createRoute(userLocation, peak);
+        onClose(); // Close the sheet to see the map
+      } catch (err) {
+        Alert.alert("Feil", "Kunne ikke lage rute. Prøv igjen senere.");
+      }
+    } else {
+      setIsPickingStart(true);
+      onClose();
+    }
+  };
+
+  const showRouteOptions = () => {
+    Alert.alert(
+      "Lag rute",
+      "Hvordan vil du starte turen?",
+      [
+        { text: "Fra min posisjon", onPress: () => handleCreateRoute(true) },
+        { text: "Velg startpunkt på kartet", onPress: () => handleCreateRoute(false) },
+        { text: "Avbryt", style: "cancel" }
+      ]
+    );
+  };
 
   const themeClasses = {
     text: "text-typography-900 dark:text-typography-50", // Ensuring light text in dark mode
@@ -244,6 +278,19 @@ export function PeakProfileSheet({
       >
         {activeTab === "info" && (
           <VStack style={{ gap: 16 }}>
+            {/* Route Planning Button */}
+            <Button
+              onPress={showRouteOptions}
+              className="bg-background-100 dark:bg-background-800 h-12 rounded-xl"
+            >
+              <HStack space="sm" className="items-center">
+                <Navigation size={18} color="#10B981" />
+                <ButtonText className="text-typography-900 dark:text-white font-bold">
+                  Lag rute
+                </ButtonText>
+              </HStack>
+            </Button>
+
             {/* Weather Summary Card */}
             <View style={flattenStyle([styles.infoCard, { backgroundColor: isDark ? "#1F2937" : "#F8FAFC" }])}>
               <HStack className="justify-between items-center">
