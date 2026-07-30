@@ -32,10 +32,6 @@ export function ThemeToggle() {
 
 const styles = StyleSheet.create({
   themeToggle: {
-    position: 'absolute',
-    bottom: 100, // Above tab bar
-    right: 20,
-    zIndex: 9999,
   },
   themeToggleBtn: {
     width: 48,

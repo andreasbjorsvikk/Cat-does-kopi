@@ -193,7 +193,13 @@ export default function MapScreen() {
   }, [isMapboxLayer, region]);
 
   const handleConfirmStart = async (coord: { latitude: number; longitude: number }) => {
-    if (!selectedPeak) return;
+    console.log("[MapView] handleConfirmStart called with:", coord);
+    if (!selectedPeak) {
+      console.warn("[MapView] handleConfirmStart called but selectedPeak is null");
+      return;
+    }
+    if (loading) return;
+
     try {
       setLoading(true);
       await createRoute(coord, selectedPeak);

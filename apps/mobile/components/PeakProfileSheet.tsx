@@ -134,31 +134,34 @@ export function PeakProfileSheet({
     fetchWeather();
   }, [peak.id]);
 
-  const handleCreateRoute = async (fromGPS: boolean) => {
-    if (fromGPS) {
-      if (!userLocation) {
-        Alert.alert("Mangler posisjon", "Vi trenger din posisjon for å lage rute fra der du er.");
-        return;
-      }
-      try {
-        await createRoute(userLocation, peak);
-        onClose(); // Close the sheet to see the map
-      } catch (err) {
-        Alert.alert("Feil", "Kunne ikke lage rute. Prøv igjen senere.");
-      }
-    } else {
-      setIsPickingStart(true);
-      onClose();
-    }
-  };
-
   const showRouteOptions = () => {
     Alert.alert(
       "Lag rute",
       "Hvordan vil du starte turen?",
       [
-        { text: "Fra min posisjon", onPress: () => handleCreateRoute(true) },
-        { text: "Velg startpunkt på kartet", onPress: () => handleCreateRoute(false) },
+        { 
+          text: "Fra min posisjon", 
+          onPress: async () => {
+            if (!userLocation) {
+              Alert.alert("Mangler posisjon", "Vi trenger din posisjon for å lage rute fra der du er.");
+              return;
+            }
+            try {
+              await createRoute(userLocation, peak);
+              onClose(); 
+            } catch (err) {
+              Alert.alert("Feil", "Kunne ikke lage rute. Prøv igjen senere.");
+            }
+          } 
+        },
+        { 
+          text: "Velg startpunkt på kartet", 
+          onPress: () => {
+            // Important: Set picking state but do NOT call onClose().
+            // MapView's conditional rendering will hide the sheet while keeping selectedPeak.
+            setIsPickingStart(true);
+          } 
+        },
         { text: "Avbryt", style: "cancel" }
       ]
     );

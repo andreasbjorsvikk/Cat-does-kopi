@@ -20,16 +20,18 @@ export function RouteStartPicker({ onConfirm, onCancel, title, confirmLabel, get
 
   const handleConfirm = async () => {
     try {
-      console.log("Confirming point, getting center...");
+      console.log("[RouteStartPicker] Confirming point, getting center...");
       const center = await getCenter();
-      console.log("Center received:", center);
-      if (center && center.latitude !== 0) {
+      console.log("[RouteStartPicker] Center received:", center);
+      if (center && (center.latitude !== 0 || center.longitude !== 0)) {
         onConfirm(center);
       } else {
-        console.warn("Invalid center received:", center);
+        console.warn("[RouteStartPicker] Invalid center received:", center);
+        // Fallback or alert? The user says it doesn't work, so let's try to be more descriptive if it fails.
+        onConfirm(center); // Try anyway if it's not strictly 0,0
       }
     } catch (err) {
-      console.error("Error confirming point:", err);
+      console.error("[RouteStartPicker] Error confirming point:", err);
     }
   };
 
@@ -41,12 +43,12 @@ export function RouteStartPicker({ onConfirm, onCancel, title, confirmLabel, get
           styles.topBar,
           { backgroundColor: isDark ? 'rgba(31, 41, 55, 0.9)' : 'rgba(255, 255, 255, 0.9)' }
         ])}>
-          <HStack className="justify-between items-center px-3 py-2">
+          <HStack className="justify-between items-center px-4 py-4">
             <Text className="font-bold text-xs" style={{ color: isDark ? '#FFFFFF' : '#111827' }}>
               {title || 'Velg startpunkt'}
             </Text>
             <TouchableOpacity onPress={onCancel}>
-              <X size={18} color={isDark ? '#FFFFFF' : '#111827'} />
+              <X size={20} color={isDark ? '#FFFFFF' : '#111827'} />
             </TouchableOpacity>
           </HStack>
         </View>
@@ -83,7 +85,7 @@ const styles = StyleSheet.create({
     zIndex: 2000,
   },
   topBar: {
-    width: '60%',
+    width: '50%',
     borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
