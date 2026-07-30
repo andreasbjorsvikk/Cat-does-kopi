@@ -2447,7 +2447,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     marginHorizontal: 16,
     marginTop: 12,
-    marginBottom: 8,
+    marginBottom: 0,
     borderRadius: 12,
     padding: 3,
   },
@@ -2471,7 +2471,7 @@ const styles = StyleSheet.create({
   },
   tabContent: {
     flex: 1,
-    marginTop: 8,
+    marginTop: 0,
   },
   periodTabsWrapper: {
     flexDirection: "row",
@@ -2847,8 +2847,8 @@ const styles = StyleSheet.create({
   subSubTabsContainer: {
     flexDirection: "row",
     marginHorizontal: 16,
-    marginTop: 8,
-    marginBottom: 12,
+    marginTop: 0,
+    marginBottom: 8,
     borderRadius: 14,
     padding: 4,
   },

@@ -34,6 +34,7 @@ import useColorScheme from "@/hooks/useColorScheme";
 import { flattenStyle } from "@/utils/flatten-style";
 import { PeakLeaderboard } from "./leaderboard/PeakLeaderboard";
 import { supabase } from "@/lib/supabase";
+import { WeatherTab } from "./WeatherTab";
 
 interface PeakProfileSheetProps {
   peak: Peak;
@@ -347,36 +348,7 @@ export function PeakProfileSheet({
         )}
 
         {activeTab === "vær" && (
-          <VStack style={{ gap: 16 }}>
-             <View style={flattenStyle([styles.infoCard, { backgroundColor: isDark ? "#1F2937" : "#F8FAFC" }])}>
-                <Heading 
-                  size="sm" 
-                  className="mb-4"
-                  style={{ color: isDark ? "#F9FAFB" : "#111827" }}
-                >
-                  Time for time
-                </Heading>
-                {[...Array(5)].map((_, i) => (
-                  <HStack key={i} className="justify-between items-center py-3 border-b border-outline-50 dark:border-outline-800 last:border-0">
-                    <Text className={themeClasses.textMuted}>{String(12 + i).padStart(2, "0")}:00</Text>
-                    <Cloud size={20} color="#3B82F6" />
-                    <Text 
-                      className="font-bold"
-                      style={{ color: isDark ? "#F9FAFB" : "#111827" }}
-                    >
-                      {14 - i}°
-                    </Text>
-                    <HStack space="xs" className="items-center w-16 justify-end">
-                      <Wind size={14} color={isDark ? "#9CA3AF" : "#64748B"} />
-                      <Text size="xs" className={themeClasses.textMuted}>{4 + i} m/s</Text>
-                    </HStack>
-                  </HStack>
-                ))}
-             </View>
-             <Text className="text-center text-xs text-typography-400 dark:text-typography-500 italic">
-               Værdata er simulert for denne demoen.
-             </Text>
-          </VStack>
+          <WeatherTab latitude={peak.latitude} longitude={peak.longitude} />
         )}
       </ScrollView>
     </View>

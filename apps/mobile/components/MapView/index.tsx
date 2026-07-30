@@ -116,14 +116,19 @@ const KOMMUNE_PALETTE = FYLKE_PALETTE.map(p => ({
   fill: p.fill.replace("0.30)", "0.32)").replace("0.25)", "0.32)").replace("0.28)", "0.32)").replace("0.32)", "0.35)")
 }));
 
-const CustomMountainIcon = ({ isChecked }: { isChecked: boolean }) => (
-  <Mountain 
-    size={18} 
-    color={isChecked ? "#FFFFFF" : "#10B981"} 
-    strokeWidth={2}
-    fill={isChecked ? "#FFFFFF" : "#10B981"}
-  />
-);
+const CustomMountainIcon = ({ isChecked }: { isChecked: boolean }) => {
+  // User wants outline icons. 
+  // Checked: White outline on green circle (fill none means green bg shows through)
+  // Not Checked: Green outline on white circle (fill none means white bg shows through)
+  return (
+    <Mountain 
+      size={18} 
+      color={isChecked ? "#FFFFFF" : "#10B981"} 
+      strokeWidth={2.5}
+      fill="none"
+    />
+  );
+};
 
 export default function MapScreen() {
   const colorScheme = useColorScheme();
