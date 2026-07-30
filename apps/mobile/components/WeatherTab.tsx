@@ -12,8 +12,8 @@ import {
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { HStack } from '@/components/ui/hstack';
-import { Wind, Cloud, Sun, CloudRain, CloudLightning, CloudSnow, CloudSun, CloudDrizzle } from 'lucide-react-native';
-import Svg, { Path, Rect, G, Line, Circle, Text as SvgText } from 'react-native-svg';
+import { Wind, Cloud, Sun, Moon, CloudRain, CloudLightning, CloudSnow, CloudSun, CloudDrizzle, CloudMoon } from 'lucide-react-native';
+import Svg, { Path, Rect, G, Line, Circle, Text as SvgText, TSpan } from 'react-native-svg';
 import useColorScheme from '@/hooks/useColorScheme';
 import { flattenStyle } from '@/utils/flatten-style';
 
@@ -32,9 +32,9 @@ interface WeatherData {
 }
 
 const WEATHER_SYMBOLS: Record<string, any> = {
-  clearsky: Sun,
-  fair: Sun,
-  partlycloudy: CloudSun,
+  clearsky: { day: Sun, night: Moon },
+  fair: { day: Sun, night: Moon },
+  partlycloudy: { day: CloudSun, night: CloudMoon },
   cloudy: Cloud,
   lightrain: CloudDrizzle,
   rain: CloudRain,
@@ -54,8 +54,10 @@ const WEATHER_SYMBOLS: Record<string, any> = {
 };
 
 function WeatherIcon({ symbol, size, color }: { symbol: string, size: number, color: string }) {
-  const baseSymbol = symbol.split('_')[0];
-  const IconComponent = WEATHER_SYMBOLS[baseSymbol] || Cloud;
+  const [baseSymbol, period] = symbol.split('_');
+  const isNight = period === 'night';
+  const iconData = WEATHER_SYMBOLS[baseSymbol] || Cloud;
+  const IconComponent = iconData.day ? (isNight ? iconData.night : iconData.day) : iconData;
   
   // Special handling for multi-color icons
   const isSun = baseSymbol === 'clearsky' || baseSymbol === 'fair';
@@ -66,13 +68,19 @@ function WeatherIcon({ symbol, size, color }: { symbol: string, size: number, co
   if (isPartlyCloudy) {
     return (
       <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-        <Sun size={size * 0.7} color="#FBBF24" style={{ position: 'absolute', top: 0, right: 0 }} />
+        {isNight ? (
+          <Moon size={size * 0.7} color="#FBBF24" style={{ position: 'absolute', top: 0, right: 0 }} />
+        ) : (
+          <Sun size={size * 0.7} color="#FBBF24" style={{ position: 'absolute', top: 0, right: 0 }} />
+        )}
         <Cloud size={size * 0.8} color="#9CA3AF" style={{ position: 'absolute', bottom: 0, left: 0 }} />
       </View>
     );
   }
 
-  if (isSun) return <Sun size={size} color="#FBBF24" />;
+  if (isSun) {
+    return isNight ? <Moon size={size} color="#FBBF24" /> : <Sun size={size} color="#FBBF24" />;
+  }
   
   if (isRain || isThunder) {
     return (
@@ -289,14 +297,15 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
                       strokeWidth="1"
                     />
                     <SvgText
-                      x={paddingLeft - 15}
+                      x={paddingLeft - 12}
                       y={y + 4}
                       fontSize="11"
                       fontWeight="500"
                       fill={isDark ? '#9CA3AF' : '#64748B'}
                       textAnchor="end"
                     >
-                      {Math.round(t)}°
+                      <TSpan>{Math.round(t)}</TSpan>
+                      <TSpan dx="-1">°</TSpan>
                     </SvgText>
                   </G>
                 );
@@ -323,8 +332,14 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
             {/* Precipitation Bars - Hourly */}
             <G>
               {hourlyData.map((h, i) => {
-                const barHeight = chartHeight - (getYPrecip(h.precip) - paddingTop);
-                if (barHeight <= 1) return null;
+                // We want to show even small amounts of rain, so we use a min height
+                const rawHeight = chartHeight - (getYPrecip(h.precip) - paddingTop);
+                if (h.precip <= 0 && rawHeight <= 1) return null;
+                
+                // Ensure the bar has some visible height if there's any precip
+                const barHeight = h.precip > 0 ? Math.max(2, rawHeight) : 0;
+                if (barHeight === 0) return null;
+
                 const x = paddingLeft + (i / (hourlyData.length - 1)) * chartWidth;
                 return (
                   <Rect
@@ -386,7 +401,8 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
                     fill={isDark ? '#FFFFFF' : '#000000'}
                     textAnchor="middle"
                   >
-                    {Math.round(h.temp)}°
+                    <TSpan>{Math.round(h.temp)}</TSpan>
+                    <TSpan dx="-1">°</TSpan>
                   </SvgText>
                 </G>
               );
