@@ -2,7 +2,6 @@ import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { HStack } from '@/components/ui/hstack';
-import { ButtonText } from '@/components/ui/button';
 import { X, Check } from 'lucide-react-native';
 import { useRoute } from '@/context/RouteContext';
 import useColorScheme from '@/hooks/useColorScheme';
@@ -51,9 +50,9 @@ export function RouteStartPicker({ onConfirm, onCancel, title, confirmLabel, get
         >
           <HStack space="xs" className="items-center">
             <Check size={20} color="#FFFFFF" />
-            <ButtonText className="text-white font-bold">
+            <Text className="text-white font-bold">
               {confirmLabel || 'Bekreft punkt'}
-            </ButtonText>
+            </Text>
           </HStack>
         </TouchableOpacity>
       </View>
