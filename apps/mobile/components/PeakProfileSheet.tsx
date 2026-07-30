@@ -250,7 +250,7 @@ export function PeakProfileSheet({
                 <HStack space="md" className="items-center">
                   <ExpoImage 
                     source={{ uri: getWeatherIconUrl(weatherData?.symbol || "cloudy") }}
-                    style={{ width: 44, height: 44 }}
+                    style={{ width: 52, height: 52 }}
                     contentFit="contain"
                   />
                   <VStack>

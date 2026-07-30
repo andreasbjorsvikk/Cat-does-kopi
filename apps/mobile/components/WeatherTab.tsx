@@ -34,7 +34,7 @@ interface WeatherData {
   snowDepth: number;
 }
 
-function WeatherIcon({ symbol, size }: { symbol: string, size: number, color?: string }) {
+function WeatherIcon({ symbol, size }: { symbol: string, size: number }) {
   const iconUrl = getWeatherIconUrl(symbol);
   
   return (
@@ -42,6 +42,9 @@ function WeatherIcon({ symbol, size }: { symbol: string, size: number, color?: s
       source={{ uri: iconUrl }} 
       style={{ width: size, height: size }}
       contentFit="contain"
+      priority="high"
+      cachePolicy="memory-disk"
+      transition={200}
     />
   );
 }
@@ -91,23 +94,7 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
           const snowDepth = hourly.snow_depth_metno_nordic?.[i] ?? hourly.snow_depth_best_match?.[i] ?? hourly.snow_depth?.[i] ?? 0;
           
           const weatherCode = hourly.weather_code_best_match?.[i] ?? hourly.weather_code?.[i] ?? 0;
-          const baseSymbol = mapWmoCodeToSymbol(weatherCode);
-          
-          const dateStr = time?.split('T')[0];
-          const dailyIndex = daily?.time?.indexOf(dateStr) ?? -1;
-          let symbol = baseSymbol;
-          
-          if (dailyIndex !== -1 && daily?.sunrise?.[dailyIndex] && daily?.sunset?.[dailyIndex]) {
-            const sunriseStr = daily.sunrise[dailyIndex];
-            const sunsetStr = daily.sunset[dailyIndex];
-            const sunrise = new Date(sunriseStr);
-            const sunset = new Date(sunsetStr);
-            const currentTime = new Date(time);
-            const isNight = currentTime < sunrise || currentTime >= sunset;
-            symbol = `${baseSymbol}_${isNight ? 'night' : 'day'}`;
-          } else if (!symbol.includes('_')) {
-            symbol = `${symbol}_day`;
-          }
+          const symbol = mapWmoCodeToSymbol(weatherCode);
 
           return {
             time,
@@ -483,15 +470,15 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
                  key={i} 
                  style={{ 
                    position: 'absolute', 
-                   left: x - 10, 
-                   top: y - 48,
-                   width: 20,
-                   height: 20,
+                   left: x - 14, 
+                   top: y - 44,
+                   width: 28,
+                   height: 28,
                    alignItems: 'center',
                    justifyContent: 'center'
                  }}
                >
-                 <WeatherIcon symbol={h.symbol} size={20} color={isDark ? '#FFFFFF' : '#111827'} />
+                 <WeatherIcon symbol={h.symbol} size={28} />
                </View>
              );
           })}
