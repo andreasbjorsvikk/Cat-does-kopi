@@ -604,6 +604,11 @@ export default function WorkoutDetailsPage() {
                 logoEnabled={false}
                 attributionEnabled={false}
                 onDidFinishLoadingStyle={() => setIsStyleLoaded(true)}
+                onCameraChanged={(e) => {
+                  if (e.nativeEvent.gestures.isUserGesture) {
+                    runOnJS(snapToMinimized)();
+                  }
+                }}
               >
                 <MapboxCamera 
                   ref={mapboxCameraRef}
@@ -668,6 +673,9 @@ export default function WorkoutDetailsPage() {
                 scrollEnabled={true}
                 zoomEnabled={true}
                 mapType="satellite"
+                onPanDrag={() => {
+                  runOnJS(snapToMinimized)();
+                }}
               >
                 {decodedRoute.length > 0 && (
                   <Polyline

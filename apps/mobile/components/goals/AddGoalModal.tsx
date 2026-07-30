@@ -8,6 +8,7 @@ import {
   ScrollView,
   Keyboard,
   InputAccessoryView,
+  Alert,
 } from "react-native";
 import { Modal, ModalBackdrop, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { Heading } from "@/components/ui/heading";
@@ -46,6 +47,8 @@ export interface AddGoalModalProps {
   formatDisplayDate: (str: string) => string;
   onSave: () => Promise<void>;
   submitting: boolean;
+  repeatGoal?: boolean;
+  setRepeatGoal?: (val: boolean) => void;
 }
 
 const WORKOUT_TYPES = [
@@ -83,6 +86,8 @@ export const AddGoalModal = ({
   formatDisplayDate,
   onSave,
   submitting,
+  repeatGoal = false,
+  setRepeatGoal,
 }: AddGoalModalProps) => {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
@@ -131,7 +136,7 @@ export const AddGoalModal = ({
       <ModalBackdrop />
       <ModalContent style={flattenStyle([styles.modalContent, { backgroundColor: bgMain, borderColor: borderCol }])}>
         <ModalHeader style={styles.header}>
-          <Heading className="text-xl font-bold" style={{ color: textPrimary }}>
+          <Heading className="text-2xl font-bold" style={{ color: textPrimary, textAlign: 'center', width: '100%' }}>
             {editingGoalId ? "Endre mål" : "Nytt mål"}
           </Heading>
           <TouchableOpacity onPress={onClose} style={styles.closeBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
@@ -292,6 +297,43 @@ export const AddGoalModal = ({
               </VStack>
             ) : null}
 
+            {/* 4b. REPEAT GOAL TOGGLE (Only if not custom) */}
+            {period !== "custom" && setRepeatGoal && (
+              <TouchableOpacity 
+                activeOpacity={0.8}
+                onPress={() => setRepeatGoal(!repeatGoal)}
+                style={{ alignSelf: 'flex-start' }}
+              >
+                <HStack space="sm" style={{ alignItems: 'center' }}>
+                  <View 
+                    style={flattenStyle([
+                      styles.checkbox, 
+                      { 
+                        backgroundColor: repeatGoal ? bgActive : bgInactive,
+                        borderColor: repeatGoal ? bgActive : borderCol 
+                      }
+                    ])}
+                  >
+                    {repeatGoal && <View style={styles.checkboxCheck} />}
+                  </View>
+                  <Text style={{ color: textPrimary, fontSize: 14, fontWeight: '600' }}>
+                    Gjenta mål
+                  </Text>
+                  <TouchableOpacity 
+                    onPress={() => {
+                      const p = period === 'week' ? 'uke' : period === 'month' ? 'måned' : 'år';
+                      Alert.alert("Gjenta mål", `Målet vil bli gjentatt hver ${p}`);
+                    }}
+                    style={{ padding: 4 }}
+                  >
+                    <View style={flattenStyle([styles.infoCircle, { borderColor: textMuted }])}>
+                      <Text style={{ color: textMuted, fontSize: 10, fontWeight: 'bold' }}>i</Text>
+                    </View>
+                  </TouchableOpacity>
+                </HStack>
+              </TouchableOpacity>
+            )}
+
             {/* 5. ACTIVITY TYPE SELECTION (GRID OF CHIPS) */}
             <VStack style={{ gap: 6 }}>
               <Text className="text-xs font-semibold uppercase tracking-wider" style={{ color: textMuted }}>
@@ -391,6 +433,9 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   closeBtn: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
     padding: 4,
   },
   metricButton: {
@@ -438,6 +483,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 6,
+    justifyContent: "center",
   },
   chipButton: {
     paddingHorizontal: 12,
@@ -505,5 +551,27 @@ const styles = StyleSheet.create({
     color: "#10B981",
     fontWeight: "600",
     fontSize: 16,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxCheck: {
+    width: 8,
+    height: 8,
+    borderRadius: 2,
+    backgroundColor: '#FFFFFF',
+  },
+  infoCircle: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

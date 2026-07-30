@@ -5,13 +5,14 @@ interface IconProps {
   progress: number; // 0 to 1
   isDark?: boolean;
   size?: number;
+  color?: string;
 }
 
 /**
  * MountainIcon (for Elevation goals)
  * Silhouetted double-mountain shape that fills up green from bottom to top.
  */
-export const MountainIcon = ({ progress, isDark = false, size = 60 }: IconProps) => {
+export const MountainIcon = ({ progress, isDark = false, size = 60, color = "#10B981" }: IconProps) => {
   const clipId = useId();
   const bgFill = isDark ? "#374151" : "#E5E7EB";
   const bgStroke = isDark ? "#4B5563" : "#D1D5DB";
@@ -36,8 +37,8 @@ export const MountainIcon = ({ progress, isDark = false, size = 60 }: IconProps)
       {/* Foreground (Filled) Mountain */}
       <Path
         d="M 10 85 L 45 20 L 60 45 L 75 30 L 95 85 Z"
-        fill="#10B981"
-        stroke="#10B981"
+        fill={color}
+        stroke={color}
         strokeWidth="4"
         strokeLinejoin="round"
         clipPath={`url(#${clipId})`}
@@ -50,7 +51,7 @@ export const MountainIcon = ({ progress, isDark = false, size = 60 }: IconProps)
  * BoltIcon (for Sessions goals)
  * High-contrast lightning bolt shape that fills up green from bottom to top.
  */
-export const BoltIcon = ({ progress, isDark = false, size = 60 }: IconProps) => {
+export const BoltIcon = ({ progress, isDark = false, size = 60, color = "#10B981" }: IconProps) => {
   const clipId = useId();
   const bgFill = isDark ? "#374151" : "#E5E7EB";
   const bgStroke = isDark ? "#4B5563" : "#D1D5DB";
@@ -75,8 +76,8 @@ export const BoltIcon = ({ progress, isDark = false, size = 60 }: IconProps) => 
       {/* Foreground (Filled) Bolt */}
       <Path
         d="M 55 10 L 25 55 L 50 55 L 45 90 L 75 45 L 50 45 Z"
-        fill="#10B981"
-        stroke="#10B981"
+        fill={color}
+        stroke={color}
         strokeWidth="4"
         strokeLinejoin="round"
         clipPath={`url(#${clipId})`}
@@ -89,7 +90,7 @@ export const BoltIcon = ({ progress, isDark = false, size = 60 }: IconProps) => 
  * ClockIcon (for Duration/Time goals)
  * Round clock face that fills up as a sector/pie chart from 12 o'clock clockwise.
  */
-export const ClockIcon = ({ progress, isDark = false, size = 60 }: IconProps) => {
+export const ClockIcon = ({ progress, isDark = false, size = 60, color = "#10B981" }: IconProps) => {
   const bgFill = isDark ? "#374151" : "#E5E7EB";
   const bgStroke = isDark ? "#4B5563" : "#D1D5DB";
   const clampedProgress = Math.min(1, Math.max(0, progress));
@@ -130,8 +131,8 @@ export const ClockIcon = ({ progress, isDark = false, size = 60 }: IconProps) =>
       {clampedProgress > 0 && (
         <Path
           d={sectorPath}
-          fill="#10B981"
-          stroke="#10B981"
+          fill={color}
+          stroke={color}
           strokeWidth="1"
         />
       )}
@@ -177,7 +178,7 @@ export const ClockIcon = ({ progress, isDark = false, size = 60 }: IconProps) =>
  * RouteIcon (for Distance goals)
  * S-curve trail route from bottom-left to top-center/right that fills up green as progress increases.
  */
-export const RouteIcon = ({ progress, isDark = false, size = 60 }: IconProps) => {
+export const RouteIcon = ({ progress, isDark = false, size = 60, color = "#10B981" }: IconProps) => {
   const bgStroke = isDark ? "#4B5563" : "#D1D5DB";
   const bgFill = isDark ? "#374151" : "#E5E7EB";
   const clampedProgress = Math.min(1, Math.max(0, progress));
@@ -212,7 +213,7 @@ export const RouteIcon = ({ progress, isDark = false, size = 60 }: IconProps) =>
       <Path
         d={routePath}
         fill="none"
-        stroke="#10B981"
+        stroke={color}
         strokeWidth="6"
         strokeLinecap="round"
         strokeDasharray={`${totalLength}`}
@@ -221,7 +222,7 @@ export const RouteIcon = ({ progress, isDark = false, size = 60 }: IconProps) =>
 
       {/* Foreground Start Dot */}
       {clampedProgress > 0 && (
-        <Circle cx="25" cy="80" r="6" fill="#10B981" stroke="#059669" strokeWidth="1" />
+        <Circle cx="25" cy="80" r="6" fill={color} stroke={color} strokeWidth="1" />
       )}
 
       {/* Foreground End Pin */}
@@ -229,7 +230,7 @@ export const RouteIcon = ({ progress, isDark = false, size = 60 }: IconProps) =>
         <>
           <Path
             d="M 45 23 C 41 19, 37 15, 37 11 A 8 8 0 1 1 53 11 C 53 15, 49 19, 45 23 Z"
-            fill="#10B981"
+            fill={color}
             stroke="#059669"
             strokeWidth="1.5"
           />

@@ -10,6 +10,8 @@ import { MountainIcon, BoltIcon, ClockIcon, RouteIcon } from './GoalProgressIcon
 import useColorScheme from '@/hooks/useColorScheme';
 import { flattenStyle } from '@/utils/flatten-style';
 import { ActivityIcon } from '@/components/ActivityIcon';
+import { getActivityColors } from '@/utils/activityColors';
+import { SessionType } from '@/types/workout';
 import { 
   getSessionsInPeriod, 
   computeProgress, 
@@ -96,6 +98,10 @@ export const OtherGoalCard = memo(({
 
   // Parse activity types for badge row
   const activityTypes = goal.activityType ? goal.activityType.split(",") : ["all"];
+  
+  // Get primary activity color for the main progress icon
+  const primaryType = activityTypes[0];
+  const primaryColor = primaryType === 'all' ? '#10B981' : getActivityColors(primaryType as SessionType, isDark).text;
 
   return (
     <TouchableOpacity
@@ -168,24 +174,24 @@ export const OtherGoalCard = memo(({
       {/* Main Graphic & Metrics Info */}
       <View style={{ width: '100%', alignItems: 'center', marginTop: 4 }}>
         {/* Progress Graphic */}
-        <View style={{ height: 60, justifyContent: 'center', alignItems: 'center', marginBottom: 6 }}>
-          {isElevation && <MountainIcon progress={pct} isDark={isDark} size={56} />}
-          {isSessions && <BoltIcon progress={pct} isDark={isDark} size={56} />}
-          {isDuration && <ClockIcon progress={pct} isDark={isDark} size={56} />}
-          {isDistance && <RouteIcon progress={pct} isDark={isDark} size={56} />}
+        <View style={{ height: 72, justifyContent: 'center', alignItems: 'center', marginBottom: 8 }}>
+          {isElevation && <MountainIcon progress={pct} isDark={isDark} size={64} color={primaryColor} />}
+          {isSessions && <BoltIcon progress={pct} isDark={isDark} size={64} color={primaryColor} />}
+          {isDuration && <ClockIcon progress={pct} isDark={isDark} size={64} color={primaryColor} />}
+          {isDistance && <RouteIcon progress={pct} isDark={isDark} size={64} color={primaryColor} />}
         </View>
 
         {/* Activity Mini Badge Icons Row */}
-        <HStack style={{ justifyContent: 'center', gap: 4, height: 20 }}>
+        <HStack style={{ justifyContent: 'center', gap: 6, height: 24 }}>
           {activityTypes.map((type) => {
             if (type === "all") {
               return (
                 <View 
                   key="all" 
                   style={{ 
-                    width: 18, 
-                    height: 18, 
-                    borderRadius: 9, 
+                    width: 22, 
+                    height: 22, 
+                    borderRadius: 11, 
                     backgroundColor: isDark ? "#1F2937" : "#E5E7EB", 
                     alignItems: 'center', 
                     justifyContent: 'center',
@@ -193,59 +199,62 @@ export const OtherGoalCard = memo(({
                     borderColor: isDark ? "#374151" : "#D1D5DB"
                   }}
                 >
-                  <Compass size={10} color="#10B981" />
+                  <Compass size={12} color="#10B981" />
                 </View>
               );
             }
+            
+            const typeColors = getActivityColors(type as SessionType, isDark);
+            
             return (
               <View 
                 key={type} 
                 style={{ 
-                  width: 18, 
-                  height: 18, 
-                  borderRadius: 9, 
-                  backgroundColor: isDark ? "#111827" : "#F3F4F6", 
+                  width: 22, 
+                  height: 22, 
+                  borderRadius: 11, 
+                  backgroundColor: typeColors.bg, 
                   alignItems: 'center', 
                   justifyContent: 'center', 
                   borderWidth: 1, 
-                  borderColor: isDark ? "#374151" : "#E5E7EB" 
+                  borderColor: typeColors.text
                 }}
               >
-                <ActivityIcon type={type} size={14} color={isDark ? "#10B981" : "#047857"} />
+                <ActivityIcon type={type} size={16} color={typeColors.text} />
               </View>
             );
           })}
         </HStack>
 
         {/* Progress Values text */}
-        <Text style={{ fontSize: 15, fontWeight: 'bold', color: isDark ? "#FFFFFF" : "#111827", marginTop: 8, textAlign: 'center' }}>
+        <Text style={{ fontSize: 17, fontWeight: 'bold', color: isDark ? "#FFFFFF" : "#111827", marginTop: 10, textAlign: 'center' }}>
           {formatVal(progressVal, goal.metric)} / {formatVal(targetVal, goal.metric)}{' '}
-          <Text style={{ fontSize: 11, fontWeight: 'normal', color: isDark ? '#9CA3AF' : '#6B7280' }}>
+          <Text style={{ fontSize: 13, fontWeight: 'normal', color: isDark ? '#9CA3AF' : '#6B7280' }}>
             {metricLabels[goal.metric] || 'økter'}
           </Text>
         </Text>
 
         {/* Remaining value text */}
         {!isReached && remaining > 0 && (
-          <Text style={{ fontSize: 11, color: isDark ? '#9CA3AF' : '#6B7280', marginTop: 3, textAlign: 'center' }}>
+          <Text style={{ fontSize: 13, color: isDark ? '#9CA3AF' : '#6B7280', marginTop: 4, textAlign: 'center' }}>
             {formatVal(remaining, goal.metric)} {metricLabels[goal.metric] || 'økter'} igjen
           </Text>
         )}
 
         {/* Period Text */}
-        <Text style={{ fontSize: 10, color: isDark ? '#888888' : '#888888', marginTop: 3, textAlign: 'center' }}>
+        <Text style={{ fontSize: 12, color: isDark ? '#888888' : '#888888', marginTop: 4, textAlign: 'center' }}>
           {goal.period === 'week' ? 'Denne uken' : goal.period === 'month' ? 'Denne måneden' : goal.period === 'year' ? 'Dette året' : 'Tilpasset'}
         </Text>
 
         {/* Days left text */}
         {!isReached && remainingDays > 0 && (
-          <Text style={{ fontSize: 10, color: isDark ? '#9CA3AF' : '#6B7280', marginTop: 1, textAlign: 'center' }}>
+          <Text style={{ fontSize: 12, color: isDark ? '#9CA3AF' : '#6B7280', marginTop: 2, textAlign: 'center' }}>
             {remainingDays} dager igjen
           </Text>
         )}
 
         {/* Status Text Indicator */}
-        <Text style={{ fontSize: 11, fontWeight: 'bold', marginTop: 6, color: statusColor }}>
+        <Text style={{ fontSize: 13, fontWeight: 'bold', marginTop: 8, color: statusColor }}>
           {statusText}
         </Text>
       </View>
