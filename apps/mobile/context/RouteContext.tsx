@@ -6,7 +6,8 @@ import {
   fetchRoute, 
   calculateElevation, 
   findNearestPointIndex, 
-  calculateCoveredMetrics 
+  calculateCoveredMetrics,
+  haversineDistance
 } from '@/services/routeService';
 
 interface RouteContextType {
