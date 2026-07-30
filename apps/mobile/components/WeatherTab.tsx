@@ -265,6 +265,14 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
     });
   }, [data, dailyInfo]);
 
+  const currentDay = days[selectedDayIndex] || days[0];
+  
+  const snowDepthAtNoon = useMemo(() => {
+    const noon = currentDay?.hours?.find(h => h.time?.includes('T12:00'));
+    if (!noon) return 0;
+    return noon.snowDepth;
+  }, [currentDay]);
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -280,14 +288,6 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
       </View>
     );
   }
-
-  const currentDay = days[selectedDayIndex] || days[0];
-  
-  const snowDepthAtNoon = useMemo(() => {
-    const noon = currentDay?.hours?.find(h => h.time?.includes('T12:00'));
-    if (!noon) return 0;
-    return noon.snowDepth;
-  }, [currentDay]);
 
   const formatSnowDepth = (cm: number) => {
     if (cm === 0) return '0 cm';
