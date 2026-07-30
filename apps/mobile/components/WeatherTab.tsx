@@ -229,7 +229,7 @@ export function WeatherTab({ latitude, longitude, astronomy }: WeatherTabProps) 
   const maxPrecip = Math.max(...hourlyData.map(h => h.precip), 2);
 
   const graphHeight = 240;
-  const paddingLeft = 32; 
+  const paddingLeft = 24; 
   const paddingRight = 32; 
   const paddingTop = 60; 
   const paddingBottom = 35; 
@@ -326,7 +326,7 @@ export function WeatherTab({ latitude, longitude, astronomy }: WeatherTabProps) 
                       textAnchor="end"
                     >
                       <TSpan>{Math.round(t)}</TSpan>
-                      <TSpan dx="-2.5">°</TSpan>
+                      <TSpan dx="-1.5">°</TSpan>
                     </SvgText>
                   </G>
                 );
@@ -417,14 +417,14 @@ export function WeatherTab({ latitude, longitude, astronomy }: WeatherTabProps) 
                   {/* Temperature label */}
                   <SvgText
                     x={x}
-                    y={y - 4}
+                    y={y - 8}
                     fontSize="11"
                     fontWeight="bold"
                     fill={isDark ? '#FFFFFF' : '#000000'}
                     textAnchor="middle"
                   >
                     <TSpan>{Math.round(h.temp)}</TSpan>
-                    <TSpan dx="-2.5">°</TSpan>
+                    <TSpan dx="-1.5">°</TSpan>
                   </SvgText>
 
                 </G>
@@ -453,6 +453,24 @@ export function WeatherTab({ latitude, longitude, astronomy }: WeatherTabProps) 
           {graphPoints.map((h, i) => {
              const x = getXFromPointIndex(i);
              const y = getYTemp(h.temp);
+             
+             // Night time logic
+             const isNight = (() => {
+               if (!currentDay) return false;
+               const time = h.time;
+               const sunrise = currentDay.sunrise;
+               const sunset = currentDay.sunset;
+               if (!sunrise || !sunset) return false;
+               return time < sunrise || time > sunset;
+             })();
+
+             let displaySymbol = h.symbol;
+             if (isNight) {
+               if (h.symbol === '☀️') displaySymbol = '🌙';
+               else if (h.symbol === '🌤️') displaySymbol = '🌥️'; 
+               else if (h.symbol === '⛅') displaySymbol = '🌥️';
+             }
+
              return (
                <View 
                  key={i} 
@@ -460,14 +478,14 @@ export function WeatherTab({ latitude, longitude, astronomy }: WeatherTabProps) 
                  style={{ 
                    position: 'absolute', 
                    left: x - 15, 
-                   top: y - 40,
+                   top: y - 44,
                    width: 30,
                    height: 30,
                    alignItems: 'center',
                    justifyContent: 'center'
                  }}
                >
-                 <Text style={{ fontSize: 20 }}>{h.symbol}</Text>
+                 <Text style={{ fontSize: 20 }}>{displaySymbol}</Text>
                </View>
              );
           })}
