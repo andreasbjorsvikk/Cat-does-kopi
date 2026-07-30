@@ -605,7 +605,7 @@ export default function WorkoutDetailsPage() {
                 attributionEnabled={false}
                 onDidFinishLoadingStyle={() => setIsStyleLoaded(true)}
                 onCameraChanged={(e) => {
-                  if (e.nativeEvent.gestures.isUserGesture) {
+                  if (e?.nativeEvent?.gestures?.isUserGesture) {
                     runOnJS(snapToMinimized)();
                   }
                 }}

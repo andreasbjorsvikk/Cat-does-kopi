@@ -123,3 +123,37 @@ export function getPeriodFractionElapsed(period: GoalPeriod | 'custom', customSt
   const end = new Date(now.getFullYear() + 1, 0, 1).getTime();
   return (now.getTime() - start) / (end - start);
 }
+
+export function getDaysBehind(
+  period: GoalPeriod | 'custom', 
+  progressVal: number, 
+  targetVal: number, 
+  customStart?: string, 
+  customEnd?: string
+): number {
+  const fractionElapsed = getPeriodFractionElapsed(period, customStart, customEnd);
+  const targetToday = targetVal * fractionElapsed;
+  
+  if (progressVal >= targetToday) return 0;
+  
+  // Calculate total days in period
+  let totalDays = 1;
+  const now = new Date();
+  if (period === 'week') {
+    totalDays = 7;
+  } else if (period === 'month') {
+    totalDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  } else if (period === 'year') {
+    totalDays = 365;
+  } else if (customStart && customEnd) {
+    const start = new Date(customStart).getTime();
+    const end = new Date(customEnd).getTime();
+    totalDays = Math.max(1, (end - start) / (1000 * 60 * 60 * 24));
+  }
+  
+  const dailyRate = targetVal / totalDays;
+  if (dailyRate <= 0) return 0;
+  
+  const deficit = targetToday - progressVal;
+  return deficit / dailyRate;
+}

@@ -16,7 +16,8 @@ import {
   getSessionsInPeriod, 
   computeProgress, 
   getDaysRemainingInPeriod, 
-  getPeriodFractionElapsed 
+  getPeriodFractionElapsed,
+  getDaysBehind
 } from '@/utils/goalUtils';
 
 interface OtherGoalCardProps {
@@ -74,17 +75,24 @@ export const OtherGoalCard = memo(({
   );
 
   const isReached = progressVal >= targetVal;
-  const isBehind = !isReached && (progressVal < targetVal * fractionElapsed);
+  const daysBehind = getDaysBehind(goal.period, progressVal, targetVal, goal.customStart, goal.customEnd);
+  const isBehind = !isReached && daysBehind > 0;
 
   // Status computation matching Norwegian app standards
   let statusText = "I rute";
-  let statusColor = "#3B82F6"; // blue-500
+  let statusColor = "#10B981"; // emerald-500 (default green for "I rute")
   if (isReached) {
     statusText = "✓ Nådd!";
     statusColor = "#10B981"; // emerald-500
   } else if (isBehind) {
+    if (daysBehind <= 3) {
+      statusColor = "#FACC15"; // yellow-400
+    } else if (daysBehind <= 7) {
+      statusColor = "#F97316"; // orange-500
+    } else {
+      statusColor = "#EF4444"; // red-500
+    }
     statusText = "Bak skjema";
-    statusColor = "#F59E0B"; // amber-500
   }
 
   // Identify specific progress icon type
@@ -101,7 +109,6 @@ export const OtherGoalCard = memo(({
   
   // Get primary activity color for the main progress icon
   const primaryType = activityTypes[0];
-  const primaryColor = primaryType === 'all' ? '#10B981' : getActivityColors(primaryType as SessionType, isDark).text;
 
   return (
     <TouchableOpacity
@@ -175,23 +182,23 @@ export const OtherGoalCard = memo(({
       <View style={{ width: '100%', alignItems: 'center', marginTop: 4 }}>
         {/* Progress Graphic */}
         <View style={{ height: 72, justifyContent: 'center', alignItems: 'center', marginBottom: 8 }}>
-          {isElevation && <MountainIcon progress={pct} isDark={isDark} size={64} color={primaryColor} />}
-          {isSessions && <BoltIcon progress={pct} isDark={isDark} size={64} color={primaryColor} />}
-          {isDuration && <ClockIcon progress={pct} isDark={isDark} size={64} color={primaryColor} />}
-          {isDistance && <RouteIcon progress={pct} isDark={isDark} size={64} color={primaryColor} />}
+          {isElevation && <MountainIcon progress={pct} isDark={isDark} size={64} color={statusColor} />}
+          {isSessions && <BoltIcon progress={pct} isDark={isDark} size={64} color={statusColor} />}
+          {isDuration && <ClockIcon progress={pct} isDark={isDark} size={64} color={statusColor} />}
+          {isDistance && <RouteIcon progress={pct} isDark={isDark} size={64} color={statusColor} />}
         </View>
 
         {/* Activity Mini Badge Icons Row */}
-        <HStack style={{ justifyContent: 'center', gap: 6, height: 24 }}>
+        <HStack style={{ justifyContent: 'center', gap: 8, height: 32 }}>
           {activityTypes.map((type) => {
             if (type === "all") {
               return (
                 <View 
                   key="all" 
                   style={{ 
-                    width: 22, 
-                    height: 22, 
-                    borderRadius: 11, 
+                    width: 28, 
+                    height: 28, 
+                    borderRadius: 14, 
                     backgroundColor: isDark ? "#1F2937" : "#E5E7EB", 
                     alignItems: 'center', 
                     justifyContent: 'center',
@@ -199,7 +206,7 @@ export const OtherGoalCard = memo(({
                     borderColor: isDark ? "#374151" : "#D1D5DB"
                   }}
                 >
-                  <Compass size={12} color="#10B981" />
+                  <Compass size={10} color="#10B981" />
                 </View>
               );
             }
@@ -210,9 +217,9 @@ export const OtherGoalCard = memo(({
               <View 
                 key={type} 
                 style={{ 
-                  width: 22, 
-                  height: 22, 
-                  borderRadius: 11, 
+                  width: 28, 
+                  height: 28, 
+                  borderRadius: 14, 
                   backgroundColor: typeColors.bg, 
                   alignItems: 'center', 
                   justifyContent: 'center', 
@@ -220,7 +227,7 @@ export const OtherGoalCard = memo(({
                   borderColor: typeColors.text
                 }}
               >
-                <ActivityIcon type={type} size={16} color={typeColors.text} />
+                <ActivityIcon type={type} size={14} color={typeColors.text} />
               </View>
             );
           })}
@@ -242,19 +249,19 @@ export const OtherGoalCard = memo(({
         )}
 
         {/* Period Text */}
-        <Text style={{ fontSize: 12, color: isDark ? '#888888' : '#888888', marginTop: 4, textAlign: 'center' }}>
+        <Text style={{ fontSize: 12, color: isDark ? '#9CA3AF' : '#6B7280', marginTop: 4, textAlign: 'center' }}>
           {goal.period === 'week' ? 'Denne uken' : goal.period === 'month' ? 'Denne måneden' : goal.period === 'year' ? 'Dette året' : 'Tilpasset'}
         </Text>
 
         {/* Days left text */}
         {!isReached && remainingDays > 0 && (
-          <Text style={{ fontSize: 12, color: isDark ? '#9CA3AF' : '#6B7280', marginTop: 2, textAlign: 'center' }}>
+          <Text style={{ fontSize: 12, color: isDark ? '#9CA3AF' : '#6B7280', marginTop: 1, textAlign: 'center' }}>
             {remainingDays} dager igjen
           </Text>
         )}
 
         {/* Status Text Indicator */}
-        <Text style={{ fontSize: 13, fontWeight: 'bold', marginTop: 8, color: statusColor }}>
+        <Text style={{ fontSize: 14, fontWeight: 'bold', marginTop: 8, color: statusColor }}>
           {statusText}
         </Text>
       </View>

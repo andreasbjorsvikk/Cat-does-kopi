@@ -270,6 +270,7 @@ export default function TrainingScreen() {
   const [extraTarget, setExtraTarget] = useState("");
   const [extraCustomStart, setExtraCustomStart] = useState("");
   const [extraCustomEnd, setExtraCustomEnd] = useState("");
+  const [extraRepeatGoal, setExtraRepeatGoal] = useState(false);
   const [editingExtraGoalId, setEditingExtraGoalId] = useState<string | null>(null);
 
   // Calendar Picker State
@@ -520,7 +521,7 @@ export default function TrainingScreen() {
         customStart: extraCustomStart,
         customEnd: extraPeriod === 'custom' ? extraCustomEnd : undefined,
         showOnHome: true,
-        repeating: extraPeriod !== 'custom',
+        repeating: extraRepeatGoal,
         archived: false
       };
 
@@ -1795,6 +1796,7 @@ export default function TrainingScreen() {
                             setExtraTarget("10");
                             setExtraCustomStart(new Date().toISOString().slice(0, 10));
                             setExtraCustomEnd("");
+                            setExtraRepeatGoal(true);
                             setShowExtraModal(true);
                           }}
                         >
@@ -1821,6 +1823,7 @@ export default function TrainingScreen() {
                                   setExtraTarget(goal.target.toString());
                                   setExtraCustomStart(goal.customStart || new Date().toISOString().slice(0, 10));
                                   setExtraCustomEnd(goal.customEnd || "");
+                                  setExtraRepeatGoal(!!goal.repeating);
                                   setShowExtraModal(true);
                                 }}
                                 onToggleHome={handleToggleShowOnHome}
@@ -1863,6 +1866,7 @@ export default function TrainingScreen() {
                                       setExtraTarget(goal.target.toString());
                                       setExtraCustomStart(goal.customStart || new Date().toISOString().slice(0, 10));
                                       setExtraCustomEnd(goal.customEnd || "");
+                                      setExtraRepeatGoal(!!goal.repeating);
                                       setShowExtraModal(true);
                                     }}
                                     onToggleHome={handleToggleShowOnHome}
@@ -2283,6 +2287,8 @@ export default function TrainingScreen() {
         customEnd={extraCustomEnd}
         openCalendarPicker={openCalendarPicker}
         formatDisplayDate={formatDisplayDate}
+        repeatGoal={extraRepeatGoal}
+        setRepeatGoal={setExtraRepeatGoal}
         onSave={handleSaveExtraGoal}
         submitting={submitting}
       />
