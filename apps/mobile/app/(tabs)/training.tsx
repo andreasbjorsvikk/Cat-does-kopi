@@ -708,6 +708,7 @@ export default function TrainingScreen() {
       if (!groups[monthKey]) groups[monthKey] = [];
       groups[monthKey].push(s);
     });
+
     return Object.keys(groups)
       .sort((a, b) => {
         const [yearA, monthA] = a.split("-").map(Number);
@@ -722,6 +723,21 @@ export default function TrainingScreen() {
         sessions: groups[key].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       }));
   }, [filteredHistorySessions]);
+
+  // Effect to default collapse all months except current one
+  useEffect(() => {
+    if (groupedSessions.length > 0) {
+      const now = new Date();
+      const currentMonthKey = `${now.getFullYear()}-${now.getMonth()}`;
+      const newCollapsed = new Set<string>();
+      groupedSessions.forEach(group => {
+        if (group.key !== currentMonthKey) {
+          newCollapsed.add(group.key);
+        }
+      });
+      setCollapsedMonths(newCollapsed);
+    }
+  }, [groupedSessions.length > 0]); // Only run when we have data for the first time
 
   const activePeriodSessions = useMemo(() => {
     return sessions.filter(s => {
@@ -1874,31 +1890,25 @@ export default function TrainingScreen() {
           <View style={styles.tabContent}>
 
             {/* History Header: Year Selector & Menu */}
-            <HStack style={{ justifyContent: 'flex-end', alignItems: 'center', paddingHorizontal: 16, marginBottom: 12, gap: 10 }}>
-              <Select
-                selectedValue={historyYear.toString()}
-                onValueChange={(val) => setHistoryYear(parseInt(val))}
+            <HStack style={{ justifyContent: 'flex-end', alignItems: 'center', paddingHorizontal: 16, marginBottom: 8, gap: 10 }}>
+              <Menu
+                offset={5}
+                trigger={(triggerProps) => (
+                  <TouchableOpacity {...triggerProps} style={flattenStyle([styles.yearSelectTrigger, { borderRadius: 10, minWidth: 100, height: 36, borderColor: isDark ? '#374151' : '#E5E7EB', borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }])}>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: isDark ? '#FFFFFF' : '#374151', marginLeft: 8 }}>{historyYear}</Text>
+                    <ChevronDown size={14} color={isDark ? '#9CA3AF' : '#6B7280'} style={{ marginRight: 8 }} />
+                  </TouchableOpacity>
+                )}
               >
-                <SelectTrigger size="sm" variant="outline" style={flattenStyle([styles.yearSelectTrigger, { borderRadius: 10, minWidth: 100, height: 36, borderColor: isDark ? '#374151' : '#E5E7EB' }])}>
-                  <SelectInput placeholder="År" value={historyYear.toString()} style={{ fontSize: 13, fontWeight: '600', color: isDark ? '#FFFFFF' : '#374151' }} />
-                  <SelectIcon style={{ marginRight: 8 }}>
-                    <ChevronDown size={14} color={isDark ? '#9CA3AF' : '#6B7280'} />
-                  </SelectIcon>
-                </SelectTrigger>
-                <SelectPortal>
-                  <SelectBackdrop />
-                  <SelectContent>
-                    <SelectDragIndicatorWrapper>
-                      <SelectDragIndicator />
-                    </SelectDragIndicatorWrapper>
-                    {historyYearOptions.map(y => (
-                      <SelectItem key={y} label={y.toString()} value={y.toString()} />
-                    ))}
-                  </SelectContent>
-                </SelectPortal>
-              </Select>
+                {historyYearOptions.map(y => (
+                  <MenuItem key={y} onPress={() => setHistoryYear(y)}>
+                    <MenuItemLabel size="sm">{y}</MenuItemLabel>
+                  </MenuItem>
+                ))}
+              </Menu>
 
               <Menu
+                offset={5}
                 trigger={(triggerProps) => (
                   <TouchableOpacity {...triggerProps} style={flattenStyle([styles.iconBtn, { backgroundColor: isDark ? '#1F2937' : '#F3F4F6' }])}>
                     <MoreVertical size={20} color={isDark ? '#FFFFFF' : '#374151'} />
@@ -1973,25 +1983,26 @@ export default function TrainingScreen() {
                       onPress={() => toggleMonth(group.key)}
                       activeOpacity={0.7}
                     >
-                      <HStack style={styles.monthSectionHeader}>
+                      <HStack style={flattenStyle([styles.monthSectionHeader, { backgroundColor: isDark ? '#111827' : '#F3F4F6', borderRadius: 12, marginHorizontal: 16, paddingVertical: 12, paddingHorizontal: 12 }])}>
                         <HStack style={{ alignItems: 'center' }}>
-                          <View style={{ transform: [{ rotate: isCollapsed ? '-90deg' : '0deg' }] }}>
-                            <ChevronDown size={18} color={isDark ? '#9CA3AF' : '#6B7280'} />
-                          </View>
-                          <Text style={flattenStyle([styles.monthHeaderText, { color: isDark ? '#FFFFFF' : '#111827', marginLeft: 8 }])}>
+                          <Folder size={18} color="#10B981" />
+                          <Text style={flattenStyle([styles.monthHeaderText, { color: isDark ? '#FFFFFF' : '#111827', marginLeft: 10 }])}>
                             {MONTH_NAMES[group.month]}
                           </Text>
-                          <View style={flattenStyle([styles.sessionCountBadge, { backgroundColor: isDark ? '#374151' : '#F3F4F6' }])}>
+                          <View style={flattenStyle([styles.sessionCountBadge, { backgroundColor: isDark ? '#1F2937' : '#FFFFFF' }])}>
                             <Text style={flattenStyle([styles.sessionCountText, { color: isDark ? '#9CA3AF' : '#6B7280' }])}>
                               {group.sessions.length} økter
                             </Text>
                           </View>
                         </HStack>
+                        <View style={{ transform: [{ rotate: isCollapsed ? '-90deg' : '0deg' }] }}>
+                          <ChevronDown size={16} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                        </View>
                       </HStack>
                     </TouchableOpacity>
 
                     {!isCollapsed && (
-                      <VStack style={{ gap: 10, paddingHorizontal: 16, marginTop: 4 }}>
+                      <VStack style={{ gap: 8, paddingHorizontal: 16, marginTop: 4 }}>
                         {group.sessions.map((session) => {
                           const IconComponent = getWorkoutIconComponent(session.type);
                           const typeColorsSet = getActivityColorSet(session.type);
@@ -2011,8 +2022,9 @@ export default function TrainingScreen() {
                           }
 
                           return (
-                            <Card key={session.id} className={`p-4 border ${themeClasses.cardBg}`} style={styles.sessionCard}>
-                              <HStack style={styles.sessionRow}>
+                            <TouchableOpacity key={session.id} activeOpacity={0.9} onPress={() => { /* Open session details Modal */ }}>
+                            <Card className={`p-2 border ${themeClasses.cardBg}`} style={flattenStyle([styles.sessionCard, { paddingVertical: 6 }])}>
+                              <HStack style={flattenStyle([styles.sessionRow, { paddingHorizontal: 4 }])}>
                                 <View style={flattenStyle([styles.iconContainer, { backgroundColor: typeColorsSet.bg, borderRadius: 10, width: 40, height: 40 }])}>
                                   <IconComponent size={20} color={typeColorsSet.text} />
                                 </View>
@@ -2021,12 +2033,7 @@ export default function TrainingScreen() {
                                   <Text style={flattenStyle([styles.sessionTitleText, { color: isDark ? "#FFFFFF" : "#111827", fontSize: 14 }])}>
                                     {session.title || session.type.charAt(0).toUpperCase() + session.type.slice(1)}
                                   </Text>
-                                  
-                                  <Text style={flattenStyle([styles.sessionDateText, { color: isDark ? "#9CA3AF" : "#6B7280" }])}>
-                                    {dateLabel}
-                                  </Text>
-
-                                  <HStack style={{ alignItems: "center", marginTop: 8, gap: 12 }}>
+                                  <HStack style={{ alignItems: "center", marginTop: 2, gap: 12 }}>
                                     <HStack style={{ alignItems: "center", gap: 4 }}>
                                       <Clock size={14} color={isDark ? "#9CA3AF" : "#6B7280"} />
                                       <Text style={flattenStyle([styles.sessionMetaText, { color: isDark ? "#9CA3AF" : "#6B7280" }])}>
@@ -2053,15 +2060,9 @@ export default function TrainingScreen() {
                                     )}
                                   </HStack>
                                 </VStack>
-
-                                <TouchableOpacity 
-                                  onPress={() => handleDeleteWorkout(session.id)}
-                                  style={styles.deleteBtn}
-                                >
-                                  <Trash2 size={16} color="#EF4444" />
-                                </TouchableOpacity>
                               </HStack>
                             </Card>
+                            </TouchableOpacity>
                           );
                         })}
                       </VStack>

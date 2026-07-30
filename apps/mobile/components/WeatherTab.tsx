@@ -55,13 +55,37 @@ const WEATHER_SYMBOLS: Record<string, any> = {
 
 function WeatherIcon({ symbol, size, color }: { symbol: string, size: number, color: string }) {
   const baseSymbol = symbol.split('_')[0];
-  const Icon = WEATHER_SYMBOLS[baseSymbol] || Cloud;
+  const IconComponent = WEATHER_SYMBOLS[baseSymbol] || Cloud;
   
-  let iconColor = color;
-  if (baseSymbol === 'clearsky' || baseSymbol === 'fair') iconColor = '#FBBF24';
-  if (baseSymbol.includes('rain') || baseSymbol.includes('drizzle')) iconColor = '#3B82F6';
+  // Special handling for multi-color icons
+  const isSun = baseSymbol === 'clearsky' || baseSymbol === 'fair';
+  const isPartlyCloudy = baseSymbol === 'partlycloudy';
+  const isRain = baseSymbol.includes('rain') || baseSymbol.includes('drizzle');
+  const isThunder = baseSymbol.includes('thunder');
+
+  if (isPartlyCloudy) {
+    return (
+      <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+        <Sun size={size * 0.7} color="#FBBF24" style={{ position: 'absolute', top: 0, right: 0 }} />
+        <Cloud size={size * 0.8} color="#9CA3AF" style={{ position: 'absolute', bottom: 0, left: 0 }} />
+      </View>
+    );
+  }
+
+  if (isSun) return <Sun size={size} color="#FBBF24" />;
   
-  return <Icon size={size} color={iconColor} />;
+  if (isRain || isThunder) {
+    return (
+      <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+        <Cloud size={size * 0.9} color="#9CA3AF" />
+        <View style={{ position: 'absolute', bottom: -2 }}>
+           <IconComponent size={size * 0.6} color="#3B82F6" />
+        </View>
+      </View>
+    );
+  }
+
+  return <IconComponent size={size} color="#9CA3AF" />;
 }
 
 export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
@@ -90,7 +114,6 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
           temp: ts.data.instant.details.air_temperature,
           windSpeed: ts.data.instant.details.wind_speed,
           windDir: ts.data.instant.details.wind_from_direction,
-          // Precipitation can be in next_1_hours or next_6_hours (fallback)
           precip: ts.data.next_1_hours?.details?.precipitation_amount ?? 
                   (ts.data.next_6_hours?.details?.precipitation_amount ? ts.data.next_6_hours.details.precipitation_amount / 6 : 0),
           symbol: ts.data.next_1_hours?.summary?.symbol_code ?? 
@@ -155,7 +178,6 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
 
   const currentDay = days[selectedDayIndex];
   
-  // Points for the temperature line and icons (every 3 hours)
   const graphPoints = [0, 3, 6, 9, 12, 15, 18, 21].map(hour => {
     const timeStr = `${currentDay.date}T${String(hour).padStart(2, '0')}:00:00`;
     const closest = currentDay.hours.find(h => h.time.startsWith(timeStr)) || 
@@ -167,7 +189,6 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
     };
   });
 
-  // Hourly data for the precipitation bars (all hours in currentDay)
   const hourlyData = currentDay.hours;
   
   const allTemps = hourlyData.map(h => h.temp);
@@ -179,23 +200,15 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
   const maxPrecip = Math.max(...hourlyData.map(h => h.precip), 2);
 
   const graphHeight = 240;
-  const paddingLeft = 35;
-  const paddingRight = 35;
-  const paddingTop = 70; 
+  const paddingLeft = 45; 
+  const paddingRight = 40; 
+  const paddingTop = 60; 
   const paddingBottom = 35; 
   
   const chartWidth = containerWidth - paddingLeft - paddingRight;
   const chartHeight = graphHeight - paddingTop - paddingBottom;
 
-  const getXFromTime = (time: string) => {
-    const date = new Date(time);
-    const hour = date.getHours();
-    return paddingLeft + (hour / 24) * chartWidth;
-  };
-
   const getXFromPointIndex = (index: number) => {
-    // index corresponds to 0, 3, 6, 9, 12, 15, 18, 21 (which are 8 points covering the day)
-    // Actually let's just use the hour directly
     const hour = index * 3;
     return paddingLeft + (hour / 21) * chartWidth; 
   };
@@ -212,9 +225,9 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
   const linePath = graphPoints.map((h, i) => `${i === 0 ? 'M' : 'L'} ${getXFromPointIndex(i)} ${getYTemp(h.temp)}`).join(' ');
 
   return (
-    <VStack style={{ gap: 8 }}>
+    <VStack style={{ gap: 0 }}>
       {/* Day Selector - Narrower and less spacing */}
-      <View style={{ marginTop: 4, marginBottom: 4 }}>
+      <View style={{ marginTop: 2, marginBottom: 2 }}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.daysScroll}>
           {days.map((day, index) => (
             <TouchableOpacity
@@ -245,11 +258,11 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
         onLayout={onLayout}
         style={flattenStyle([
           styles.weatherCard, 
-          { backgroundColor: isDark ? '#111827' : '#F8FAFC', paddingHorizontal: 12 }
+          { backgroundColor: isDark ? '#111827' : '#F8FAFC', paddingHorizontal: 12, marginTop: 4 }
         ])}
       >
         {/* Unit indicators */}
-        <HStack className="justify-between items-center mb-1">
+        <HStack className="justify-between items-center mb-0">
           <HStack space="xs" className="items-center">
             <Wind size={12} color={isDark ? '#9CA3AF' : '#64748B'} />
             <Text style={styles.unitText}>m/s</Text>
@@ -270,15 +283,15 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
                     <Line 
                       x1={paddingLeft} 
                       y1={y} 
-                      x2={containerWidth - paddingRight} 
+                      x2={containerWidth - paddingRight + 5} 
                       y2={y} 
                       stroke={isDark ? '#1F2937' : '#E2E8F0'} 
                       strokeWidth="1"
                     />
                     <SvgText
-                      x={paddingLeft - 10}
+                      x={paddingLeft - 15}
                       y={y + 4}
-                      fontSize="10"
+                      fontSize="11"
                       fontWeight="500"
                       fill={isDark ? '#9CA3AF' : '#64748B'}
                       textAnchor="end"
@@ -295,7 +308,7 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
                {[0, maxPrecip / 2, maxPrecip].map((p, i) => (
                  <SvgText
                     key={i}
-                    x={containerWidth - paddingRight + 10}
+                    x={containerWidth - paddingRight + 12}
                     y={getYPrecip(p) + 4}
                     fontSize="10"
                     fontWeight="500"
@@ -348,9 +361,9 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
                   <Circle cx={x} cy={y} r="3.5" fill={isDark ? '#FFFFFF' : '#000000'} stroke={isDark ? '#111827' : '#F8FAFC'} strokeWidth="1.5" />
                   
                   {/* Wind Arrow & Speed */}
-                  <G transform={`translate(${x}, 20)`}>
+                  <G transform={`translate(${x}, 15)`}>
                     <G transform={`rotate(${h.windDir})`}>
-                      <Path d="M0 -6 L4 6 L0 3 L-4 6 Z" fill={isDark ? '#9CA3AF' : '#64748B'} />
+                      <Path d="M0 -6 L3 4 L0 2 L-3 4 Z" fill={isDark ? '#9CA3AF' : '#64748B'} />
                     </G>
                     <SvgText
                       x="0"
@@ -447,12 +460,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   daysScroll: {
-    gap: 6,
+    gap: 4,
     paddingVertical: 2,
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
   },
   dayButton: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 12,
     minWidth: 70,
@@ -461,7 +474,7 @@ const styles = StyleSheet.create({
   },
   dayButtonText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   weatherCard: {
     padding: 12,

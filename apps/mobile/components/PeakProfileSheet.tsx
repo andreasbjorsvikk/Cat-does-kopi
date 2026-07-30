@@ -201,38 +201,39 @@ export function PeakProfileSheet({
         </TouchableOpacity>
       </HStack>
 
-      {/* Main Action Area */}
-      <VStack className="px-6 py-4" style={{ gap: 8 }}>
+      {/* Main Action Area & Tabs - Tightened Spacing */}
+      <VStack className="px-6 pt-2 pb-3" style={{ gap: 4 }}>
         <Button
           onPress={onCheckin}
           disabled={!canCheckin || checkinLoading}
-          className="bg-emerald-500 h-14 rounded-2xl active:bg-emerald-600 disabled:bg-emerald-500/50"
+          className="bg-emerald-500 h-12 rounded-xl active:bg-emerald-600 disabled:bg-emerald-500/50"
         >
           <HStack space="sm" className="items-center">
             {checkinLoading ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <CheckCircle size={20} color="#FFFFFF" />
+              <CheckCircle size={18} color="#FFFFFF" />
             )}
-            <ButtonText className="text-white font-bold text-lg">
+            <ButtonText className="text-white font-bold text-base">
               {checkinLoading ? "Sjekker inn..." : "Sjekk inn"}
             </ButtonText>
           </HStack>
         </Button>
-        <Text className={`text-center text-xs ${themeClasses.textMuted}`}>
-          Din avstand: {distance}
-        </Text>
-      </VStack>
+        
+        <HStack className="justify-center items-center mt-1 mb-2">
+           <MapPin size={10} color={isDark ? "#9CA3AF" : "#6B7280"} />
+           <Text className={`text-center text-[10px] ml-1 ${themeClasses.textMuted}`}>
+            Din avstand: {distance}
+          </Text>
+        </HStack>
 
-      {/* Tabs */}
-      <View className="px-6 mb-4">
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabContainer}>
           {renderTabButton("info", "Info", Info)}
           {renderTabButton("feed", "Feed", Rss)}
           {renderTabButton("lederliste", "Lederliste", Trophy)}
           {renderTabButton("vær", "Vær", Cloud)}
         </ScrollView>
-      </View>
+      </VStack>
 
       {/* Tab Content */}
       <ScrollView 
