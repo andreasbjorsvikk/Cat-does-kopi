@@ -18,6 +18,7 @@ export interface CustomRoute {
   summary: RouteSummary;
   waypoints: { latitude: number; longitude: number }[];
   startPoint: { latitude: number; longitude: number };
+  targetPeakCoord: { latitude: number; longitude: number };
   targetPeakId: string;
   isRoundTrip: boolean;
 }
@@ -41,7 +42,9 @@ export async function fetchRoute(coordinates: [number, number][]): Promise<{ poi
 
   if (error) {
     console.error('Error calling ors-route:', error);
-    throw new Error('Kunne ikke hente rute fra rute-API-et.');
+    // Try to extract more detail from the error if available
+    const errorDetail = error.message || (typeof error === 'string' ? error : 'Ukjent feil');
+    throw new Error(`Kunne ikke hente rute fra rute-API-et: ${errorDetail}`);
   }
 
   const feature = data.features[0];

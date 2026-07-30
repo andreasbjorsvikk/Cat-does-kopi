@@ -18,6 +18,11 @@ interface RouteStartPickerProps {
 export function RouteStartPicker({ onConfirm, onCancel, title, confirmLabel, getCenter }: RouteStartPickerProps) {
   const isDark = useColorScheme() === 'dark';
 
+  const handleConfirm = async () => {
+    const center = await getCenter();
+    onConfirm(center);
+  };
+
   return (
     <View style={styles.container} pointerEvents="box-none">
       {/* Top Bar */}
@@ -46,7 +51,7 @@ export function RouteStartPicker({ onConfirm, onCancel, title, confirmLabel, get
       <View style={styles.bottomBar} pointerEvents="box-none">
         <TouchableOpacity 
           style={styles.confirmButton}
-          onPress={() => onConfirm(getCenter())}
+          onPress={handleConfirm}
         >
           <HStack space="xs" className="items-center">
             <Check size={20} color="#FFFFFF" />
@@ -67,9 +72,9 @@ const styles = StyleSheet.create({
   },
   topBar: {
     position: 'absolute',
-    top: 60,
-    left: 16,
-    right: 16,
+    top: Platform.OS === 'ios' ? 115 : 105,
+    left: 40,
+    right: 40,
     borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },

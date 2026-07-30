@@ -175,15 +175,20 @@ export default function MapScreen() {
   const [currentZoom, setCurrentZoom] = useState(12);
 
   const getMapCenter = useCallback(async () => {
-    if (isMapboxAvailable && isMapboxLayer && mapboxMapRef.current) {
-      // Mapbox center coordinate is [lng, lat]
-      const center = await mapboxMapRef.current.getCenter();
-      return { latitude: center[1], longitude: center[0] };
-    } else if (mapRef.current) {
-      // For react-native-maps, we usually track this via onRegionChangeComplete
-      return { latitude: region.latitude, longitude: region.longitude };
+    try {
+      if (isMapboxAvailable && isMapboxLayer && mapboxMapRef.current) {
+        // Mapbox center coordinate is [lng, lat]
+        const center = await mapboxMapRef.current.getCenter();
+        if (center && Array.isArray(center)) {
+          return { latitude: center[1], longitude: center[0] };
+        }
+      }
+    } catch (err) {
+      console.warn("Error getting Mapbox center:", err);
     }
-    return { latitude: 0, longitude: 0 };
+
+    // Fallback to region center (works for both react-native-maps and as a stale fallback for Mapbox)
+    return { latitude: region.latitude, longitude: region.longitude };
   }, [isMapboxLayer, region]);
 
   const handleConfirmStart = async (coord: { latitude: number; longitude: number }) => {
@@ -1528,7 +1533,13 @@ export default function MapScreen() {
           canCheckin={canCheckin}
           checkinLoading={checkinLoading}
           onCheckin={handleCheckinPress}
-          onClose={() => setSelectedPeak(null)}
+          onClose={() => {
+            // Only clear the selected peak if we aren't currently in a "picking" state.
+            // This allows the sheet to hide while we use the peak's data for routing.
+            if (!isPickingStart && !isPickingWaypoint) {
+              setSelectedPeak(null);
+            }
+          }}
         />
       )}
 

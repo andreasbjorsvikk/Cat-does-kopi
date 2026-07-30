@@ -78,7 +78,9 @@ export default function TabLayout() {
           }}
         />
       </Tabs>
-      <ThemeToggle />
+      <View style={{ position: 'absolute', top: Platform.OS === 'ios' ? 115 : 105, left: 10, zIndex: 1000 }}>
+        <ThemeToggle />
+      </View>
     </View>
   );
 }

@@ -69,6 +69,7 @@ export function RouteProvider({ children }: { children: React.ReactNode }) {
         },
         waypoints,
         startPoint: start,
+        targetPeakCoord: { latitude: targetPeak.latitude, longitude: targetPeak.longitude },
         targetPeakId: targetPeak.id,
         isRoundTrip: false
       };
@@ -99,10 +100,7 @@ export function RouteProvider({ children }: { children: React.ReactNode }) {
     
     // If coordinates changed, refetch
     if (updates.waypoints || updates.startPoint) {
-      // Need to find the target peak coordinates again
-      // For now, assume it's the last point of the previous route
-      const lastPoint = activeRoute.points[activeRoute.points.length - 1];
-      await createRoute(updatedRoute.startPoint, { id: activeRoute.targetPeakId, ...lastPoint }, updatedRoute.waypoints);
+      await createRoute(updatedRoute.startPoint, { id: activeRoute.targetPeakId, ...activeRoute.targetPeakCoord }, updatedRoute.waypoints);
     } else {
       setActiveRoute(updatedRoute);
     }
