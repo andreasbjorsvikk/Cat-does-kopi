@@ -229,8 +229,8 @@ export function WeatherTab({ latitude, longitude, astronomy }: WeatherTabProps) 
   const maxPrecip = Math.max(...hourlyData.map(h => h.precip), 2);
 
   const graphHeight = 240;
-  const paddingLeft = 24; 
-  const paddingRight = 32; 
+  const paddingLeft = 16; 
+  const paddingRight = 52; 
   const paddingTop = 60; 
   const paddingBottom = 35; 
   
@@ -326,7 +326,7 @@ export function WeatherTab({ latitude, longitude, astronomy }: WeatherTabProps) 
                       textAnchor="end"
                     >
                       <TSpan>{Math.round(t)}</TSpan>
-                      <TSpan dx="-1.5">°</TSpan>
+                      <TSpan dx="-2.5">°</TSpan>
                     </SvgText>
                   </G>
                 );
@@ -424,7 +424,7 @@ export function WeatherTab({ latitude, longitude, astronomy }: WeatherTabProps) 
                     textAnchor="middle"
                   >
                     <TSpan>{Math.round(h.temp)}</TSpan>
-                    <TSpan dx="-1.5">°</TSpan>
+                    <TSpan dx="-2.5">°</TSpan>
                   </SvgText>
 
                 </G>
@@ -467,8 +467,7 @@ export function WeatherTab({ latitude, longitude, astronomy }: WeatherTabProps) 
              let displaySymbol = h.symbol;
              if (isNight) {
                if (h.symbol === '☀️') displaySymbol = '🌙';
-               else if (h.symbol === '🌤️') displaySymbol = '🌥️'; 
-               else if (h.symbol === '⛅') displaySymbol = '🌥️';
+               else if (h.symbol === '🌤️' || h.symbol === '⛅') displaySymbol = '☁️';
              }
 
              return (
@@ -515,17 +514,13 @@ export function WeatherTab({ latitude, longitude, astronomy }: WeatherTabProps) 
         <VStack className="items-center" space="xs">
           <Sun size={14} color="#FBBF24" />
           <Text style={styles.legendText}>Soloppgang</Text>
-          <Text style={flattenStyle([styles.infoValue, { color: isDark ? '#FFFFFF' : '#111827' }])}>
-            {selectedDayIndex === 0 && astronomy?.sunrise ? astronomy.sunrise : formatTime(currentDay?.sunrise)}
-          </Text>
+          <Text style={flattenStyle([styles.infoValue, { color: isDark ? '#FFFFFF' : '#111827' }])}>{formatTime(currentDay?.sunrise)}</Text>
         </VStack>
         
         <VStack className="items-center" space="xs">
           <Moon size={14} color="#60A5FA" />
           <Text style={styles.legendText}>Solnedgang</Text>
-          <Text style={flattenStyle([styles.infoValue, { color: isDark ? '#FFFFFF' : '#111827' }])}>
-            {selectedDayIndex === 0 && astronomy?.sunset ? astronomy.sunset : formatTime(currentDay?.sunset)}
-          </Text>
+          <Text style={flattenStyle([styles.infoValue, { color: isDark ? '#FFFFFF' : '#111827' }])}>{formatTime(currentDay?.sunset)}</Text>
         </VStack>
 
         <VStack className="items-center" space="xs">
