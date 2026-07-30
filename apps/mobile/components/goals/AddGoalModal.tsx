@@ -15,14 +15,7 @@ import { Heading } from "@/components/ui/heading";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { HStack } from "@/components/ui/hstack";
-import { 
-  Hash, 
-  Clock, 
-  MapPin, 
-  Mountain, 
-  Calendar,
-  X
-} from "lucide-react-native";
+import { Hash, Clock, MapPin, Mountain, Calendar, X, Check } from "lucide-react-native";
 import useColorScheme from "@/hooks/useColorScheme";
 import { flattenStyle } from "@/utils/flatten-style";
 import { GoalMetric, GoalPeriod } from "@/types/workout";
@@ -302,7 +295,7 @@ export const AddGoalModal = ({
               <TouchableOpacity 
                 activeOpacity={0.8}
                 onPress={() => setRepeatGoal(!repeatGoal)}
-                style={{ alignSelf: 'flex-start' }}
+                style={{ alignSelf: 'center' }}
               >
                 <HStack space="sm" style={{ alignItems: 'center' }}>
                   <View 
@@ -314,7 +307,7 @@ export const AddGoalModal = ({
                       }
                     ])}
                   >
-                    {repeatGoal && <View style={styles.checkboxCheck} />}
+                    {repeatGoal && <Check size={14} color="#FFFFFF" strokeWidth={4} />}
                   </View>
                   <Text style={{ color: textPrimary, fontSize: 14, fontWeight: '600' }}>
                     Gjenta mål
@@ -327,7 +320,7 @@ export const AddGoalModal = ({
                     style={{ padding: 4 }}
                   >
                     <View style={flattenStyle([styles.infoCircle, { borderColor: textMuted }])}>
-                      <Text style={{ color: textMuted, fontSize: 10, fontWeight: 'bold' }}>i</Text>
+                      <Text style={{ color: textMuted, fontSize: 10, fontWeight: 'bold', textAlign: 'center', lineHeight: 14 }}>i</Text>
                     </View>
                   </TouchableOpacity>
                 </HStack>
@@ -560,12 +553,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  checkboxCheck: {
-    width: 8,
-    height: 8,
-    borderRadius: 2,
-    backgroundColor: '#FFFFFF',
-  },
   infoCircle: {
     width: 16,
     height: 16,
@@ -573,5 +560,6 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingTop: 1,
   },
 });

@@ -78,7 +78,7 @@ try {
 const isMapboxAvailable = !!MapboxMapView;
 
 const { width, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const MINIMIZED_DRAWER_HEIGHT = 170;
+const MINIMIZED_DRAWER_HEIGHT = Platform.OS === 'ios' ? 180 : 170;
 const BASE_SNAP_TOP = SCREEN_HEIGHT * 0.55;
 const CHART_SNAP_TOP = SCREEN_HEIGHT * 0.25;
 const SNAP_BOTTOM = SCREEN_HEIGHT - MINIMIZED_DRAWER_HEIGHT;
@@ -350,10 +350,16 @@ export default function WorkoutDetailsPage() {
   const context = useSharedValue({ y: 0 });
   const [isMinimized, setIsMinimized] = useState(false);
 
-  const snapToMinimized = useCallback(() => {
+  const snapToMinimizedJS = useCallback(() => {
     translateY.value = withSpring(SNAP_BOTTOM);
     setIsMinimized(true);
-  }, []);
+  }, [SNAP_BOTTOM]);
+
+  const snapToMinimized = useCallback(() => {
+    'worklet';
+    translateY.value = withSpring(SNAP_BOTTOM);
+    runOnJS(setIsMinimized)(true);
+  }, [SNAP_BOTTOM]);
 
   const snapToExpanded = useCallback(() => {
     translateY.value = withSpring(currentSnapTopValue.value);
@@ -606,7 +612,7 @@ export default function WorkoutDetailsPage() {
                 onDidFinishLoadingStyle={() => setIsStyleLoaded(true)}
                 onCameraChanged={(e) => {
                   if (e?.nativeEvent?.gestures?.isUserGesture) {
-                    runOnJS(snapToMinimized)();
+                    runOnJS(snapToMinimizedJS)();
                   }
                 }}
               >
@@ -674,7 +680,7 @@ export default function WorkoutDetailsPage() {
                 zoomEnabled={true}
                 mapType="satellite"
                 onPanDrag={() => {
-                  runOnJS(snapToMinimized)();
+                  runOnJS(snapToMinimizedJS)();
                 }}
               >
                 {decodedRoute.length > 0 && (

@@ -1028,7 +1028,7 @@ export default function TrainingScreen() {
       </View>
 
       {/* Main Sub-Tabs Navigation (Statistikk, Mål, Historikk, Rekorder) */}
-      <View style={flattenStyle([styles.subTabsContainer, { backgroundColor: isDark ? "#111827" : "#F3F4F6" }])}>
+      <View style={flattenStyle([styles.subTabsContainer, { backgroundColor: isDark ? "#111827" : "#F3F4F6", marginBottom: 12 }])}>
         {(["statistikk", "mål", "historikk", "rekorder"] as const).map((tab) => {
           const isActive = activeSubTab === tab;
           const label = tab === "statistikk" ? "Statistikk" 
@@ -1086,7 +1086,7 @@ export default function TrainingScreen() {
           <View style={styles.tabContent} {...panResponder.panHandlers}>
             
             {/* Period selector tabs with animation */}
-            <View style={flattenStyle([styles.periodTabsWrapper, { backgroundColor: isDark ? "#1F2937" : "#E5E7EB", marginBottom: 8 }])}>
+            <View style={flattenStyle([styles.periodTabsWrapper, { backgroundColor: isDark ? "#1F2937" : "#E5E7EB", marginBottom: 12 }])}>
               {(["month", "year", "total"] as const).map((p) => {
                 const isActive = period === p;
                 const label = p === "month" ? "Måned" : p === "year" ? "År" : "Total";
@@ -1577,7 +1577,7 @@ export default function TrainingScreen() {
         {activeSubTab === "mål" && (
           <View style={styles.tabContent} {...goalsPanResponder.panHandlers}>
             {/* Sub-tabs for Mål: Generelt treningsmål | Andre mål */}
-            <View style={flattenStyle([styles.subSubTabsContainer, { backgroundColor: isDark ? "#111827" : "#F3F4F6" }])}>
+            <View style={flattenStyle([styles.subSubTabsContainer, { backgroundColor: isDark ? "#111827" : "#F3F4F6", marginBottom: 16 }])}>
               {(["generelt", "andre"] as const).map((tab) => {
                 const isActive = activeGoalSubTab === tab;
                 const label = tab === "generelt" ? "Generelt treningsmål" : "Andre mål";
