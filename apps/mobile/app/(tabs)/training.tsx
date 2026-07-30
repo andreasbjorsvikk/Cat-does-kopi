@@ -636,27 +636,27 @@ export default function TrainingScreen() {
     });
   }, []);
 
-  // Goals horizontal swipe month navigation
+  // Goals horizontal swipe month navigation — refined sensitivity
   const goalsPanResponder = useMemo(() => {
     return PanResponder.create({
       onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponderCapture: (_, gestureState) => {
         const { dx, dy } = gestureState;
-        return Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 0.5;
+        return Math.abs(dx) > 6 && Math.abs(dx) > Math.abs(dy) * 0.15;
       },
       onMoveShouldSetPanResponder: (_, gestureState) => {
         const { dx, dy } = gestureState;
         // Sensitivity check for horizontal swipe
-        return Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 0.5;
+        return Math.abs(dx) > 6 && Math.abs(dx) > Math.abs(dy) * 0.15;
       },
       onPanResponderGrant: () => {
         setPageScrollEnabled(false);
       },
       onPanResponderRelease: (_, gestureState) => {
         const { dx } = gestureState;
-        if (dx > 30) {
+        if (dx > 20) {
           handlePrevGoalMonth();
-        } else if (dx < -30) {
+        } else if (dx < -20) {
           handleNextGoalMonth();
         }
         setPageScrollEnabled(true);
@@ -1233,7 +1233,7 @@ export default function TrainingScreen() {
             <View style={{ marginTop: 4, marginBottom: 4 }}>
               <ScrollView 
                 horizontal 
-                showsHorizontalScrollIndicator={false}
+                showsHorizontalScrollIndicator={false} 
                 contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 4, flexGrow: 1, justifyContent: 'center' }}
               >
                 <HStack style={{ gap: 16 }}>
@@ -1612,18 +1612,18 @@ export default function TrainingScreen() {
                           <TouchableOpacity onPress={handlePrevGoalMonth} style={{ padding: 10 }}>
                             <ChevronLeft size={20} color={isDark ? "#9CA3AF" : "#4B5563"} />
                           </TouchableOpacity>
-                          <Text style={{ fontSize: 24, fontWeight: 'bold', color: isDark ? "#FFFFFF" : "#111827", minWidth: 140, textAlign: 'center' }}>
+                          <Text style={{ fontSize: 24, fontWeight: 'bold', color: isDark ? "#FFFFFF" : "#111827", minWidth: 160, textAlign: 'center', lineHeight: 32 }}>
                             {MONTH_NAMES[targetMonth]}
                           </Text>
                           <TouchableOpacity onPress={handleNextGoalMonth} style={{ padding: 10 }}>
                             <ChevronRight size={20} color={isDark ? "#9CA3AF" : "#4B5563"} />
                           </TouchableOpacity>
                         </HStack>
-                        <HStack style={{ alignItems: 'center', justifyContent: 'center', width: '100%', gap: 30, marginTop: 4 }}>
+                        <HStack style={{ alignItems: 'center', justifyContent: 'center', width: '100%', gap: 30, marginTop: 0 }}>
                           <TouchableOpacity onPress={() => setTargetYear(y => y - 1)} style={{ padding: 6 }}>
                             <ChevronLeft size={14} color={isDark ? "#6B7280" : "#9CA3AF"} />
                           </TouchableOpacity>
-                          <Text style={{ fontSize: 18, fontWeight: 'bold', color: isDark ? "#9CA3AF" : "#6B7280", minWidth: 80, textAlign: 'center' }}>
+                          <Text style={{ fontSize: 18, fontWeight: 'bold', color: isDark ? "#9CA3AF" : "#6B7280", minWidth: 80, textAlign: 'center', lineHeight: 24 }}>
                             {targetYear}
                           </Text>
                           <TouchableOpacity onPress={() => setTargetYear(y => y + 1)} style={{ padding: 6 }}>
@@ -1643,11 +1643,11 @@ export default function TrainingScreen() {
                           <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: isDark ? "rgba(16, 185, 129, 0.1)" : "rgba(16, 185, 129, 0.05)", alignItems: 'center', justifyContent: 'center', marginBottom: 0 }}>
                             <Target size={18} color="#10B981" />
                           </View>
-                          <Text style={{ fontSize: 18, fontWeight: 'bold', color: isDark ? "#FFFFFF" : "#111827", textAlign: 'center' }}>
+                          <Text style={{ fontSize: 20, fontWeight: 'bold', color: isDark ? "#FFFFFF" : "#111827", textAlign: 'center' }}>
                             {viewedGoal.inputTarget} økter per {viewedGoal.inputPeriod === 'week' ? 'uke' : viewedGoal.inputPeriod === 'month' ? 'måned' : 'år'}
                           </Text>
                           
-                          <Text style={{ fontSize: 13, color: isDark ? "#9CA3AF" : "#6B7280", marginTop: 2 }}>
+                          <Text style={{ fontSize: 16, color: isDark ? "#9CA3AF" : "#6B7280", marginTop: 2 }}>
                             <Text style={{ fontWeight: 'bold', color: isDark ? '#FFFFFF' : '#111827' }}>
                               {convertGoalValue(viewedGoal.inputTarget, viewedGoal.inputPeriod, 'week')}
                             </Text> /uke  ·  <Text style={{ fontWeight: 'bold', color: isDark ? '#FFFFFF' : '#111827' }}>
@@ -1657,7 +1657,7 @@ export default function TrainingScreen() {
                             </Text> /år
                           </Text>
 
-                          <Text style={{ fontSize: 12, color: isDark ? '#6B7280' : '#9CA3AF', marginTop: 2 }}>
+                          <Text style={{ fontSize: 15, color: isDark ? '#6B7280' : '#9CA3AF', marginTop: 2 }}>
                             {formatDisplayDate(viewedGoal.validFrom)} → pågående
                           </Text>
 
@@ -2424,7 +2424,7 @@ const styles = StyleSheet.create({
   pageHeader: {
     paddingHorizontal: 16,
     paddingTop: Platform.OS === "ios" ? 60 : 20,
-    paddingBottom: 12,
+    paddingBottom: 10,
     borderBottomWidth: 1,
   },
   headerIconWrapper: {
