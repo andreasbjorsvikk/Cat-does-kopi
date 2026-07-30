@@ -38,7 +38,7 @@ import { flattenStyle } from "@/utils/flatten-style";
 import { PeakLeaderboard } from "./leaderboard/PeakLeaderboard";
 import { supabase } from "@/lib/supabase";
 import { WeatherTab } from "./WeatherTab";
-import { mapWmoCodeToEmoji, mapWmoCodeToDescription, getWeatherIconUrl } from "@/utils/weatherUtils";
+import { mapWmoCodeToEmoji, mapWmoCodeToDescription } from "@/utils/weatherUtils";
 import { useRoute } from "@/context/RouteContext";
 
 interface PeakProfileSheetProps {
@@ -127,7 +127,7 @@ export function PeakProfileSheet({
           
           if (isNight) {
             if (symbol === "☀️") symbol = "🌙";
-            else if (symbol === "🌤️" || symbol === "⛅") symbol = "☁️";
+            else if (symbol === "🌤️" || symbol === "⛅") symbol = "☁️🌙";
           }
 
           setWeatherData({
@@ -370,12 +370,12 @@ export function PeakProfileSheet({
               <View 
                 style={flattenStyle([
                   styles.astroCard, 
-                  { flex: 1, backgroundColor: isDark ? "#1F2937" : "#F5F3FF" }
+                  { flex: 1, backgroundColor: isDark ? "#1F2937" : "#EFF6FF" }
                 ])}
               >
-                <Moon size={20} color="#8B5CF6" />
+                <Moon size={20} color="#3B82F6" />
                 <VStack>
-                  <Text style={{ fontSize: 10 }} className="text-violet-700 dark:text-violet-500 font-bold uppercase tracking-wider">Solnedgang</Text>
+                  <Text style={{ fontSize: 10 }} className="text-blue-700 dark:text-blue-500 font-bold uppercase tracking-wider">Solnedgang</Text>
                   <Text 
                     className="text-xl font-bold"
                     style={{ color: isDark ? "#F9FAFB" : "#111827" }}

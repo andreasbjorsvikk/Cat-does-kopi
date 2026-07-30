@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TouchableOpacity, ScrollView } from 'react-native';
+import { View, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { HStack } from '@/components/ui/hstack';
@@ -314,7 +314,7 @@ export const ArchivedGoalsSection = ({
   );
 };
 
-const styles = {
+const styles = StyleSheet.create({
   folderHeader: {
     padding: 12,
     borderRadius: 16,
@@ -352,6 +352,6 @@ const styles = {
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.03)',
+    backgroundColor: 'rgba(0,0,0,0.03)' as any,
   }
-};
+});

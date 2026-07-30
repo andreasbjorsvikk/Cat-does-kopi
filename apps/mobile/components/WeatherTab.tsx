@@ -38,7 +38,7 @@ interface WeatherData {
 export function WeatherTab({ latitude, longitude, astronomy }: WeatherTabProps) {
   const isDark = useColorScheme() === 'dark';
   const [data, setData] = useState<WeatherData[]>([]);
-  const [dailyInfo, setDailyInfo] = useState<Record<string, { sunrise: string; sunset: string }>>({});
+  const [dailyInfo, setDailyInfo] = useState<Record<string, { sunrise?: string; sunset?: string }>>({});
   const [loading, setLoading] = useState(true);
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
   const [containerWidth, setContainerWidth] = useState(Dimensions.get('window').width - 48);
@@ -467,7 +467,7 @@ export function WeatherTab({ latitude, longitude, astronomy }: WeatherTabProps) 
              let displaySymbol = h.symbol;
              if (isNight) {
                if (h.symbol === '☀️') displaySymbol = '🌙';
-               else if (h.symbol === '🌤️' || h.symbol === '⛅') displaySymbol = '☁️';
+               else if (h.symbol === '🌤️' || h.symbol === '⛅') displaySymbol = '☁️🌙';
              }
 
              return (
@@ -518,7 +518,7 @@ export function WeatherTab({ latitude, longitude, astronomy }: WeatherTabProps) 
         </VStack>
         
         <VStack className="items-center" space="xs">
-          <Moon size={14} color="#60A5FA" />
+          <Moon size={14} color="#3B82F6" />
           <Text style={styles.legendText}>Solnedgang</Text>
           <Text style={flattenStyle([styles.infoValue, { color: isDark ? '#FFFFFF' : '#111827' }])}>{formatTime(currentDay?.sunset)}</Text>
         </VStack>

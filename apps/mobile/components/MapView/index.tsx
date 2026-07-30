@@ -171,6 +171,7 @@ export default function MapScreen() {
   
   // Map settings
   const [mapType, setMapType] = useState<"satellite" | "terrain" | "norgeskart" | "satellite2">("satellite");
+  const isMapboxLayer = mapType === "satellite" || mapType === "satellite2" || mapType === "terrain" || mapType === "norgeskart";
   const [areaStatsMode, setAreaStatsMode] = useState<'off' | 'kommune' | 'fylke'>('off');
   const [areaBoundaries, setAreaBoundaries] = useState<Record<string, any>>({});
   const [currentZoom, setCurrentZoom] = useState(15);
@@ -333,8 +334,6 @@ export default function MapScreen() {
 
     loadBoundaries();
   }, [areaStats, areaStatsMode]);
-
-  const isMapboxLayer = mapType === "satellite" || mapType === "satellite2" || mapType === "terrain" || mapType === "norgeskart";
 
   const mapboxStyleURL = React.useMemo(() => {
     switch(mapType) {
@@ -1223,7 +1222,6 @@ export default function MapScreen() {
               >
                 <Mapbox.LineLayer
                   id="routeLayer"
-                  layerIndex={100}
                   style={{
                     lineColor: "#10B981",
                     lineWidth: 4,

@@ -12,7 +12,7 @@ interface RouteStartPickerProps {
   onCancel: () => void;
   title?: string;
   confirmLabel?: string;
-  getCenter: () => { latitude: number; longitude: number };
+  getCenter: () => { latitude: number; longitude: number } | Promise<{ latitude: number; longitude: number }>;
 }
 
 export function RouteStartPicker({ onConfirm, onCancel, title, confirmLabel, getCenter }: RouteStartPickerProps) {

@@ -95,7 +95,7 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
 }) => {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const mapRef = React.useRef<MapView | null>(null);
+  const mapRef = React.useRef<any>(null);
   const router = useRouter();
   
   const activityColors = React.useMemo(() => {
