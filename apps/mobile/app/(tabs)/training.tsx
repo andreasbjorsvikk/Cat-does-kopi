@@ -123,7 +123,7 @@ interface WorkoutTypeConfig {
 }
 
 const WORKOUT_TYPES: WorkoutTypeConfig[] = [
-  { id: "styrke", label: "Styrke", icon: Dumbbell, colors: { darkSelectedBg: "#374151", darkSelectedText: "#FFFFFF", lightSelectedBg: "#E5E7EB", lightSelectedText: "#374151" } },
+  { id: "styrke", label: "Styrke", icon: Dumbbell, colors: { darkSelectedBg: "#374151", darkSelectedText: "#FFFFFF", lightSelectedBg: "#D1D5DB", lightSelectedText: "#374151" } },
   { id: "løping", label: "Løping", icon: Flame, colors: { darkSelectedBg: "#3B82F6", darkSelectedText: "#FFFFFF", lightSelectedBg: "#DBEAFE", lightSelectedText: "#1D4ED8" } },
   { id: "fjelltur", label: "Fjelltur", icon: Compass, colors: { darkSelectedBg: "#10B981", darkSelectedText: "#FFFFFF", lightSelectedBg: "#D1FAE5", lightSelectedText: "#065F46" } },
   { id: "svømming", label: "Svømming", icon: Waves, colors: { darkSelectedBg: "#0EA5E9", darkSelectedText: "#FFFFFF", lightSelectedBg: "#E0F2FE", lightSelectedText: "#0369A1" } },
@@ -812,8 +812,7 @@ export default function TrainingScreen() {
       case "minutes":
         return typeSessions.reduce((sum, s) => sum + s.durationMinutes, 0);
       case "steps":
-        const distanceSum = typeSessions.reduce((sum, s) => sum + (s.distance || 0), 0);
-        return Math.round(distanceSum * 1312 + typeSessions.length * 2500);
+        return 0;
       default:
         return 0;
     }
@@ -1153,7 +1152,7 @@ export default function TrainingScreen() {
                   <TouchableOpacity onPress={handlePrevDate} style={styles.dateSelectorArrow}>
                     <ChevronLeft size={18} color={isDark ? "#FFFFFF" : "#111827"} />
                   </TouchableOpacity>
-                  <Text style={flattenStyle([styles.dateSelectorLabel, { color: isDark ? "#FFFFFF" : "#111827", fontSize: 26, lineHeight: 34 }])}>
+                  <Text style={flattenStyle([styles.dateSelectorLabel, { color: isDark ? "#FFFFFF" : "#111827", fontSize: 26 }])}>
                     {period === "month" ? `${MONTH_NAMES[selectedMonth]} ${selectedYear}` : selectedYear.toString()}
                   </Text>
                   <TouchableOpacity onPress={handleNextDate} style={styles.dateSelectorArrow}>
@@ -1161,7 +1160,7 @@ export default function TrainingScreen() {
                   </TouchableOpacity>
                 </>
               ) : (
-                <Text style={flattenStyle([styles.dateSelectorLabel, { color: isDark ? "#FFFFFF" : "#111827", fontSize: 26, lineHeight: 34 }])}>
+                <Text style={flattenStyle([styles.dateSelectorLabel, { color: isDark ? "#FFFFFF" : "#111827", fontSize: 26 }])}>
                   Total livstidsfremgang
                 </Text>
               )}
@@ -1365,7 +1364,7 @@ export default function TrainingScreen() {
                   <TouchableOpacity 
                     activeOpacity={1} 
                     onPress={() => setTooltipIndex(null)} 
-                    style={[StyleSheet.absoluteFill, { zIndex: 0 }]} 
+                    style={flattenStyle([styles.absoluteFill, { zIndex: 0 }])} 
                   />
 
                   {chartType === "bar" ? (
@@ -1433,10 +1432,10 @@ export default function TrainingScreen() {
                               }
                             ])}
                           >
-                            <Text style={{ fontSize: 10.5, fontWeight: '800', color: isDark ? '#10B981' : '#059669', marginBottom: -2, lineHeight: 14 }}>
+                            <Text style={{ fontSize: 10.5, fontWeight: '800', color: isDark ? '#10B981' : '#059669', marginBottom: -2 }}>
                               {period === 'month' ? `${tooltipIndex + 1}. ${MONTH_NAMES[selectedMonth]}` : (period === 'year' ? MONTH_NAMES[tooltipIndex] : chartData[tooltipIndex].label)}
                             </Text>
-                            <Text style={{ fontSize: 11.5, fontWeight: 'bold', color: isDark ? '#FFFFFF' : '#111827', marginBottom: 0, lineHeight: 16 }}>
+                            <Text style={{ fontSize: 11.5, fontWeight: 'bold', color: isDark ? '#FFFFFF' : '#111827', marginBottom: 0 }}>
                               Total: {chartMetric === 'minutes' ? formatMinutes(Number(chartData[tooltipIndex]._total)) : (chartMetric === 'distance' ? `${Number(chartData[tooltipIndex]._total).toFixed(1)} km` : chartData[tooltipIndex]._total)}
                             </Text>
                             <View style={{ gap: 0 }}>
@@ -1447,11 +1446,11 @@ export default function TrainingScreen() {
                                   <HStack key={type.id} style={{ alignItems: 'center', justifyContent: 'space-between', height: 14 }}>
                                     <HStack style={{ alignItems: 'center', gap: 4 }}>
                                       <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: isDark ? type.colors.darkSelectedBg : type.colors.lightSelectedBg }} />
-                                      <Text style={{ fontSize: 9.5, color: isDark ? '#9CA3AF' : '#6B7280', lineHeight: 12 }}>
+                                      <Text style={{ fontSize: 9.5, color: isDark ? '#9CA3AF' : '#6B7280' }}>
                                         {type.label}
                                       </Text>
                                     </HStack>
-                                    <Text style={{ fontSize: 9.5, fontWeight: '600', color: isDark ? '#FFFFFF' : '#111827', lineHeight: 12 }}>
+                                    <Text style={{ fontSize: 9.5, fontWeight: '600', color: isDark ? '#FFFFFF' : '#111827' }}>
                                       {chartMetric === 'minutes' ? formatMinutes(val) : (chartMetric === 'distance' ? `${val.toFixed(1)} km` : val)}
                                     </Text>
                                   </HStack>
@@ -1492,7 +1491,8 @@ export default function TrainingScreen() {
                           const coords = chartData.map((d, i) => {
                             const x = i * columnWidth + columnWidth / 2;
                             const val = Number(d._total || 0);
-                            const y = chartHeight - (val / maxChartValue) * chartHeight;
+                            // Use a small vertical offset (5px) to prevent clipping at top/bottom
+                            const y = (chartHeight - 5) - (val / maxChartValue) * (chartHeight - 10);
                             return { x, y };
                           });
 
@@ -1663,7 +1663,7 @@ export default function TrainingScreen() {
                           <TouchableOpacity onPress={handlePrevGoalMonth} style={{ padding: 10 }}>
                             <ChevronLeft size={20} color={isDark ? "#9CA3AF" : "#4B5563"} />
                           </TouchableOpacity>
-                          <Text style={{ fontSize: 24, fontWeight: 'bold', color: isDark ? "#FFFFFF" : "#111827", minWidth: 160, textAlign: 'center', lineHeight: 32 }}>
+                          <Text style={{ fontSize: 24, fontWeight: 'bold', color: isDark ? "#FFFFFF" : "#111827", minWidth: 160, textAlign: 'center' }}>
                             {MONTH_NAMES[targetMonth]}
                           </Text>
                           <TouchableOpacity onPress={handleNextGoalMonth} style={{ padding: 10 }}>
@@ -1674,7 +1674,7 @@ export default function TrainingScreen() {
                           <TouchableOpacity onPress={() => setTargetYear(y => y - 1)} style={{ padding: 6 }}>
                             <ChevronLeft size={14} color={isDark ? "#6B7280" : "#9CA3AF"} />
                           </TouchableOpacity>
-                          <Text style={{ fontSize: 18, fontWeight: 'bold', color: isDark ? "#9CA3AF" : "#6B7280", minWidth: 80, textAlign: 'center', lineHeight: 24 }}>
+                          <Text style={{ fontSize: 18, fontWeight: 'bold', color: isDark ? "#9CA3AF" : "#6B7280", minWidth: 80, textAlign: 'center' }}>
                             {targetYear}
                           </Text>
                           <TouchableOpacity onPress={() => setTargetYear(y => y + 1)} style={{ padding: 6 }}>
@@ -2488,7 +2488,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   subTabText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "600",
   },
   tabContent: {
@@ -2889,7 +2889,14 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   subSubTabText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600",
+  },
+  absoluteFill: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
 });

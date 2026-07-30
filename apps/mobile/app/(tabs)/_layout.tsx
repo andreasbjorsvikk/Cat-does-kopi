@@ -30,7 +30,7 @@ export default function TabLayout() {
             height: Platform.OS === "ios" ? 85 : 65,
           },
           tabBarLabelStyle: {
-            fontSize: 11,
+            fontSize: 10,
             fontWeight: "600",
           },
         }}

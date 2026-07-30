@@ -1307,6 +1307,16 @@ export default function MapScreen() {
             maxPitch: 90,
           } as any)}
         >
+          {mapType === "norgeskart" && (
+            <UrlTile
+              key="norgeskart-tile"
+              urlTemplate="https://cache.kartverket.no/v1/wmts/1.0.0/topo/default/webmercator/{z}/{y}/{x}.png"
+              tileSize={256}
+              maximumZ={19}
+              zIndex={1}
+              shouldReplaceMapContent={Platform.OS === "ios"}
+            />
+          )}
           {activeRoute && (
             <>
               <Polyline
@@ -1329,16 +1339,6 @@ export default function MapScreen() {
                 </Marker>
               ))}
             </>
-          )}
-          {mapType === "norgeskart" && (
-            <UrlTile
-              key="norgeskart-tile"
-              urlTemplate="https://cache.kartverket.no/v1/wmts/1.0.0/topo/default/webmercator/{z}/{y}/{x}.png"
-              tileSize={256}
-              maximumZ={19}
-              zIndex={1}
-              shouldReplaceMapContent={Platform.OS === "ios"}
-            />
           )}
           {peaks.map((peak) => {
             const isSelected = selectedPeak?.id === peak.id;
