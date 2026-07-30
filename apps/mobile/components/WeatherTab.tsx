@@ -37,8 +37,8 @@ const WMO_TO_MET: Record<number, string> = {
   1: 'fair',
   2: 'partlycloudy',
   3: 'cloudy',
-  45: 'cloudy',
-  48: 'cloudy',
+  45: 'fog',
+  48: 'fog',
   51: 'lightrain',
   53: 'lightrain',
   55: 'lightrain',
@@ -68,6 +68,7 @@ const WEATHER_SYMBOLS: Record<string, any> = {
   fair: { day: Sun, night: Moon },
   partlycloudy: { day: CloudSun, night: CloudMoon },
   cloudy: Cloud,
+  fog: Cloud,
   lightrain: CloudDrizzle,
   rain: CloudRain,
   heavyrain: CloudRain,
@@ -96,15 +97,18 @@ function WeatherIcon({ symbol, size, color }: { symbol: string, size: number, co
   const isPartlyCloudy = baseSymbol === 'partlycloudy';
   const isRain = baseSymbol.includes('rain') || baseSymbol.includes('drizzle');
   const isThunder = baseSymbol.includes('thunder');
+  const isSnow = baseSymbol.includes('snow');
 
   if (isPartlyCloudy) {
     return (
       <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-        {isNight ? (
-          <Moon size={size * 0.7} color="#FBBF24" style={{ position: 'absolute', top: 0, right: 0 }} />
-        ) : (
-          <Sun size={size * 0.7} color="#FBBF24" style={{ position: 'absolute', top: 0, right: 0 }} />
-        )}
+        <View style={{ position: 'absolute', top: -2, right: -2 }}>
+          {isNight ? (
+            <Moon size={size * 0.7} color="#FBBF24" />
+          ) : (
+            <Sun size={size * 0.7} color="#FBBF24" />
+          )}
+        </View>
         <Cloud size={size * 0.8} color="#9CA3AF" style={{ position: 'absolute', bottom: 0, left: 0 }} />
       </View>
     );
@@ -118,8 +122,19 @@ function WeatherIcon({ symbol, size, color }: { symbol: string, size: number, co
     return (
       <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
         <Cloud size={size * 0.9} color="#9CA3AF" />
-        <View style={{ position: 'absolute', bottom: -2 }}>
+        <View style={{ position: 'absolute', bottom: -4 }}>
            <IconComponent size={size * 0.6} color="#3B82F6" />
+        </View>
+      </View>
+    );
+  }
+
+  if (isSnow) {
+    return (
+      <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+        <Cloud size={size * 0.9} color="#9CA3AF" />
+        <View style={{ position: 'absolute', bottom: -4 }}>
+           <CloudSnow size={size * 0.6} color="#FFFFFF" />
         </View>
       </View>
     );
@@ -593,26 +608,30 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
       </View>
       
       {/* Extra info: Sunrise, Sunset, Snow Depth */}
-      <HStack className="justify-around items-center px-4 py-3 bg-background-50 dark:bg-background-900 rounded-xl mt-2 mx-1 border border-outline-100 dark:border-outline-800">
+      <HStack style={flattenStyle([
+        styles.extraInfoContainer,
+        { 
+          backgroundColor: isDark ? '#1F2937' : '#F9FAFB',
+          borderColor: isDark ? '#374151' : '#E5E7EB'
+        }
+      ])}>
         <VStack className="items-center" space="xs">
           <Sun size={14} color="#FBBF24" />
           <Text style={styles.legendText}>Soloppgang</Text>
-          <Text className="text-sm font-bold text-typography-900">{formatTime(currentDay.sunrise)}</Text>
+          <Text style={flattenStyle([styles.infoValue, { color: isDark ? '#FFFFFF' : '#111827' }])}>{formatTime(currentDay?.sunrise)}</Text>
         </VStack>
         
         <VStack className="items-center" space="xs">
           <Moon size={14} color="#60A5FA" />
           <Text style={styles.legendText}>Solnedgang</Text>
-          <Text className="text-sm font-bold text-typography-900">{formatTime(currentDay.sunset)}</Text>
+          <Text style={flattenStyle([styles.infoValue, { color: isDark ? '#FFFFFF' : '#111827' }])}>{formatTime(currentDay?.sunset)}</Text>
         </VStack>
 
-        {snowDepthAtNoon > 0 && (
-          <VStack className="items-center" space="xs">
-            <CloudSnow size={14} color="#9CA3AF" />
-            <Text style={styles.legendText}>Snødybde</Text>
-            <Text className="text-sm font-bold text-typography-900">{formatSnowDepth(snowDepthAtNoon)}</Text>
-          </VStack>
-        )}
+        <VStack className="items-center" space="xs">
+          <CloudSnow size={14} color="#9CA3AF" />
+          <Text style={styles.legendText}>Snødybde</Text>
+          <Text style={flattenStyle([styles.infoValue, { color: isDark ? '#FFFFFF' : '#111827' }])}>{formatSnowDepth(snowDepthAtNoon)}</Text>
+        </VStack>
       </HStack>
 
       <Text className="text-center text-xs text-typography-400 dark:text-typography-500 italic mt-1">
@@ -675,5 +694,19 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#9CA3AF',
     fontWeight: '700',
+  },
+  extraInfoContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 16,
+    marginTop: 8,
+    borderWidth: 1,
+  },
+  infoValue: {
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 });

@@ -393,13 +393,6 @@ export default function HomeScreen() {
 
       </ScrollView>
 
-      {/* Dark Mode Toggle (Match original floating moon/sun) */}
-      <TouchableOpacity style={styles.themeToggle}>
-        <View style={flattenStyle([styles.themeToggleBtn, { backgroundColor: theme.card, borderColor: theme.border }])}>
-          {isDark ? <Sun size={20} color={theme.text} /> : <Moon size={20} color={theme.text} />}
-        </View>
-      </TouchableOpacity>
-
       <WorkoutModal 
         isOpen={isWorkoutModalOpen} 
         onClose={() => setIsWorkoutModalOpen(false)}
