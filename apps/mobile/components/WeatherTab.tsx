@@ -145,11 +145,24 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
       try {
         const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&hourly=temperature_2m,precipitation,snow_depth,weather_code,wind_speed_10m,wind_direction_10m&daily=sunrise,sunset&timezone=auto&forecast_days=10&models=metno_nordic,best_match`;
         const response = await fetch(url);
+        
+        if (!response.ok) {
+          throw new Error(`Weather API returned ${response.status}`);
+        }
+
         const json = await response.json();
+
+        if (!json || typeof json !== 'object') {
+          throw new Error('Invalid response from weather API');
+        }
 
         const hourly = json.hourly;
         const daily = json.daily;
         const hourlyUnits = json.hourly_units;
+
+        if (!hourly || !Array.isArray(hourly.time)) {
+          throw new Error('Missing hourly data from weather API');
+        }
 
         const isWindKmH = (hourlyUnits?.wind_speed_10m_best_match || hourlyUnits?.wind_speed_10m) === 'km/h';
 
@@ -162,10 +175,11 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
           const weatherCode = hourly.weather_code_best_match?.[i] ?? hourly.weather_code?.[i] ?? 0;
           const baseSymbol = WMO_TO_MET[weatherCode] || 'cloudy';
           
-          const dateStr = time.split('T')[0];
-          const dailyIndex = daily.time.indexOf(dateStr);
+          const dateStr = time?.split('T')[0];
+          const dailyIndex = daily?.time?.indexOf(dateStr) ?? -1;
           let symbol = baseSymbol;
-          if (dailyIndex !== -1) {
+          
+          if (dailyIndex !== -1 && daily?.sunrise?.[dailyIndex] && daily?.sunset?.[dailyIndex]) {
             const sunriseStr = daily.sunrise[dailyIndex];
             const sunsetStr = daily.sunset[dailyIndex];
             const sunrise = new Date(sunriseStr);
@@ -173,6 +187,8 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
             const currentTime = new Date(time);
             const isNight = currentTime < sunrise || currentTime >= sunset;
             symbol = `${baseSymbol}_${isNight ? 'night' : 'day'}`;
+          } else if (!symbol.includes('_')) {
+            symbol = `${symbol}_day`;
           }
 
           return {
@@ -187,12 +203,16 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
         });
 
         const dailyInfoMap: Record<string, { sunrise: string; sunset: string }> = {};
-        daily.time.forEach((date: string, i: number) => {
-          dailyInfoMap[date] = {
-            sunrise: daily.sunrise[i],
-            sunset: daily.sunset[i],
-          };
-        });
+        if (daily && Array.isArray(daily.time)) {
+          daily.time.forEach((date: string, i: number) => {
+            if (daily.sunrise?.[i] && daily.sunset?.[i]) {
+              dailyInfoMap[date] = {
+                sunrise: daily.sunrise[i],
+                sunset: daily.sunset[i],
+              };
+            }
+          });
+        }
 
         setData(formattedData);
         setDailyInfo(dailyInfoMap);
@@ -207,16 +227,20 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
   }, [latitude, longitude]);
 
   const days = useMemo(() => {
-    if (data.length === 0) return [];
+    if (!data || data.length === 0) return [];
     
     const dayGroups: Record<string, WeatherData[]> = {};
     data.forEach(item => {
+      if (!item || !item.time) return;
       const dateStr = item.time.split('T')[0];
       if (!dayGroups[dateStr]) dayGroups[dateStr] = [];
       dayGroups[dateStr].push(item);
     });
 
-    return Object.entries(dayGroups).slice(0, 10).map(([date, hours]) => {
+    const entries = Object.entries(dayGroups);
+    if (entries.length === 0) return [];
+
+    return entries.slice(0, 10).map(([date, hours]) => {
       const d = new Date(date);
       const isToday = new Date().toDateString() === d.toDateString();
       const isTomorrow = new Date(Date.now() + 86400000).toDateString() === d.toDateString();
@@ -257,10 +281,10 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
     );
   }
 
-  const currentDay = days[selectedDayIndex];
+  const currentDay = days[selectedDayIndex] || days[0];
   
   const snowDepthAtNoon = useMemo(() => {
-    const noon = currentDay.hours.find(h => h.time.includes('T12:00'));
+    const noon = currentDay?.hours?.find(h => h.time?.includes('T12:00'));
     if (!noon) return 0;
     return noon.snowDepth;
   }, [currentDay]);
@@ -272,24 +296,40 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
   };
 
   const formatTime = (isoString?: string) => {
-    if (!isoString) return '--:--';
-    return isoString.split('T')[1].substring(0, 5);
+    if (!isoString || typeof isoString !== 'string') return '--:--';
+    const parts = isoString.split('T');
+    if (parts.length < 2) return '--:--';
+    return parts[1].substring(0, 5);
   };
   
   const graphPoints = [0, 3, 6, 9, 12, 15, 18, 21].map(hour => {
-    const timeStr = `${currentDay.date}T${String(hour).padStart(2, '0')}:00:00`;
-    const closest = currentDay.hours.find(h => h.time.startsWith(timeStr)) || 
-                    currentDay.hours.find(h => h.time >= timeStr) || 
-                    currentDay.hours[currentDay.hours.length - 1];
+    const timeStr = `${currentDay?.date}T${String(hour).padStart(2, '0')}:00:00`;
+    const closest = currentDay?.hours?.find(h => h.time.startsWith(timeStr)) || 
+                    currentDay?.hours?.find(h => h.time >= timeStr) || 
+                    currentDay?.hours?.[currentDay?.hours?.length - 1];
+    
+    if (!closest) {
+      return {
+        time: timeStr,
+        temp: 0,
+        precip: 0,
+        windSpeed: 0,
+        windDir: 0,
+        symbol: 'cloudy_day',
+        snowDepth: 0,
+        label: String(hour).padStart(2, '0')
+      };
+    }
+
     return {
       ...closest,
       label: String(hour).padStart(2, '0')
     };
   });
 
-  const hourlyData = currentDay.hours;
+  const hourlyData = currentDay?.hours || [];
   
-  const allTemps = hourlyData.map(h => h.temp);
+  const allTemps = hourlyData.length > 0 ? hourlyData.map(h => h.temp) : [0];
   const maxTemp = Math.max(...allTemps);
   const minTemp = Math.min(...allTemps);
   const graphMinTemp = Math.floor(minTemp - 1);
