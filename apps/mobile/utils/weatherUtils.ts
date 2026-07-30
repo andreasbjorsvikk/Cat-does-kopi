@@ -55,3 +55,35 @@ export const mapWmoCodeToEmoji = (code: number): string => {
       return "☁️";
   }
 };
+
+/**
+ * Maps WMO weather codes to user-friendly descriptions.
+ */
+export const mapWmoCodeToDescription = (code: number): string => {
+  switch (code) {
+    case 0: return "Klart vær";
+    case 1: return "Nesten klart";
+    case 2: return "Delvis skyet";
+    case 3: return "Overskyet";
+    case 45: return "Tåke";
+    case 48: return "Rimfrosttåke";
+    case 51: return "Lett yr";
+    case 53: return "Moderat yr";
+    case 55: return "Tett yr";
+    case 61: return "Lett regn";
+    case 63: return "Moderat regn";
+    case 65: return "Kraftig regn";
+    case 71: return "Lett snøfall";
+    case 73: return "Moderat snøfall";
+    case 75: return "Kraftig snøfall";
+    case 80: return "Lette regnbyger";
+    case 81: return "Moderate regnbyger";
+    case 82: return "Kraftige regnbyger";
+    case 85: return "Lette snøbyger";
+    case 86: return "Kraftige snøbyger";
+    case 95: return "Tordenvær";
+    case 96: return "Tordenvær med hagl";
+    case 99: return "Kraftig tordenvær";
+    default: return "Skiftende skydekke";
+  }
+};

@@ -38,7 +38,7 @@ import { flattenStyle } from "@/utils/flatten-style";
 import { PeakLeaderboard } from "./leaderboard/PeakLeaderboard";
 import { supabase } from "@/lib/supabase";
 import { WeatherTab } from "./WeatherTab";
-import { mapWmoCodeToEmoji, getWeatherIconUrl } from "@/utils/weatherUtils";
+import { mapWmoCodeToEmoji, mapWmoCodeToDescription, getWeatherIconUrl } from "@/utils/weatherUtils";
 import { useRoute } from "@/context/RouteContext";
 
 interface PeakProfileSheetProps {
@@ -107,33 +107,47 @@ export function PeakProfileSheet({
     return `${(d / 1000).toFixed(1).replace(".", ",")} km`;
   }, [userLocation, peak]);
 
-  // Fetch mock/real weather
+  // Fetch real weather from Open-Meteo
   useEffect(() => {
     const fetchWeather = async () => {
       try {
-        // In a real app we'd use MET Norway API. For now, mock data as requested
-        // but with a slight variation based on elevation and coordinates to feel real.
-        const baseTemp = 15;
-        const elevationLoss = Math.floor(peak.heightMoh / 100) * 0.6; // 0.6 degrees drop per 100m
-        const mockTemp = Math.round(baseTemp - elevationLoss + (Math.random() * 4 - 2));
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${peak.latitude}&longitude=${peak.longitude}&current=temperature_2m,weather_code,wind_speed_10m&daily=sunrise,sunset&timezone=auto&forecast_days=1`;
+        const response = await fetch(url);
+        const json = await response.json();
         
-        setWeatherData({
-          temp: mockTemp,
-          wind: 4 + Math.floor(Math.random() * 8),
-          symbol: "🌤️",
-          description: "Delvis skyet",
-        });
+        if (json.current && json.daily) {
+          const current = json.current;
+          const daily = json.daily;
+          const sunrise = daily.sunrise[0];
+          const sunset = daily.sunset[0];
+          const now = new Date().toISOString();
+          
+          const isNight = now < sunrise || now > sunset;
+          let symbol = mapWmoCodeToEmoji(current.weather_code);
+          
+          if (isNight) {
+            if (symbol === "☀️") symbol = "🌙";
+            else if (symbol === "🌤️" || symbol === "⛅") symbol = "☁️";
+          }
 
-        setAstronomy({
-          sunrise: "05:11",
-          sunset: "22:15",
-        });
+          setWeatherData({
+            temp: Math.round(current.temperature_2m),
+            wind: Math.round(current.wind_speed_10m),
+            symbol: symbol,
+            description: mapWmoCodeToDescription(current.weather_code),
+          });
+
+          setAstronomy({
+            sunrise: sunrise.split("T")[1].substring(0, 5),
+            sunset: sunset.split("T")[1].substring(0, 5),
+          });
+        }
       } catch (err) {
         console.warn("Failed to fetch weather", err);
       }
     };
     fetchWeather();
-  }, [peak.id]);
+  }, [peak.id, peak.latitude, peak.longitude]);
 
   const showRouteOptions = () => {
     Alert.alert(
@@ -304,8 +318,8 @@ export function PeakProfileSheet({
             <View style={flattenStyle([styles.infoCard, { backgroundColor: isDark ? "#1F2937" : "#F8FAFC" }])}>
               <HStack className="justify-between items-center">
                 <HStack space="md" className="items-center">
-                  <View className="w-12 h-12 items-center justify-center">
-                    <Text style={{ fontSize: 32 }}>{weatherData?.symbol || "☁️"}</Text>
+                  <View style={{ width: 48, height: 48, alignItems: "center", justifyContent: "center" }}>
+                    <Text style={{ fontSize: 32, lineHeight: 42, includeFontPadding: false }}>{weatherData?.symbol || "☁️"}</Text>
                   </View>
                   <VStack>
                     <Text 

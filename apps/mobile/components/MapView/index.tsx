@@ -1223,6 +1223,7 @@ export default function MapScreen() {
               >
                 <Mapbox.LineLayer
                   id="routeLayer"
+                  layerIndex={100}
                   style={{
                     lineColor: "#10B981",
                     lineWidth: 4,
@@ -1316,6 +1317,7 @@ export default function MapScreen() {
                 strokeWidth={4}
                 lineCap="round"
                 lineJoin="round"
+                zIndex={100}
               />
               {activeRoute.waypoints.map((wp, idx) => (
                 <Marker
@@ -1336,7 +1338,7 @@ export default function MapScreen() {
               urlTemplate="https://cache.kartverket.no/v1/wmts/1.0.0/topo/default/webmercator/{z}/{y}/{x}.png"
               tileSize={256}
               maximumZ={19}
-              zIndex={99}
+              zIndex={1}
               shouldReplaceMapContent={Platform.OS === "ios"}
             />
           )}
