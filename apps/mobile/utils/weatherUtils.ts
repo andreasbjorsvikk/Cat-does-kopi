@@ -7,41 +7,27 @@ export const MET_ICON_BASE_URL = 'https://raw.githubusercontent.com/metno/weathe
 
 /**
  * Maps WMO weather codes (from Open-Meteo) to MET Norway symbol names.
+ * Implementation based on instructions from Lovable for 100% consistency.
  */
 export const mapWmoCodeToSymbol = (code: number): string => {
-  if (code === 0) return 'clearsky';
-  if ([1, 2].includes(code)) return 'fair';
-  if (code === 3) return 'cloudy';
-  if ([45, 48].includes(code)) return 'fog';
-  if ([51, 53, 55, 56, 57].includes(code)) return 'lightrain';
-  if ([61, 63, 65, 66, 67].includes(code)) return 'rain';
-  if ([71, 73, 75, 77].includes(code)) return 'snow';
-  if ([80, 81, 82].includes(code)) return 'rainshowers';
-  if ([85, 86].includes(code)) return 'snowshowers';
-  if ([95, 96, 99].includes(code)) return 'heavyrainandthunder';
-  return 'cloudy';
+  switch (code) {
+    case 0: return "clearsky_day";
+    case 1, 2: return "fair_day";
+    case 3: return "cloudy";
+    case 45, 48: return "fog";
+    case 51, 53, 55, 56, 57: return "lightrain";
+    case 61, 63, 65, 66, 67: return "rain";
+    case 71, 73, 75, 77: return "snow";
+    case 80, 81, 82: return "rainshowers_day";
+    case 85, 86: return "snowshowers_day";
+    case 95, 96, 99: return "heavyrainandthunder";
+    default: return "cloudy";
+  }
 };
 
 /**
  * Gets the full URL for a MET Norway weather icon.
  */
 export const getWeatherIconUrl = (symbol: string): string => {
-  // Ensure we use the _day variant if specified by user preference, 
-  // but many symbols from MET API already include _day or _night.
-  // The user requested to use _day variants for this app.
-  
-  let normalizedSymbol = symbol;
-  
-  // If the symbol doesn't have a period suffix and it's one that usually has it, 
-  // add _day as per user request.
-  const needsSuffix = [
-    'clearsky', 'fair', 'rainshowers', 'snowshowers', 'rainandthunder', 
-    'snowandthunder', 'partlycloudy', 'heavyrainandthunder', 'heavyrainshowers',
-    'lightsnowshowers', 'lightrainshowers', 'heavysnowshowers'
-  ].includes(symbol);
-  if (needsSuffix && !symbol.includes('_')) {
-    normalizedSymbol = `${symbol}_day`;
-  }
-  
-  return `${MET_ICON_BASE_URL}${normalizedSymbol}.svg`;
+  return `${MET_ICON_BASE_URL}${symbol}.svg`;
 };

@@ -13,7 +13,8 @@ import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { HStack } from '@/components/ui/hstack';
 import { Wind, Cloud, Sun, Moon, CloudSnow } from 'lucide-react-native';
-import Svg, { Path, Rect, G, Line, Circle, Text as SvgText, TSpan, Image as SvgImage, Polygon } from 'react-native-svg';
+import Svg, { Path, Rect, G, Line, Circle, Text as SvgText, TSpan, Polygon } from 'react-native-svg';
+import { Image } from 'expo-image';
 import useColorScheme from '@/hooks/useColorScheme';
 import { flattenStyle } from '@/utils/flatten-style';
 import { mapWmoCodeToSymbol, getWeatherIconUrl } from '@/utils/weatherUtils';
@@ -425,14 +426,6 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
                     <TSpan dx="-1.5">°</TSpan>
                   </SvgText>
 
-                  {/* Weather Icon (MET Norway) */}
-                  <SvgImage
-                    href={{ uri: getWeatherIconUrl(h.symbol) }}
-                    width="22"
-                    height="22"
-                    x={x - 11}
-                    y={y - 32}
-                  />
                 </G>
               );
             })}
@@ -454,6 +447,34 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
               ))}
             </G>
           </Svg>
+
+          {/* Icons positioned over points (using expo-image for reliable SVG rendering) */}
+          {graphPoints.map((h, i) => {
+             const x = getXFromPointIndex(i);
+             const y = getYTemp(h.temp);
+             return (
+               <View 
+                 key={i} 
+                 pointerEvents="none"
+                 style={{ 
+                   position: 'absolute', 
+                   left: x - 12, 
+                   top: y - 36,
+                   width: 24,
+                   height: 24,
+                   alignItems: 'center',
+                   justifyContent: 'center'
+                 }}
+               >
+                 <Image 
+                    source={{ uri: getWeatherIconUrl(h.symbol) }}
+                    style={{ width: 22, height: 22 }}
+                    contentFit="contain"
+                    priority="high"
+                 />
+               </View>
+             );
+          })}
         </View>
 
         {/* Legend */}
