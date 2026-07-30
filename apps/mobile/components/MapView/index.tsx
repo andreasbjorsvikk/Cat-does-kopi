@@ -214,23 +214,11 @@ export default function MapScreen() {
   const handleConfirmWaypoint = useCallback(async (coord: { latitude: number; longitude: number }) => {
     if (!activeRoute) return;
     try {
-      setLoading(true);
-      // Use a lock to prevent camera updates during this transition
-      isCameraAnimating.current = true;
-      
       const newWaypoints = [...activeRoute.waypoints, coord];
       await updateRoute({ waypoints: newWaypoints });
       setIsPickingWaypoint(false);
-
-      // Release lock after a small delay to let the state settle
-      setTimeout(() => {
-        isCameraAnimating.current = false;
-      }, 1000);
     } catch (err) {
       Alert.alert("Feil", "Kunne ikke legge til veipunkt.");
-      isCameraAnimating.current = false;
-    } finally {
-      setLoading(false);
     }
   }, [activeRoute, updateRoute, setIsPickingWaypoint]);
 
@@ -390,8 +378,8 @@ export default function MapScreen() {
   const [region, setRegion] = useState({
     latitude: 59.9139,
     longitude: 10.7522,
-    latitudeDelta: 0.2,
-    longitudeDelta: 0.2,
+    latitudeDelta: 0.01,
+    longitudeDelta: 0.01,
   });
 
   // Load last known region on startup
@@ -546,24 +534,26 @@ export default function MapScreen() {
 
   // Auto-center reliably on user location once it's available
   useEffect(() => {
+    // Only auto-center if we haven't set a region yet (initial load)
     if (userLocation && !hasInitialRegionSet.current) {
+      // Don't interrupt if we're still trying to load the last region from storage
+      if (isFirstLoad.current) return;
+
       let attempted = false;
       if (isMapboxAvailable && isMapboxLayer) {
         if (mapboxCameraRef.current) {
           mapboxCameraRef.current.setCamera({
             centerCoordinate: [userLocation.longitude, userLocation.latitude],
-            zoomLevel: 12,
-            animationDuration: 1000,
+            zoomLevel: 14,
+            animationDuration: 0, // Instant for initial load
           });
           attempted = true;
         }
       } else if (mapRef.current) {
-        mapRef.current.animateToRegion({
-          latitude: userLocation.latitude,
-          longitude: userLocation.longitude,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
-        }, 1000);
+        mapRef.current.setCamera({
+          center: { latitude: userLocation.latitude, longitude: userLocation.longitude },
+          zoom: 14,
+        });
         attempted = true;
       }
 
@@ -571,7 +561,7 @@ export default function MapScreen() {
         hasInitialRegionSet.current = true;
       }
     }
-  }, [userLocation, isMapboxLayer, isStyleLoaded]);
+  }, [userLocation, isMapboxLayer, isStyleLoaded, isFirstLoad.current]);
 
   useEffect(() => {
     setIsStyleLoaded(false);
