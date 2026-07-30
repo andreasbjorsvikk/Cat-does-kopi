@@ -73,8 +73,9 @@ const styles = StyleSheet.create({
   topBar: {
     position: 'absolute',
     top: Platform.OS === 'ios' ? 115 : 105,
-    left: 40,
-    right: 40,
+    left: '25%',
+    right: '25%',
+    width: '50%',
     borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },

@@ -48,6 +48,7 @@ import { Button, ButtonText } from "@/components/ui/button";
 import Constants from "expo-constants";
 import * as Location from "expo-location";
 import * as ImagePicker from "expo-image-picker";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from "@/hooks/useAuth";
 import { LinearGradient } from "expo-linear-gradient";
 import { 
@@ -204,19 +205,28 @@ export default function MapScreen() {
     }
   };
 
-  const handleConfirmWaypoint = async (coord: { latitude: number; longitude: number }) => {
+  const handleConfirmWaypoint = useCallback(async (coord: { latitude: number; longitude: number }) => {
     if (!activeRoute) return;
     try {
       setLoading(true);
+      // Use a lock to prevent camera updates during this transition
+      isCameraAnimating.current = true;
+      
       const newWaypoints = [...activeRoute.waypoints, coord];
       await updateRoute({ waypoints: newWaypoints });
       setIsPickingWaypoint(false);
+
+      // Release lock after a small delay to let the state settle
+      setTimeout(() => {
+        isCameraAnimating.current = false;
+      }, 1000);
     } catch (err) {
       Alert.alert("Feil", "Kunne ikke legge til veipunkt.");
+      isCameraAnimating.current = false;
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeRoute, updateRoute, setIsPickingWaypoint]);
 
   const declutteredPeaks = React.useMemo(() => {
     // Show all peaks when zoomed in enough
@@ -368,6 +378,8 @@ export default function MapScreen() {
   const [newPeakName, setNewPeakName] = useState("");
   const [newPeakMoh, setNewPeakMoh] = useState("");
   const screenHeight = Dimensions.get("window").height;
+  const isFirstLoad = useRef(true);
+  const isCameraAnimating = useRef(false);
 
   const [region, setRegion] = useState({
     latitude: 59.9139,
@@ -375,6 +387,45 @@ export default function MapScreen() {
     latitudeDelta: 0.2,
     longitudeDelta: 0.2,
   });
+
+  // Load last known region on startup
+  useEffect(() => {
+    const loadLastRegion = async () => {
+      try {
+        const saved = await AsyncStorage.getItem('last_map_region');
+        if (saved && isFirstLoad.current) {
+          const parsed = JSON.parse(saved);
+          setRegion(parsed);
+          hasInitialRegionSet.current = true;
+          
+          if (isMapboxAvailable && isMapboxLayer && mapboxCameraRef.current) {
+             mapboxCameraRef.current.setCamera({
+               centerCoordinate: [parsed.longitude, parsed.latitude],
+               zoomLevel: Math.log2(360 / parsed.latitudeDelta),
+               animationDuration: 0,
+             });
+          } else if (mapRef.current) {
+             mapRef.current.setCamera({
+               center: { latitude: parsed.latitude, longitude: parsed.longitude },
+               zoom: Math.log2(360 / parsed.latitudeDelta),
+             });
+          }
+        }
+      } catch (e) {
+        console.warn("Failed to load last region", e);
+      } finally {
+        isFirstLoad.current = false;
+      }
+    };
+    loadLastRegion();
+  }, [isMapboxLayer]);
+
+  // Save region when it changes
+  useEffect(() => {
+    if (!isFirstLoad.current) {
+      AsyncStorage.setItem('last_map_region', JSON.stringify(region)).catch(() => {});
+    }
+  }, [region]);
 
   const loadPeaks = async () => {
     setLoading(true);
@@ -1094,10 +1145,11 @@ export default function MapScreen() {
             defaultSettings={{
               centerCoordinate: selectedPeak 
                 ? [selectedPeak.longitude, selectedPeak.latitude] 
-                : [10.7522, 59.9139],
-              zoomLevel: 12,
+                : [region.longitude, region.latitude],
+              zoomLevel: Math.log2(360 / region.latitudeDelta),
               pitch: is3DEnabled ? 60 : 0,
             }}
+            followUserLocation={false}
           />
           {activeRoute && (
             <>
