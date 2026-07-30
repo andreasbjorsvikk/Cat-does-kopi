@@ -284,11 +284,11 @@ export function PeakProfileSheet({
             {/* Route Planning Button */}
             <Button
               onPress={showRouteOptions}
-              className="bg-background-100 dark:bg-background-800 h-12 rounded-xl"
+              className="bg-background-100 h-12 rounded-xl border border-transparent dark:border-outline-800"
             >
               <HStack space="sm" className="items-center">
                 <Navigation size={18} color="#10B981" />
-                <ButtonText className="text-typography-900 dark:text-white font-bold">
+                <ButtonText className="text-typography-900 font-bold">
                   Lag rute
                 </ButtonText>
               </HStack>

@@ -121,7 +121,7 @@ export function CustomRouteBar() {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 85 : 65, // Exactly above the tab bar
+    bottom: Platform.OS === 'ios' ? 82 : 62, // Slightly lower to sit better on the tab bar
     left: 20,
     right: 20,
     borderRadius: 16,

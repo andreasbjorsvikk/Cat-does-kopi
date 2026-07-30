@@ -211,6 +211,8 @@ export default function MapScreen() {
     try {
       await createRoute(coord, selectedPeak);
       setIsPickingStart(false);
+      // Clear selected peak to hide the sheet and show the map "in front"
+      setSelectedPeak(null);
     } catch (err) {
       Alert.alert("Feil", "Kunne ikke lage rute. Prøv igjen.");
     }
@@ -547,6 +549,41 @@ export default function MapScreen() {
   useEffect(() => {
     setIsStyleLoaded(false);
   }, [mapboxStyleURL]);
+
+  // Auto-zoom to fit active route when it changes or is created
+  useEffect(() => {
+    if (activeRoute && activeRoute.points.length > 0) {
+      const fitRoute = async () => {
+        try {
+          if (isMapboxAvailable && isMapboxLayer && mapboxCameraRef.current) {
+            const points = activeRoute.points;
+            const lngs = points.map(p => p.longitude);
+            const lats = points.map(p => p.latitude);
+            const sw: [number, number] = [Math.min(...lngs), Math.min(...lats)];
+            const ne: [number, number] = [Math.max(...lngs), Math.max(...lats)];
+            
+            mapboxCameraRef.current.fitBounds(
+              ne,
+              sw,
+              [50, 50, 150, 50], // padding [top, right, bottom, left]
+              1000 // duration
+            );
+          } else if (mapRef.current) {
+            mapRef.current.fitToCoordinates(activeRoute.points, {
+              edgePadding: { top: 50, right: 50, bottom: 150, left: 50 },
+              animated: true,
+            });
+          }
+        } catch (e) {
+          console.warn("Failed to fit map to route:", e);
+        }
+      };
+      
+      // Delay slightly to ensure map is ready and layout has settled
+      const timer = setTimeout(fitRoute, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [activeRoute, isMapboxLayer]);
 
   useEffect(() => {
     if (isStyleLoaded && is3DEnabled && mapboxMapRef.current) {
