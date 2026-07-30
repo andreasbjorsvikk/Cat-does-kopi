@@ -30,7 +30,7 @@ export function CustomRouteBar() {
   return (
     <View style={flattenStyle([
       styles.container,
-      { backgroundColor: isDark ? 'rgba(31, 41, 55, 0.95)' : 'rgba(255, 255, 255, 0.95)' }
+      { backgroundColor: isDark ? 'rgba(17, 24, 39, 0.95)' : 'rgba(255, 255, 255, 0.95)' }
     ])}>
       <VStack space="xs">
         {/* Progress Summary */}
@@ -38,11 +38,11 @@ export function CustomRouteBar() {
           <VStack>
             <HStack space="xs" className="items-center">
               <Navigation size={14} color="#10B981" />
-              <Text className="font-bold text-sm" style={{ color: isDark ? '#FFFFFF' : '#111827' }}>
+              <Text className="font-bold text-base" style={{ color: isDark ? '#FFFFFF' : '#111827' }}>
                 {formatDist(coveredDist)} / {formatDist(totalDist)}
               </Text>
             </HStack>
-            <Text size="xs" className="text-typography-500">
+            <Text className="text-sm text-typography-500">
               Gjenværende: {formatDist(remainingDist)}
             </Text>
           </VStack>
@@ -50,11 +50,11 @@ export function CustomRouteBar() {
           <VStack className="items-end">
             <HStack space="xs" className="items-center">
               <ChevronUp size={14} color="#10B981" />
-              <Text className="font-bold text-sm" style={{ color: isDark ? '#FFFFFF' : '#111827' }}>
+              <Text className="font-bold text-base" style={{ color: isDark ? '#FFFFFF' : '#111827' }}>
                 {formatElev(coveredGain)} / {formatElev(totalGain)}
               </Text>
             </HStack>
-            <Text size="xs" className="text-typography-500">
+            <Text className="text-sm text-typography-500">
               Stigning: {formatElev(remainingGain)}
             </Text>
           </VStack>
@@ -65,19 +65,19 @@ export function CustomRouteBar() {
           <HStack space="md">
             <TouchableOpacity 
               onPress={toggleRoundTrip}
-              className={`px-3 py-1.5 rounded-full ${activeRoute.isRoundTrip ? 'bg-emerald-500' : 'bg-background-200 dark:bg-background-800'}`}
+              className={`px-3 py-1.5 rounded-full ${activeRoute.isRoundTrip ? 'bg-emerald-500' : (isDark ? 'bg-gray-800' : 'bg-background-200')}`}
             >
-              <Text className={`text-xs font-bold ${activeRoute.isRoundTrip ? 'text-white' : 'text-typography-500'}`}>
+              <Text className={`text-xs font-bold ${activeRoute.isRoundTrip ? 'text-white' : (isDark ? 'text-gray-400' : 'text-typography-500')}`}>
                 Tur/retur
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
               onPress={() => setIsPickingWaypoint(true)}
-              className="px-3 py-1.5 rounded-full bg-background-200 dark:bg-background-800 flex-row items-center"
+              className={`px-3 py-1.5 rounded-full ${isDark ? 'bg-gray-800' : 'bg-background-200'} flex-row items-center`}
             >
               <Plus size={12} color="#10B981" />
-              <Text className="text-xs font-bold text-typography-500 ml-1">
+              <Text className={`text-xs font-bold ${isDark ? 'text-gray-400' : 'text-typography-500'} ml-1`}>
                 Veipunkt
               </Text>
             </TouchableOpacity>
@@ -121,7 +121,7 @@ export function CustomRouteBar() {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 90 : 70, // Above the tab bar
+    bottom: Platform.OS === 'ios' ? 82 : 62, // Above the tab bar
     left: 20,
     right: 20,
     borderRadius: 16,

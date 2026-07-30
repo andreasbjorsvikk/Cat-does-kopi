@@ -932,11 +932,23 @@ export default function MapScreen() {
   };
 
   const handleMapboxCameraChanged = (state: any) => {
+    const { center, zoom } = state.properties;
     if (state?.properties?.zoom) {
       setCurrentZoom(state.properties.zoom);
     }
     if (state?.properties?.heading !== undefined) {
       currentHeading.current = state.properties.heading;
+    }
+
+    // Update region state so it's accurate when re-rendering
+    if (center && Array.isArray(center)) {
+      setRegion(prev => ({
+        ...prev,
+        latitude: center[1],
+        longitude: center[0],
+        latitudeDelta: 0.2 / Math.pow(2, (zoom || currentZoom) - 12),
+        longitudeDelta: 0.2 / Math.pow(2, (zoom || currentZoom) - 12),
+      }));
     }
   };
 
@@ -1142,13 +1154,7 @@ export default function MapScreen() {
           )}
           <MapboxCamera
             ref={mapboxCameraRef}
-            defaultSettings={{
-              centerCoordinate: selectedPeak 
-                ? [selectedPeak.longitude, selectedPeak.latitude] 
-                : [region.longitude, region.latitude],
-              zoomLevel: Math.log2(360 / region.latitudeDelta),
-              pitch: is3DEnabled ? 60 : 0,
-            }}
+            animationDuration={0}
             followUserLocation={false}
           />
           {activeRoute && (

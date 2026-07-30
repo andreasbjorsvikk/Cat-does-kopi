@@ -19,25 +19,37 @@ export function RouteStartPicker({ onConfirm, onCancel, title, confirmLabel, get
   const isDark = useColorScheme() === 'dark';
 
   const handleConfirm = async () => {
-    const center = await getCenter();
-    onConfirm(center);
+    try {
+      console.log("Confirming point, getting center...");
+      const center = await getCenter();
+      console.log("Center received:", center);
+      if (center && center.latitude !== 0) {
+        onConfirm(center);
+      } else {
+        console.warn("Invalid center received:", center);
+      }
+    } catch (err) {
+      console.error("Error confirming point:", err);
+    }
   };
 
   return (
     <View style={styles.container} pointerEvents="box-none">
-      {/* Top Bar */}
-      <View style={flattenStyle([
-        styles.topBar,
-        { backgroundColor: isDark ? 'rgba(31, 41, 55, 0.9)' : 'rgba(255, 255, 255, 0.9)' }
-      ])}>
-        <HStack className="justify-between items-center px-4 py-3">
-          <Text className="font-bold" style={{ color: isDark ? '#FFFFFF' : '#111827' }}>
-            {title || 'Velg startpunkt'}
-          </Text>
-          <TouchableOpacity onPress={onCancel}>
-            <X size={24} color={isDark ? '#FFFFFF' : '#111827'} />
-          </TouchableOpacity>
-        </HStack>
+      {/* Top Bar - Narrower and Centered */}
+      <View style={{ position: 'absolute', top: Platform.OS === 'ios' ? 115 : 105, left: 0, right: 0, alignItems: 'center' }} pointerEvents="box-none">
+        <View style={flattenStyle([
+          styles.topBar,
+          { backgroundColor: isDark ? 'rgba(31, 41, 55, 0.9)' : 'rgba(255, 255, 255, 0.9)' }
+        ])}>
+          <HStack className="justify-between items-center px-3 py-2">
+            <Text className="font-bold text-xs" style={{ color: isDark ? '#FFFFFF' : '#111827' }}>
+              {title || 'Velg startpunkt'}
+            </Text>
+            <TouchableOpacity onPress={onCancel}>
+              <X size={18} color={isDark ? '#FFFFFF' : '#111827'} />
+            </TouchableOpacity>
+          </HStack>
+        </View>
       </View>
 
       {/* Crosshair */}
@@ -71,11 +83,7 @@ const styles = StyleSheet.create({
     zIndex: 2000,
   },
   topBar: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 115 : 105,
-    left: '25%',
-    right: '25%',
-    width: '50%',
+    width: '60%',
     borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
