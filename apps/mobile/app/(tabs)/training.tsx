@@ -337,12 +337,7 @@ export default function TrainingScreen() {
 
   // Helper to animate state transitions
   const withAnimation = useCallback((fn: () => void) => {
-    LayoutAnimation.configureNext({
-      duration: 400,
-      create: { type: 'easeInEaseOut', property: 'opacity' },
-      update: { type: 'spring', springDamping: 0.8 },
-      delete: { type: 'easeInEaseOut', property: 'opacity' },
-    });
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     fn();
   }, []);
 
@@ -351,11 +346,7 @@ export default function TrainingScreen() {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
     
     // Lock vertical scroll on the Statistikk tab as requested
-    if (activeSubTab === "statistikk") {
-      setPageScrollEnabled(false);
-    } else {
-      setPageScrollEnabled(true);
-    }
+    setPageScrollEnabled(activeSubTab !== "statistikk");
   }, [activeSubTab]);
 
   const [loading, setLoading] = useState(true);
@@ -1004,10 +995,10 @@ export default function TrainingScreen() {
         } else if (dx < -30) {
           handleNextDate();
         }
-        setPageScrollEnabled(true);
+        setPageScrollEnabled(activeSubTab !== "statistikk");
       },
       onPanResponderTerminate: () => {
-        setPageScrollEnabled(true);
+        setPageScrollEnabled(activeSubTab !== "statistikk");
       },
     });
   }, [handlePrevDate, handleNextDate, isScrollEnabled]);
@@ -1333,14 +1324,14 @@ export default function TrainingScreen() {
             <TouchableOpacity 
               activeOpacity={1}
               onPress={() => setTooltipIndex(null)}
-              style={flattenStyle([styles.chartCard, dynamicCardStyle, { marginHorizontal: 16, marginTop: 4, padding: 16, paddingTop: 32 }])}
+              style={flattenStyle([styles.chartCard, dynamicCardStyle, { marginHorizontal: 16, marginTop: 4, padding: 16, paddingTop: 20, paddingBottom: 8 }])}
             >
-              <View style={flattenStyle([styles.chartContainer, { height: 300 }])}>
+              <View style={flattenStyle([styles.chartContainer, { height: 270 }])}>
                 
                 {/* Absolute Y Axis and Grid Lines */}
                 <View style={StyleSheet.absoluteFill}>
                   {yAxisGridLines.map((val, idx) => {
-                    const topPosition = idx * 65; // Squeeze 5 grid lines evenly into 260px height
+                    const topPosition = idx * 60; // Squeeze 5 grid lines evenly into 240px height
                     return (
                       <View 
                         key={idx} 
@@ -1366,7 +1357,7 @@ export default function TrainingScreen() {
                   horizontal 
                   showsHorizontalScrollIndicator={isScrollEnabled}
                   scrollEnabled={isScrollEnabled}
-                  contentContainerStyle={{ paddingLeft: 40, paddingRight: 10, height: 255, overflow: 'visible' }}
+                  contentContainerStyle={{ paddingLeft: 40, paddingRight: 10, height: 265, overflow: 'visible' }}
                   bounces={false}
                   overScrollMode="never"
                 >
@@ -1380,9 +1371,9 @@ export default function TrainingScreen() {
                   {chartType === "bar" ? (
                     
                     /* STACKED BAR CHART MODE */
-                    <VStack style={{ height: 285, zIndex: 1 }}>
+                    <VStack style={{ height: 265, zIndex: 1 }}>
                       {/* Graph Bars Area (aligned cleanly above y=0 baseline) */}
-                      <HStack style={{ alignItems: "flex-end", height: 260, gap: barGap }}>
+                      <HStack style={{ alignItems: "flex-end", height: 240, gap: barGap }}>
                         {chartData.map((bucket, bIdx) => {
                           return (
                             <TouchableOpacity 
@@ -1472,7 +1463,7 @@ export default function TrainingScreen() {
                       </HStack>
 
                       {/* X Axis Labels Area (placed strictly under the baseline) */}
-                      <HStack style={{ height: 18, alignItems: "center", gap: barGap }}>
+                      <HStack style={{ height: 16, alignItems: "center", gap: barGap, marginTop: 4 }}>
                         {chartData.map((bucket, bIdx) => {
                           return (
                             <View key={bIdx} style={{ width: barWidth, alignItems: "center", justifyContent: "center" }}>
@@ -1485,8 +1476,8 @@ export default function TrainingScreen() {
                   ) : (
                     
                     /* SMOOTH SVG GRADIENT LINE CHART MODE */
-                    <View style={{ height: 285, width: lineChartWidth }}>
-                      <Svg height={260} width="100%">
+                    <View style={{ height: 265, width: lineChartWidth }}>
+                      <Svg height={240} width="100%">
                         <Defs>
                           <LinearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
                             <Stop offset="0%" stopColor="#10B981" stopOpacity="0.35" />
@@ -1494,7 +1485,7 @@ export default function TrainingScreen() {
                           </LinearGradient>
                         </Defs>
                         {(() => {
-                          const chartHeight = 260;
+                          const chartHeight = 240;
                           const columnWidth = lineChartWidth / chartData.length;
                           
                           // Compute coordinate pairs
@@ -1539,7 +1530,7 @@ export default function TrainingScreen() {
                       </Svg>
                       
                       {/* X Axis Labels under SVG */}
-                      <HStack style={{ width: "100%", height: 18, alignItems: "center" }}>
+                      <HStack style={{ width: "100%", height: 16, alignItems: "center", marginTop: 4 }}>
                         {chartData.map((bucket, idx) => {
                           const columnWidth = lineChartWidth / chartData.length;
                           return (
@@ -2497,7 +2488,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   subTabText: {
-    fontSize: 12,
+    fontSize: 15,
     fontWeight: "600",
   },
   tabContent: {
