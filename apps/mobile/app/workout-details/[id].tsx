@@ -610,8 +610,9 @@ export default function WorkoutDetailsPage() {
                 logoEnabled={false}
                 attributionEnabled={false}
                 onDidFinishLoadingStyle={() => setIsStyleLoaded(true)}
-                onCameraChanged={(e) => {
-                  if (e?.nativeEvent?.gestures?.isUserGesture) {
+                onCameraChanged={() => {
+                  // If styles are loaded and map has been fitted, we can minimize on any move
+                  if (isStyleLoaded) {
                     runOnJS(snapToMinimizedJS)();
                   }
                 }}

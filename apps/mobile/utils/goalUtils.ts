@@ -124,6 +124,113 @@ export function getPeriodFractionElapsed(period: GoalPeriod | 'custom', customSt
   return (now.getTime() - start) / (end - start);
 }
 
+export interface GoalHistoryPeriod {
+  label: string;
+  start: Date;
+  end: Date;
+  progress: number;
+  target: number;
+  achieved: boolean;
+}
+
+export function calculateGoalHistory(
+  goal: ExtraGoal,
+  sessions: WorkoutSession[]
+): GoalHistoryPeriod[] {
+  if (!goal.createdAt) return [];
+  
+  const history: GoalHistoryPeriod[] = [];
+  const startDate = new Date(goal.createdAt);
+  const now = new Date();
+  
+  // Normalize startDate and now based on period
+  if (goal.period === 'week') {
+    startDate.setDate(startDate.getDate() - (startDate.getDay() === 0 ? 6 : startDate.getDay() - 1));
+    startDate.setHours(0, 0, 0, 0);
+  } else if (goal.period === 'month') {
+    startDate.setDate(1);
+    startDate.setHours(0, 0, 0, 0);
+  } else if (goal.period === 'year') {
+    startDate.setMonth(0, 1);
+    startDate.setHours(0, 0, 0, 0);
+  } else {
+    return []; // Custom goals don't have repeating history in this logic
+  }
+
+  let currentStart = new Date(startDate);
+  
+  while (true) {
+    let currentEnd = new Date(currentStart);
+    let label = "";
+    
+    if (goal.period === 'week') {
+      currentEnd.setDate(currentStart.getDate() + 6);
+      currentEnd.setHours(23, 59, 59, 999);
+      
+      // ISO Week number
+      const d = new Date(currentStart);
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+      const week1 = new Date(d.getFullYear(), 0, 4);
+      const weekNum = 1 + Math.round(((d.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+      label = `Uke ${weekNum}`;
+    } else if (goal.period === 'month') {
+      currentEnd = new Date(currentStart.getFullYear(), currentStart.getMonth() + 1, 0);
+      currentEnd.setHours(23, 59, 59, 999);
+      const months = ["Januar", "Februar", "Mars", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Desember"];
+      label = `${months[currentStart.getMonth()]} ${currentStart.getFullYear()}`;
+    } else if (goal.period === 'year') {
+      currentEnd = new Date(currentStart.getFullYear(), 11, 31);
+      currentEnd.setHours(23, 59, 59, 999);
+      label = `${currentStart.getFullYear()}`;
+    }
+
+    // If current period started after "now", we stop (we only want finished/past periods)
+    // Wait, the user said "fram til inneværende periode (eksklusiv)"
+    if (currentStart.getTime() >= now.getTime()) break;
+    
+    // Check if this period is actually the current one
+    if (now >= currentStart && now <= currentEnd) break;
+
+    // Calculate progress for this specific slice
+    const periodSessions = sessions.filter(s => {
+      const d = new Date(s.date);
+      const inDate = d >= currentStart && d <= currentEnd;
+      if (!inDate) return false;
+      
+      if (goal.activityType === 'all') return true;
+      if (goal.activityType.includes(',')) {
+        const types = goal.activityType.split(',');
+        return types.includes(s.type);
+      }
+      return s.type === goal.activityType;
+    });
+
+    const progress = computeProgress(periodSessions, goal.metric);
+    const achieved = progress >= goal.target;
+
+    history.push({
+      label,
+      start: new Date(currentStart),
+      end: new Date(currentEnd),
+      progress,
+      target: goal.target,
+      achieved
+    });
+
+    // Advance to next period
+    if (goal.period === 'week') {
+      currentStart.setDate(currentStart.getDate() + 7);
+    } else if (goal.period === 'month') {
+      currentStart.setMonth(currentStart.getMonth() + 1);
+    } else if (goal.period === 'year') {
+      currentStart.setFullYear(currentStart.getFullYear() + 1);
+    }
+  }
+
+  return history.reverse(); // Newest first
+}
+
 export function getDaysBehind(
   period: GoalPeriod | 'custom', 
   progressVal: number, 

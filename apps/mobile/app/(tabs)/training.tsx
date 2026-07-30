@@ -64,6 +64,7 @@ import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import ProgressWheel from "@/components/ProgressWheel";
 import { OtherGoalCard } from "@/components/goals/OtherGoalCard";
 import { AddGoalModal } from "@/components/goals/AddGoalModal";
+import { ArchivedGoalsSection } from "@/components/goals/ArchivedGoalsSection";
 import { goalService } from "@/services/goalService";
 import { primaryGoalService, convertGoalValue, getActiveGoalForDate } from "@/services/primaryGoalService";
 import { WorkoutModal } from "@/components/WorkoutModal";
@@ -502,26 +503,21 @@ export default function TrainingScreen() {
       alert("Vennligst oppgi et gyldig måltall");
       return;
     }
-    if (!extraCustomStart) {
-      alert("Vennligst oppgi startdato (Gjeldende fra)");
-      return;
-    }
-    if (extraPeriod === 'custom' && !extraCustomEnd) {
-      alert("Vennligst oppgi sluttdato for tilpasset periode");
-      return;
-    }
     try {
       setSubmitting(true);
       const activityTypeStr = extraActivityTypes.join(",");
+      const isCustom = extraPeriod === 'custom';
+      const startDate = extraCustomStart || new Date().toISOString().slice(0, 10);
+
       const data = {
         metric: extraMetric,
         period: extraPeriod,
         activityType: activityTypeStr,
         target: targetNum,
-        customStart: extraCustomStart,
-        customEnd: extraPeriod === 'custom' ? extraCustomEnd : undefined,
+        customStart: startDate,
+        customEnd: isCustom ? extraCustomEnd : undefined,
         showOnHome: true,
-        repeating: extraRepeatGoal,
+        repeating: isCustom ? false : extraRepeatGoal,
         archived: false
       };
 
@@ -582,7 +578,10 @@ export default function TrainingScreen() {
   // Handle Archive Extra Goal
   const handleArchiveExtraGoal = async (id: string) => {
     try {
-      await goalService.update(id, { archived: true });
+      const goal = extraGoals.find(g => g.id === id);
+      if (goal?.repeating) return;
+
+      await goalService.update(id, { archived: true, showOnHome: false });
       await loadAllData();
     } catch (err) {
       console.warn("Could not archive extra goal:", err);
@@ -1838,46 +1837,27 @@ export default function TrainingScreen() {
                           </Card>
                         )}
 
-                        {/* Archived Extra Goals Toggle */}
-                        {extraGoals.some(g => g.archived) && (
-                          <VStack style={{ marginTop: 24 }}>
-                            <TouchableOpacity 
-                              onPress={() => setArchivedOpen(!archivedOpen)}
-                              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 }}
-                            >
-                              <Heading style={{ fontSize: 13, fontWeight: '700', color: isDark ? "#9CA3AF" : "#6B7280", letterSpacing: 0.5 }}>
-                                ARKIVERTE MÅL
-                              </Heading>
-                              {archivedOpen ? <ChevronDown size={14} color={isDark ? "#9CA3AF" : "#6B7280"} /> : <ChevronRight size={14} color={isDark ? "#9CA3AF" : "#6B7280"} />}
-                            </TouchableOpacity>
-                            
-                            {archivedOpen && (
-                              <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 12 }}>
-                                {extraGoals.filter(g => g.archived).map((goal) => (
-                                  <OtherGoalCard
-                                    key={goal.id}
-                                    goal={goal}
-                                    sessions={sessions}
-                                    onPress={() => {
-                                      setEditingExtraGoalId(goal.id);
-                                      setExtraMetric(goal.metric);
-                                      setExtraPeriod(goal.period);
-                                      setExtraActivityTypes(goal.activityType ? goal.activityType.split(",") : ["all"]);
-                                      setExtraTarget(goal.target.toString());
-                                      setExtraCustomStart(goal.customStart || new Date().toISOString().slice(0, 10));
-                                      setExtraCustomEnd(goal.customEnd || "");
-                                      setExtraRepeatGoal(!!goal.repeating);
-                                      setShowExtraModal(true);
-                                    }}
-                                    onToggleHome={handleToggleShowOnHome}
-                                    onArchive={(g) => handleUnarchiveExtraGoal(g.id)}
-                                    onDelete={(g) => handleDeleteExtraGoal(g.id)}
-                                  />
-                                ))}
-                              </View>
-                            )}
-                          </VStack>
-                        )}
+                        {/* Archived Extra Goals & History Section */}
+                        <VStack style={{ marginTop: 24 }}>
+                          <TouchableOpacity 
+                            onPress={() => setArchivedOpen(!archivedOpen)}
+                            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 }}
+                          >
+                            <Heading style={{ fontSize: 13, fontWeight: '700', color: isDark ? "#9CA3AF" : "#6B7280", letterSpacing: 0.5 }}>
+                              ARKIVERTE MÅL & HISTORIKK
+                            </Heading>
+                            {archivedOpen ? <ChevronDown size={14} color={isDark ? "#9CA3AF" : "#6B7280"} /> : <ChevronRight size={14} color={isDark ? "#9CA3AF" : "#6B7280"} />}
+                          </TouchableOpacity>
+                          
+                          {archivedOpen && (
+                            <ArchivedGoalsSection 
+                              goals={extraGoals}
+                              sessions={sessions}
+                              onDelete={handleDeleteExtraGoal}
+                              onRestore={(g) => handleUnarchiveExtraGoal(g.id)}
+                            />
+                          )}
+                        </VStack>
                       </View>
                     </View>
                   )}

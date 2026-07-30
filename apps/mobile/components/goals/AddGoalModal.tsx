@@ -310,7 +310,7 @@ export const AddGoalModal = ({
                     {repeatGoal && <Check size={14} color="#FFFFFF" strokeWidth={4} />}
                   </View>
                   <Text style={{ color: textPrimary, fontSize: 14, fontWeight: '600' }}>
-                    Gjenta mål
+                    {period === 'week' ? 'Gjenta hver uke' : period === 'month' ? 'Gjenta hver måned' : 'Gjenta hver år'}
                   </Text>
                   <TouchableOpacity 
                     onPress={() => {
