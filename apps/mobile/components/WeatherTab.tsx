@@ -29,7 +29,39 @@ interface WeatherData {
   windSpeed: number;
   windDir: number;
   symbol: string;
+  snowDepth: number;
 }
+
+const WMO_TO_MET: Record<number, string> = {
+  0: 'clearsky',
+  1: 'fair',
+  2: 'partlycloudy',
+  3: 'cloudy',
+  45: 'cloudy',
+  48: 'cloudy',
+  51: 'lightrain',
+  53: 'lightrain',
+  55: 'lightrain',
+  56: 'lightrain',
+  57: 'lightrain',
+  61: 'lightrain',
+  63: 'rain',
+  65: 'heavyrain',
+  66: 'rain',
+  67: 'heavyrain',
+  71: 'lightsnow',
+  73: 'snow',
+  75: 'heavysnow',
+  77: 'lightsnow',
+  80: 'rainshowers',
+  81: 'rainshowers',
+  82: 'heavyrainshowers',
+  85: 'snowshowers',
+  86: 'heavysnowshowers',
+  95: 'rainandthunder',
+  96: 'rainandthunder',
+  99: 'heavyrainandthunder',
+};
 
 const WEATHER_SYMBOLS: Record<string, any> = {
   clearsky: { day: Sun, night: Moon },
@@ -99,6 +131,7 @@ function WeatherIcon({ symbol, size, color }: { symbol: string, size: number, co
 export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
   const isDark = useColorScheme() === 'dark';
   const [data, setData] = useState<WeatherData[]>([]);
+  const [dailyInfo, setDailyInfo] = useState<Record<string, { sunrise: string; sunset: string }>>({});
   const [loading, setLoading] = useState(true);
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
   const [containerWidth, setContainerWidth] = useState(Dimensions.get('window').width - 48);
@@ -110,55 +143,61 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
   useEffect(() => {
     async function fetchWeather() {
       try {
-        const response = await fetch(
-          `https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=${latitude}&lon=${longitude}`,
-          { headers: { 'User-Agent': 'Treningsappen/1.0' } }
-        );
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&hourly=temperature_2m,precipitation,snow_depth,weather_code,wind_speed_10m,wind_direction_10m&daily=sunrise,sunset&timezone=auto&forecast_days=10&models=metno_nordic,best_match`;
+        const response = await fetch(url);
         const json = await response.json();
-        const timeseries = json.properties.timeseries;
 
-        // First, collect all precipitation sources to distribute 6-hour blocks
-        const hourlyPrecipMap = new Map<string, number>();
-        timeseries.forEach((ts: any) => {
-          const timeStr = ts.time;
-          const hourKey = timeStr.substring(0, 16); // "2026-07-25T12:00"
+        const hourly = json.hourly;
+        const daily = json.daily;
+        const hourlyUnits = json.hourly_units;
 
-          // 1-hour granular data (preferred)
-          if (ts.data.next_1_hours?.details?.precipitation_amount != null) {
-            hourlyPrecipMap.set(hourKey, ts.data.next_1_hours.details.precipitation_amount);
+        const isWindKmH = (hourlyUnits?.wind_speed_10m_best_match || hourlyUnits?.wind_speed_10m) === 'km/h';
+
+        const formattedData: WeatherData[] = hourly.time.map((time: string, i: number) => {
+          const windSpeedRaw = hourly.wind_speed_10m_best_match?.[i] ?? hourly.wind_speed_10m?.[i] ?? 0;
+          const windSpeed = isWindKmH ? windSpeedRaw / 3.6 : windSpeedRaw;
+          
+          const snowDepth = hourly.snow_depth_metno_nordic?.[i] ?? hourly.snow_depth_best_match?.[i] ?? hourly.snow_depth?.[i] ?? 0;
+          
+          const weatherCode = hourly.weather_code_best_match?.[i] ?? hourly.weather_code?.[i] ?? 0;
+          const baseSymbol = WMO_TO_MET[weatherCode] || 'cloudy';
+          
+          const dateStr = time.split('T')[0];
+          const dailyIndex = daily.time.indexOf(dateStr);
+          let symbol = baseSymbol;
+          if (dailyIndex !== -1) {
+            const sunriseStr = daily.sunrise[dailyIndex];
+            const sunsetStr = daily.sunset[dailyIndex];
+            const sunrise = new Date(sunriseStr);
+            const sunset = new Date(sunsetStr);
+            const currentTime = new Date(time);
+            const isNight = currentTime < sunrise || currentTime >= sunset;
+            symbol = `${baseSymbol}_${isNight ? 'night' : 'day'}`;
           }
 
-          // 6-hour block data (distribute if 1-hour data isn't present)
-          if (ts.data.next_6_hours?.details?.precipitation_amount != null) {
-            const total = ts.data.next_6_hours.details.precipitation_amount;
-            const perHour = total / 6;
-            const baseTime = new Date(timeStr);
-            
-            for (let i = 0; i < 6; i++) {
-              const h = new Date(baseTime);
-              h.setHours(baseTime.getHours() + i);
-              const hKey = h.toISOString().substring(0, 16);
-              // Only fill if more granular 1-hour data doesn't already exist for this hour
-              if (!hourlyPrecipMap.has(hKey)) {
-                hourlyPrecipMap.set(hKey, perHour);
-              }
-            }
-          }
+          return {
+            time,
+            temp: hourly.temperature_2m_best_match?.[i] ?? hourly.temperature_2m?.[i] ?? 0,
+            precip: hourly.precipitation_best_match?.[i] ?? hourly.precipitation?.[i] ?? 0,
+            windSpeed,
+            windDir: hourly.wind_direction_10m_best_match?.[i] ?? hourly.wind_direction_10m?.[i] ?? 0,
+            symbol,
+            snowDepth,
+          };
         });
 
-        const formattedData: WeatherData[] = timeseries.map((ts: any) => ({
-          time: ts.time,
-          temp: ts.data.instant.details.air_temperature,
-          windSpeed: ts.data.instant.details.wind_speed,
-          windDir: ts.data.instant.details.wind_from_direction,
-          precip: hourlyPrecipMap.get(ts.time.substring(0, 16)) ?? 0,
-          symbol: ts.data.next_1_hours?.summary?.symbol_code ?? 
-                  ts.data.next_6_hours?.summary?.symbol_code ?? 'cloudy',
-        }));
+        const dailyInfoMap: Record<string, { sunrise: string; sunset: string }> = {};
+        daily.time.forEach((date: string, i: number) => {
+          dailyInfoMap[date] = {
+            sunrise: daily.sunrise[i],
+            sunset: daily.sunset[i],
+          };
+        });
 
         setData(formattedData);
+        setDailyInfo(dailyInfoMap);
       } catch (error) {
-        console.error('Failed to fetch weather from Yr:', error);
+        console.error('Failed to fetch weather from Open-Meteo:', error);
       } finally {
         setLoading(false);
       }
@@ -192,9 +231,15 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
         label = `${dayName} ${dayDate}. ${monthName}`;
       }
 
-      return { date, label, hours };
+      return { 
+        date, 
+        label, 
+        hours,
+        sunrise: dailyInfo[date]?.sunrise,
+        sunset: dailyInfo[date]?.sunset,
+      };
     });
-  }, [data]);
+  }, [data, dailyInfo]);
 
   if (loading) {
     return (
@@ -213,6 +258,23 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
   }
 
   const currentDay = days[selectedDayIndex];
+  
+  const snowDepthAtNoon = useMemo(() => {
+    const noon = currentDay.hours.find(h => h.time.includes('T12:00'));
+    if (!noon) return 0;
+    return noon.snowDepth;
+  }, [currentDay]);
+
+  const formatSnowDepth = (cm: number) => {
+    if (cm === 0) return '0 cm';
+    if (cm >= 100) return `${(cm / 100).toFixed(2)} m`;
+    return `${Math.round(cm)} cm`;
+  };
+
+  const formatTime = (isoString?: string) => {
+    if (!isoString) return '--:--';
+    return isoString.split('T')[1].substring(0, 5);
+  };
   
   const graphPoints = [0, 3, 6, 9, 12, 15, 18, 21].map(hour => {
     const timeStr = `${currentDay.date}T${String(hour).padStart(2, '0')}:00:00`;
@@ -490,8 +552,31 @@ export function WeatherTab({ latitude, longitude }: WeatherTabProps) {
         </HStack>
       </View>
       
+      {/* Extra info: Sunrise, Sunset, Snow Depth */}
+      <HStack className="justify-around items-center px-4 py-3 bg-background-50 dark:bg-background-900 rounded-xl mt-2 mx-1 border border-outline-100 dark:border-outline-800">
+        <VStack className="items-center" space="xs">
+          <Sun size={14} color="#FBBF24" />
+          <Text style={styles.legendText}>Soloppgang</Text>
+          <Text className="text-sm font-bold text-typography-900">{formatTime(currentDay.sunrise)}</Text>
+        </VStack>
+        
+        <VStack className="items-center" space="xs">
+          <Moon size={14} color="#60A5FA" />
+          <Text style={styles.legendText}>Solnedgang</Text>
+          <Text className="text-sm font-bold text-typography-900">{formatTime(currentDay.sunset)}</Text>
+        </VStack>
+
+        {snowDepthAtNoon > 0 && (
+          <VStack className="items-center" space="xs">
+            <CloudSnow size={14} color="#9CA3AF" />
+            <Text style={styles.legendText}>Snødybde</Text>
+            <Text className="text-sm font-bold text-typography-900">{formatSnowDepth(snowDepthAtNoon)}</Text>
+          </VStack>
+        )}
+      </HStack>
+
       <Text className="text-center text-xs text-typography-400 dark:text-typography-500 italic mt-1">
-        Værdata hentet fra Yr.no
+        Værdata fra Open-Meteo
       </Text>
     </VStack>
   );
