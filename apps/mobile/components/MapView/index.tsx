@@ -251,40 +251,61 @@ export default function MapScreen() {
     }
   }, [activeRoute, updateRoute]);
 
-  const declutteredPeaks = React.useMemo(() => {
-    // Show all peaks when zoomed in enough
-    if (currentZoom >= 12.5) return peaks;
-
-    const result: Peak[] = [];
-    // Dynamic distance based on zoom level
-    const minLatDist = 0.08 / Math.pow(2, currentZoom - 7);
-    const minLngDist = 0.08 / Math.pow(2, currentZoom - 7);
-
-    // Sort by height to prioritize showing higher peaks
+  const peaksWithMinZoom = React.useMemo(() => {
+    // Sort peaks by priority (height descending)
     const sorted = [...peaks].sort((a, b) => b.heightMoh - a.heightMoh);
+
+    // Zoom levels to evaluate (discrete steps from low zoom to high zoom)
+    const zoomLevels = [4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5];
+
+    // Map each peak ID to its computed minZoomVisible
+    const computedMinZooms: Record<string, number> = {};
 
     for (let i = 0; i < sorted.length; i++) {
       const peak = sorted[i];
-      // A peak is visible if it's not too close to ANY HIGHER peak.
-      // This ensures stability: as zoom increases, minDist decreases,
-      // and a peak can only change from hidden to visible.
-      let isEclipsed = false;
-      for (let j = 0; j < i; j++) {
-        const higherPeak = sorted[j];
-        if (
-          Math.abs(higherPeak.latitude - peak.latitude) < minLatDist &&
-          Math.abs(higherPeak.longitude - peak.longitude) < minLngDist
-        ) {
-          isEclipsed = true;
-          break;
+      let minZoomVisible = 12.5; // default to max zoom (always visible at zoom >= 12.5)
+
+      for (const z of zoomLevels) {
+        const minLatDist = 0.08 / Math.pow(2, z - 7);
+        const minLngDist = 0.08 / Math.pow(2, z - 7);
+
+        // Check if eclipsed by any HIGHER-priority peak that is visible at this zoom level z
+        let isEclipsed = false;
+        for (let j = 0; j < i; j++) {
+          const higherPeak = sorted[j];
+          const higherPeakMinZoom = computedMinZooms[higherPeak.id] ?? 12.5;
+          const isHigherPeakVisible = z >= higherPeakMinZoom;
+
+          if (isHigherPeakVisible) {
+            if (
+              Math.abs(higherPeak.latitude - peak.latitude) < minLatDist &&
+              Math.abs(higherPeak.longitude - peak.longitude) < minLngDist
+            ) {
+              isEclipsed = true;
+              break;
+            }
+          }
+        }
+
+        if (!isEclipsed) {
+          minZoomVisible = z;
+          break; // Found the lowest zoom level where it is not eclipsed!
         }
       }
-      if (!isEclipsed) {
-        result.push(peak);
-      }
+
+      computedMinZooms[peak.id] = minZoomVisible;
     }
-    return result;
-  }, [peaks, currentZoom]);
+
+    return computedMinZooms;
+  }, [peaks]);
+
+  const declutteredPeaks = React.useMemo(() => {
+    if (currentZoom >= 12.5) return peaks;
+    return peaks.filter((peak) => {
+      const minZoom = peaksWithMinZoom[peak.id] ?? 12.5;
+      return currentZoom >= minZoom;
+    });
+  }, [peaks, peaksWithMinZoom, currentZoom]);
 
   const areaStats = React.useMemo(() => {
     if (areaStatsMode === 'off') return [];
@@ -1271,18 +1292,33 @@ export default function MapScreen() {
                   key={`wp-${idx}`}
                   id={`wp-${idx}`}
                   coordinate={[wp.longitude, wp.latitude]}
-                  draggable={activeWaypointIndex === idx}
+                  draggable={true}
                   onSelected={() => {
                     setActiveWaypointIndex(idx);
                     setOriginalPosition({ latitude: wp.latitude, longitude: wp.longitude });
                     setMovedWaypointPos(null);
                   }}
-                  onDragEnd={(e) => {
+                  onDragEnd={async (e: any) => {
                     const coord = e.geometry.coordinates;
-                    setMovedWaypointPos({ latitude: coord[1], longitude: coord[0] });
+                    const newCoord = { latitude: coord[1], longitude: coord[0] };
+                    await handleUpdateWaypoint(idx, newCoord);
                   }}
                 >
                   <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+                    {/* Glow / Halo Effect */}
+                    {activeWaypointIndex === idx && (
+                      <View style={{
+                        position: 'absolute',
+                        width: 34,
+                        height: 34,
+                        borderRadius: 17,
+                        backgroundColor: 'rgba(245, 158, 11, 0.25)',
+                        borderWidth: 1.5,
+                        borderColor: 'rgba(245, 158, 11, 0.5)',
+                        zIndex: -1,
+                      }} />
+                    )}
+
                     <View style={flattenStyle([
                       styles.waypointMarker,
                       activeWaypointIndex === idx && { backgroundColor: "#F59E0B", scale: 1.2, zIndex: 100 }
@@ -1301,15 +1337,6 @@ export default function MapScreen() {
                         >
                           <X size={14} color="#FFFFFF" />
                         </TouchableOpacity>
-                        
-                        {(movedWaypointPos && (Math.abs(movedWaypointPos.latitude - (originalPosition?.latitude || 0)) > 0.000001 || Math.abs(movedWaypointPos.longitude - (originalPosition?.longitude || 0)) > 0.000001)) && (
-                          <TouchableOpacity 
-                            onPress={() => handleUpdateWaypoint(idx, movedWaypointPos)}
-                            style={flattenStyle([styles.waypointActionBtn, { backgroundColor: '#10B981' }])}
-                          >
-                            <Check size={14} color="#FFFFFF" />
-                          </TouchableOpacity>
-                        )}
                       </HStack>
                     )}
                   </View>
@@ -1406,19 +1433,39 @@ export default function MapScreen() {
               {activeRoute.waypoints.map((wp, idx) => (
                 <Marker
                   key={`wp-${idx}`}
-                  coordinate={activeWaypointIndex === idx && movedWaypointPos ? movedWaypointPos : wp}
+                  coordinate={wp}
                   anchor={{ x: 0.5, y: 0.5 }}
-                  draggable={activeWaypointIndex === idx}
+                  draggable={true}
                   onPress={() => {
                     setActiveWaypointIndex(idx);
                     setOriginalPosition({ latitude: wp.latitude, longitude: wp.longitude });
                     setMovedWaypointPos(null);
                   }}
-                  onDragEnd={(e) => {
-                    setMovedWaypointPos(e.nativeEvent.coordinate);
+                  onDragStart={() => {
+                    setActiveWaypointIndex(idx);
+                    setOriginalPosition({ latitude: wp.latitude, longitude: wp.longitude });
+                    setMovedWaypointPos(null);
+                  }}
+                  onDragEnd={async (e) => {
+                    const newCoord = e.nativeEvent.coordinate;
+                    await handleUpdateWaypoint(idx, newCoord);
                   }}
                 >
                   <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+                    {/* Glow / Halo Effect */}
+                    {activeWaypointIndex === idx && (
+                      <View style={{
+                        position: 'absolute',
+                        width: 34,
+                        height: 34,
+                        borderRadius: 17,
+                        backgroundColor: 'rgba(245, 158, 11, 0.25)',
+                        borderWidth: 1.5,
+                        borderColor: 'rgba(245, 158, 11, 0.5)',
+                        zIndex: -1,
+                      }} />
+                    )}
+
                     <View style={flattenStyle([
                       styles.waypointMarker,
                       activeWaypointIndex === idx && { backgroundColor: "#F59E0B" }
@@ -1437,15 +1484,6 @@ export default function MapScreen() {
                         >
                           <X size={14} color="#FFFFFF" />
                         </TouchableOpacity>
-                        
-                        {(movedWaypointPos && (Math.abs(movedWaypointPos.latitude - (originalPosition?.latitude || 0)) > 0.000001 || Math.abs(movedWaypointPos.longitude - (originalPosition?.longitude || 0)) > 0.000001)) && (
-                          <TouchableOpacity 
-                            onPress={() => handleUpdateWaypoint(idx, movedWaypointPos)}
-                            style={flattenStyle([styles.waypointActionBtn, { backgroundColor: '#10B981' }])}
-                          >
-                            <Check size={14} color="#FFFFFF" />
-                          </TouchableOpacity>
-                        )}
                       </HStack>
                     )}
                   </View>
