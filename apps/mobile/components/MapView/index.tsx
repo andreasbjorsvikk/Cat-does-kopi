@@ -1314,7 +1314,7 @@ export default function MapScreen() {
               tileSize={256}
               maximumZ={19}
               zIndex={1}
-              shouldReplaceMapContent={Platform.OS === "ios"}
+              shouldReplaceMapContent={false}
             />
           )}
           {activeRoute && (

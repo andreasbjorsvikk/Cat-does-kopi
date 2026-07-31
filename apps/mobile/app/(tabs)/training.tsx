@@ -707,7 +707,7 @@ export default function TrainingScreen() {
     withAnimation(() => {
       if (type === "alle") {
         if (selectedTypes.length === WORKOUT_TYPES.length) {
-          setSelectedTypes([WORKOUT_TYPES[0].id]);
+          setSelectedTypes([]);
         } else {
           setSelectedTypes(WORKOUT_TYPES.map(t => t.id));
         }
@@ -1152,7 +1152,7 @@ export default function TrainingScreen() {
                   <TouchableOpacity onPress={handlePrevDate} style={styles.dateSelectorArrow}>
                     <ChevronLeft size={18} color={isDark ? "#FFFFFF" : "#111827"} />
                   </TouchableOpacity>
-                  <Text style={flattenStyle([styles.dateSelectorLabel, { color: isDark ? "#FFFFFF" : "#111827", fontSize: 26 }])}>
+                  <Text style={flattenStyle([styles.dateSelectorLabel, { color: isDark ? "#FFFFFF" : "#111827", fontSize: 26, paddingTop: 4 }])}>
                     {period === "month" ? `${MONTH_NAMES[selectedMonth]} ${selectedYear}` : selectedYear.toString()}
                   </Text>
                   <TouchableOpacity onPress={handleNextDate} style={styles.dateSelectorArrow}>
@@ -1160,7 +1160,7 @@ export default function TrainingScreen() {
                   </TouchableOpacity>
                 </>
               ) : (
-                <Text style={flattenStyle([styles.dateSelectorLabel, { color: isDark ? "#FFFFFF" : "#111827", fontSize: 26 }])}>
+                <Text style={flattenStyle([styles.dateSelectorLabel, { color: isDark ? "#FFFFFF" : "#111827", fontSize: 26, paddingTop: 4 }])}>
                   Total livstidsfremgang
                 </Text>
               )}
@@ -1491,8 +1491,8 @@ export default function TrainingScreen() {
                           const coords = chartData.map((d, i) => {
                             const x = i * columnWidth + columnWidth / 2;
                             const val = Number(d._total || 0);
-                            // Use a small vertical offset (5px) to prevent clipping at top/bottom
-                            const y = (chartHeight - 5) - (val / maxChartValue) * (chartHeight - 10);
+                            // Use a small vertical offset (2px) to prevent clipping at top/bottom
+                            const y = (chartHeight - 2) - (val / maxChartValue) * (chartHeight - 4);
                             return { x, y };
                           });
 
@@ -1663,7 +1663,7 @@ export default function TrainingScreen() {
                           <TouchableOpacity onPress={handlePrevGoalMonth} style={{ padding: 10 }}>
                             <ChevronLeft size={20} color={isDark ? "#9CA3AF" : "#4B5563"} />
                           </TouchableOpacity>
-                          <Text style={{ fontSize: 24, fontWeight: 'bold', color: isDark ? "#FFFFFF" : "#111827", minWidth: 160, textAlign: 'center' }}>
+                          <Text style={{ fontSize: 24, fontWeight: 'bold', color: isDark ? "#FFFFFF" : "#111827", minWidth: 160, textAlign: 'center', paddingTop: 4 }}>
                             {MONTH_NAMES[targetMonth]}
                           </Text>
                           <TouchableOpacity onPress={handleNextGoalMonth} style={{ padding: 10 }}>
