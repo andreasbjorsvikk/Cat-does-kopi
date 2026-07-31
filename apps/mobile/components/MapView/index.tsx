@@ -253,58 +253,49 @@ export default function MapScreen() {
 
   const peaksWithMinZoom = React.useMemo(() => {
     // Sort peaks by priority (height descending)
-    const sorted = [...peaks].sort((a, b) => b.heightMoh - a.heightMoh);
-
-    // Zoom levels to evaluate (discrete steps from low zoom to high zoom)
-    const zoomLevels = [4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5];
+    // Use name/id as secondary sort key for stability
+    const sorted = [...peaks].sort((a, b) => {
+      if (b.heightMoh !== a.heightMoh) return b.heightMoh - a.heightMoh;
+      return a.id.localeCompare(b.id);
+    });
 
     // Map each peak ID to its computed minZoomVisible
     const computedMinZooms: Record<string, number> = {};
 
     for (let i = 0; i < sorted.length; i++) {
       const peak = sorted[i];
-      let minZoomVisible = 12.5; // default to max zoom (always visible at zoom >= 12.5)
+      let minZoomRequired = 4.0; 
 
-      for (const z of zoomLevels) {
-        const minLatDist = 0.08 / Math.pow(2, z - 7);
-        const minLngDist = 0.08 / Math.pow(2, z - 7);
-
-        // Check if eclipsed by any HIGHER-priority peak that is visible at this zoom level z
-        let isEclipsed = false;
-        for (let j = 0; j < i; j++) {
-          const higherPeak = sorted[j];
-          const higherPeakMinZoom = computedMinZooms[higherPeak.id] ?? 12.5;
-          const isHigherPeakVisible = z >= higherPeakMinZoom;
-
-          if (isHigherPeakVisible) {
-            if (
-              Math.abs(higherPeak.latitude - peak.latitude) < minLatDist &&
-              Math.abs(higherPeak.longitude - peak.longitude) < minLngDist
-            ) {
-              isEclipsed = true;
-              break;
-            }
-          }
+      for (let j = 0; j < i; j++) {
+        const higherPeak = sorted[j];
+        const dLat = Math.abs(higherPeak.latitude - peak.latitude);
+        const dLng = Math.abs(higherPeak.longitude - peak.longitude);
+        const maxDist = Math.max(dLat, dLng);
+        
+        if (maxDist < 0.0001) {
+          minZoomRequired = Math.max(minZoomRequired, 14.0);
+          continue;
         }
 
-        if (!isEclipsed) {
-          minZoomVisible = z;
-          break; // Found the lowest zoom level where it is not eclipsed!
-        }
+        const collisionZoom = 7 + Math.log2(0.1 / maxDist);
+        minZoomRequired = Math.max(minZoomRequired, collisionZoom);
       }
 
-      computedMinZooms[peak.id] = minZoomVisible;
+      computedMinZooms[peak.id] = Math.min(14.0, minZoomRequired);
     }
 
     return computedMinZooms;
   }, [peaks]);
 
-  const declutteredPeaks = React.useMemo(() => {
-    if (currentZoom >= 12.5) return peaks;
-    return peaks.filter((peak) => {
-      const minZoom = peaksWithMinZoom[peak.id] ?? 12.5;
-      return currentZoom >= minZoom;
-    });
+  const visiblePeakIds = React.useMemo(() => {
+    const set = new Set<string>();
+    for (const peak of peaks) {
+      const minZoom = peaksWithMinZoom[peak.id] ?? 14.0;
+      if (currentZoom >= minZoom) {
+        set.add(peak.id);
+      }
+    }
+    return set;
   }, [peaks, peaksWithMinZoom, currentZoom]);
 
   const areaStats = React.useMemo(() => {
@@ -1298,6 +1289,11 @@ export default function MapScreen() {
                     setOriginalPosition({ latitude: wp.latitude, longitude: wp.longitude });
                     setMovedWaypointPos(null);
                   }}
+                  onDrag={() => {
+                    if (activeWaypointIndex !== idx) {
+                      setActiveWaypointIndex(idx);
+                    }
+                  }}
                   onDragEnd={async (e: any) => {
                     const coord = e.geometry.coordinates;
                     const newCoord = { latitude: coord[1], longitude: coord[0] };
@@ -1347,7 +1343,7 @@ export default function MapScreen() {
           {isStyleLoaded && peaks.map((peak) => {
             // Always render the selected peak regardless of decluttering
             const isSelected = selectedPeak?.id === peak.id;
-            const isVisible = isSelected || declutteredPeaks.some(p => p.id === peak.id);
+            const isVisible = isSelected || visiblePeakIds.has(peak.id);
             if (!isVisible) return null;
 
             const isChecked = checkedPeakIds.has(peak.id);
@@ -1446,6 +1442,11 @@ export default function MapScreen() {
                     setOriginalPosition({ latitude: wp.latitude, longitude: wp.longitude });
                     setMovedWaypointPos(null);
                   }}
+                  onDrag={() => {
+                    if (activeWaypointIndex !== idx) {
+                      setActiveWaypointIndex(idx);
+                    }
+                  }}
                   onDragEnd={async (e) => {
                     const newCoord = e.nativeEvent.coordinate;
                     await handleUpdateWaypoint(idx, newCoord);
@@ -1493,7 +1494,7 @@ export default function MapScreen() {
           )}
           {peaks.map((peak) => {
             const isSelected = selectedPeak?.id === peak.id;
-            const isVisible = isSelected || declutteredPeaks.some(p => p.id === peak.id);
+            const isVisible = isSelected || visiblePeakIds.has(peak.id);
             if (!isVisible) return null;
 
             const isChecked = checkedPeakIds.has(peak.id);
