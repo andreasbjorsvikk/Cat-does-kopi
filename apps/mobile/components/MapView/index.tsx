@@ -1166,7 +1166,7 @@ export default function MapScreen() {
               />
             </>
           )}
-          {mapType === "norgeskart" && (
+          {isStyleLoaded && mapType === "norgeskart" && (
             <Mapbox.RasterSource
               id="norgeskart-source"
               tileUrlTemplates={["https://cache.kartverket.no/v1/wmts/1.0.0/topo/default/webmercator/{z}/{y}/{x}.png"]}
@@ -1207,7 +1207,7 @@ export default function MapScreen() {
             }}
             followUserLocation={false}
           />
-          {activeRoute && (
+          {isStyleLoaded && activeRoute && (
             <>
               <Mapbox.ShapeSource
                 id="routeSource"
@@ -1244,7 +1244,7 @@ export default function MapScreen() {
               ))}
             </>
           )}
-          {peaks.map((peak) => {
+          {isStyleLoaded && peaks.map((peak) => {
             // Always render the selected peak regardless of decluttering
             const isSelected = selectedPeak?.id === peak.id;
             const isVisible = isSelected || declutteredPeaks.some(p => p.id === peak.id);
@@ -1307,13 +1307,13 @@ export default function MapScreen() {
             maxPitch: 90,
           } as any)}
         >
-          {mapType === "norgeskart" && (
+          {mapType === "norgeskart" && Platform.OS !== "web" && (
             <UrlTile
               key="norgeskart-tile"
               urlTemplate="https://cache.kartverket.no/v1/wmts/1.0.0/topo/default/webmercator/{z}/{y}/{x}.png"
               tileSize={256}
               maximumZ={19}
-              zIndex={1}
+              zIndex={-1}
               shouldReplaceMapContent={false}
             />
           )}
@@ -1325,7 +1325,7 @@ export default function MapScreen() {
                 strokeWidth={4}
                 lineCap="round"
                 lineJoin="round"
-                zIndex={100}
+                zIndex={10}
               />
               {activeRoute.waypoints.map((wp, idx) => (
                 <Marker
