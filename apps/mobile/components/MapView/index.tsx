@@ -263,12 +263,23 @@ export default function MapScreen() {
     // Sort by height to prioritize showing higher peaks
     const sorted = [...peaks].sort((a, b) => b.heightMoh - a.heightMoh);
 
-    for (const peak of sorted) {
-      const isTooClose = result.some(p => 
-        Math.abs(p.latitude - peak.latitude) < minLatDist && 
-        Math.abs(p.longitude - peak.longitude) < minLngDist
-      );
-      if (!isTooClose) {
+    for (let i = 0; i < sorted.length; i++) {
+      const peak = sorted[i];
+      // A peak is visible if it's not too close to ANY HIGHER peak.
+      // This ensures stability: as zoom increases, minDist decreases,
+      // and a peak can only change from hidden to visible.
+      let isEclipsed = false;
+      for (let j = 0; j < i; j++) {
+        const higherPeak = sorted[j];
+        if (
+          Math.abs(higherPeak.latitude - peak.latitude) < minLatDist &&
+          Math.abs(higherPeak.longitude - peak.longitude) < minLngDist
+        ) {
+          isEclipsed = true;
+          break;
+        }
+      }
+      if (!isEclipsed) {
         result.push(peak);
       }
     }

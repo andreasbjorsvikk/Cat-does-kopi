@@ -52,7 +52,8 @@ import {
   Home,
   Calendar,
   MoreVertical,
-  Search
+  Search,
+  X
 } from "lucide-react-native";
 import Svg, { Path, Defs, LinearGradient, Stop, Circle } from "react-native-svg";
 import { workoutService } from "@/services/workoutService";

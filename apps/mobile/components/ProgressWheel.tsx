@@ -208,5 +208,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     marginTop: 4,
+    textAlign: 'center',
   },
 });
