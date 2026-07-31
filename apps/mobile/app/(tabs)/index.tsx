@@ -11,7 +11,7 @@ import { workoutService } from "@/services/workoutService";
 import { primaryGoalService } from "@/services/primaryGoalService";
 import { goalService } from "@/services/goalService";
 import { WorkoutSession, PrimaryGoalPeriod, WeeklyStats, ExtraGoal } from "@/types/workout";
-import { computeMonthWheelData, computeYearWheelData } from "@/utils/goalWheelData";
+import { computeMonthWheelData, computeYearWheelData, computeYearPrognosisData } from "@/utils/goalWheelData";
 import useColorScheme from "@/hooks/useColorScheme";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useAuth } from "@/hooks/useAuth";
@@ -137,6 +137,10 @@ export default function HomeScreen() {
   const yearData = useMemo(() => 
     computeYearWheelData(periods, sessions, currentYear, now, "økter"),
   [periods, sessions, currentYear]);
+
+  const yearPrognosisData = useMemo(() => 
+    computeYearPrognosisData(sessions, currentYear, now),
+  [sessions, currentYear]);
 
   const stats = useMemo(() => {
     const today = new Date();
@@ -290,13 +294,14 @@ export default function HomeScreen() {
               <View style={{ flex: 1 }}>
                 <ProgressWheel 
                   title={currentYear.toString()}
-                  percent={yearData.percent}
-                  current={yearData.current}
-                  target={yearData.target}
+                  percent={yearPrognosisData.percent}
+                  current={yearPrognosisData.current}
+                  target={yearPrognosisData.prognosis}
                   unit="økter"
-                  hasGoal={yearData.target > 0}
-                  expectedFraction={yearData.expectedFraction}
-                  paceDiff={yearData.diff}
+                  hasGoal={true}
+                  customColor={yearPrognosisData.color}
+                  customPaceLabel={yearPrognosisData.label}
+                  showTodayIndicator={false}
                   isDark={isDark}
                   onPress={goToTrainingGoals}
                 />

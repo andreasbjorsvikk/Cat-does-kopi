@@ -17,14 +17,18 @@ interface ProgressWheelProps {
   hasGoal: boolean;
   expectedFraction?: number;
   paceDiff?: number;
+  customColor?: string;
+  customPaceLabel?: string;
+  showTodayIndicator?: boolean;
   isDark: boolean;
   onPress?: () => void;
   size?: 'normal' | 'small';
 }
 
 const ProgressWheel = memo(function ProgressWheel({
-  percent, current, target, unit, title, hasGoal, 
-  expectedFraction, paceDiff, isDark, onPress, size = 'normal'
+  percent, current, target, unit, title, hasGoal,
+  expectedFraction, paceDiff, customColor, customPaceLabel,
+  showTodayIndicator = true, isDark, onPress, size = 'normal'
 }: ProgressWheelProps) {
   const isSmall = size === 'small';
   const RADIUS = isSmall ? 40 : 62;
@@ -61,7 +65,12 @@ const ProgressWheel = memo(function ProgressWheel({
     return '#EF4444'; // Red
   };
 
-  const mainColor = isReached ? '#10B981' : getPaceColor(paceDiff ?? 0);
+  const mainColor = customColor || (isReached ? '#10B981' : getPaceColor(paceDiff ?? 0));
+  const paceLabelText = customPaceLabel || (paceDiff != null ? (
+    paceDiff >= 0.5 ? `${Math.round(paceDiff)} økter foran skjema` : 
+    paceDiff <= -0.5 ? `${Math.round(Math.abs(paceDiff))} økter bak skjema` : 
+    'I rute'
+  ) : 'I rute');
 
   return (
     <TouchableOpacity 
@@ -119,7 +128,7 @@ const ProgressWheel = memo(function ProgressWheel({
           />
 
           {/* TODAY INDICATOR (Arrow) */}
-          {hasGoal && expectedFraction != null && expectedFraction > 0 && (
+          {hasGoal && showTodayIndicator && expectedFraction != null && expectedFraction > 0 && (
             <Polygon
               points="-2.5,-8 2.5,-8 0,0"
               fill={isDark ? '#FFFFFF' : '#000000'}
@@ -161,13 +170,9 @@ const ProgressWheel = memo(function ProgressWheel({
         </View>
       </View>
 
-      {hasGoal && expectedFraction != null && !isSmall && (
+      {hasGoal && !isSmall && (
         <Text style={flattenStyle([styles.paceLabel, { color: mainColor, fontSize: 13 }])}>
-          {paceDiff != null ? (
-            paceDiff >= 0.5 ? `${Math.round(paceDiff)} økter foran skjema` : 
-            paceDiff <= -0.5 ? `${Math.round(Math.abs(paceDiff))} økter bak skjema` : 
-            'I rute'
-          ) : 'I rute'}
+          {paceLabelText}
         </Text>
       )}
     </TouchableOpacity>

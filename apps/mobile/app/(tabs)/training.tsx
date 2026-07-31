@@ -51,7 +51,8 @@ import {
   Repeat,
   Home,
   Calendar,
-  MoreVertical
+  MoreVertical,
+  Search
 } from "lucide-react-native";
 import Svg, { Path, Defs, LinearGradient, Stop, Circle } from "react-native-svg";
 import { workoutService } from "@/services/workoutService";
@@ -222,6 +223,7 @@ export default function TrainingScreen() {
 
   // History tab state
   const [historyYear, setHistoryYear] = useState<number>(new Date().getFullYear());
+  const [historySearch, setHistorySearch] = useState<string>("");
   const [historyFilter, setHistoryFilter] = useState<SessionType | "alle">("alle");
   const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set());
 
@@ -731,9 +733,17 @@ export default function TrainingScreen() {
       const date = new Date(s.date);
       const matchesYear = date.getFullYear() === historyYear;
       const matchesFilter = historyFilter === "alle" || s.type === historyFilter;
-      return matchesYear && matchesFilter;
+      
+      const searchLower = historySearch.toLowerCase();
+      const title = s.title || "";
+      const typeLabel = WORKOUT_TYPES.find(t => t.id === s.type)?.label || s.type;
+      const matchesSearch = !historySearch || 
+        title.toLowerCase().includes(searchLower) || 
+        typeLabel.toLowerCase().includes(searchLower);
+
+      return matchesYear && matchesFilter && matchesSearch;
     });
-  }, [sessions, historyYear, historyFilter]);
+  }, [sessions, historyYear, historyFilter, historySearch]);
 
   const groupedSessions = useMemo(() => {
     const groups: Record<string, WorkoutSession[]> = {};
@@ -1909,7 +1919,33 @@ export default function TrainingScreen() {
           <View style={styles.tabContent}>
 
             {/* History Header: Year Selector & Menu */}
-            <HStack style={{ justifyContent: 'flex-end', alignItems: 'center', paddingHorizontal: 16, marginBottom: 8, gap: 10 }}>
+            <HStack style={{ justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 12, gap: 10 }}>
+              <View style={{ flex: 1, position: 'relative' }}>
+                <View style={{ position: 'absolute', left: 10, top: 9, zIndex: 1 }}>
+                  <Search size={16} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                </View>
+                <TextInput
+                  style={flattenStyle([
+                    styles.inputField, 
+                    isDark ? styles.inputDark : styles.inputLight,
+                    { paddingLeft: 34, height: 36, borderRadius: 10 }
+                  ])}
+                  placeholder="Søk i historikk..."
+                  placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
+                  value={historySearch}
+                  onChangeText={setHistorySearch}
+                />
+                {historySearch !== "" && (
+                  <TouchableOpacity 
+                    onPress={() => setHistorySearch("")}
+                    style={{ position: 'absolute', right: 10, top: 9, zIndex: 1 }}
+                  >
+                    <X size={16} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              <HStack style={{ alignItems: 'center', gap: 10 }}>
               <Menu
                 offset={5}
                 trigger={(triggerProps) => (
@@ -1939,6 +1975,7 @@ export default function TrainingScreen() {
                   <MenuItemLabel size="sm">Loggfør ny treningsøkt</MenuItemLabel>
                 </MenuItem>
               </Menu>
+              </HStack>
             </HStack>
 
             {/* Horizontal Activity Filter */}
