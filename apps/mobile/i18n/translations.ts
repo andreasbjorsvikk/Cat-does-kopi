@@ -68,6 +68,20 @@ const no = {
   'common.average': 'Snitt',
   'common.max': 'Maks',
 
+  // Home
+  'home.trainingGoals': 'Treningsmål',
+  'home.statistics': 'Statistikk',
+  'home.thisWeek': 'Denne uken',
+  'home.thisMonth': 'Denne måneden',
+  'home.last7days': 'Siste 7 dager',
+
+  // Sync status
+  'syncStatus.failed': 'Synkronisering feilet',
+  'syncStatus.retry': 'Prøv igjen',
+
+  // Report prompt
+  'reportPrompt.viewReport': 'Se rapport',
+
   // Calendar
   'calendar.errorLoading': 'Kunne ikke laste kalenderdata',
   'calendar.weekdays.mon': 'Man',
@@ -94,6 +108,11 @@ const no = {
   'month.0': 'Januar', 'month.1': 'Februar', 'month.2': 'Mars', 'month.3': 'April',
   'month.4': 'Mai', 'month.5': 'Juni', 'month.6': 'Juli', 'month.7': 'August',
   'month.8': 'September', 'month.9': 'Oktober', 'month.10': 'November', 'month.11': 'Desember',
+
+  // Months short
+  'month.short.0': 'Jan', 'month.short.1': 'Feb', 'month.short.2': 'Mar', 'month.short.3': 'Apr',
+  'month.short.4': 'Mai', 'month.short.5': 'Jun', 'month.short.6': 'Jul', 'month.short.7': 'Aug',
+  'month.short.8': 'Sep', 'month.short.9': 'Okt', 'month.short.10': 'Nov', 'month.short.11': 'Des',
 
   // Weekdays
   'weekday.mon': 'M', 'weekday.tue': 'T', 'weekday.wed': 'O', 'weekday.thu': 'T',
@@ -123,6 +142,15 @@ const no = {
   'peak.waypointAddError': 'Kunne ikke legge til veipunkt',
   'peak.waypointUpdateError': 'Kunne ikke oppdatere veipunkt',
 
+  // Progress wheel
+  'wheel.setGoal': 'Sett mål',
+  'wheel.onTrack': 'Du er i rute',
+  'wheel.ahead': '{n} {unit} foran skjema',
+  'wheel.behind': '{n} {unit} bak skjema',
+  'wheel.session': 'økt',
+  'wheel.sessions': 'økter',
+  'wheel.prognosisLabel': 'Prognose: {n} økter',
+
   // Weather
   'weather.unavailable': 'Værdata er ikke tilgjengelig for øyeblikket',
 
@@ -133,6 +161,11 @@ const no = {
   'workoutDetail.avgMax': 'Gjennomsnitt / Maks',
   'workoutDetail.calories': 'Kalorier',
   'workoutDetail.mapUnavailableWeb': 'Kartet er kun tilgjengelig i appen',
+
+  // Workout
+  'workout.h': 't',
+  'workout.min': 'min',
+  'workout.sec': 'sek',
 
   // Training
   'training.statistics': 'Statistikk',
@@ -149,6 +182,26 @@ const no = {
   'metric.minutes.label': 'Tid',
   'metric.distance.label': 'Distanse',
   'metric.elevation.label': 'Høydemeter',
+
+  // Stats
+  'stats.sessions': 'Økter',
+  'stats.time': 'Tid',
+  'stats.distance': 'Distanse',
+  'stats.elevation': 'Høydemeter',
+
+  // Goals
+  'goals.otherGoals': 'Andre mål',
+
+  // Goal card
+  'goalCard.thisWeek': 'Denne uken',
+  'goalCard.thisMonth': 'Denne måneden',
+  'goalCard.thisYear': 'I år',
+  'goalCard.daysLeft': 'dager igjen',
+  'goalCard.reached': '✓ Nådd!',
+  'goalCard.onTrack': 'I rute',
+  'goalCard.ahead': 'Foran skjema',
+  'goalCard.behind': 'Bak skjema',
+  'goalCard.remaining': 'igjen',
 
   // Activity types
   'activity.styrke': 'Styrke', 'activity.løping': 'Løping', 'activity.fjelltur': 'Fjelltur',
@@ -281,6 +334,20 @@ const en = {
   'common.average': 'Avg',
   'common.max': 'Max',
 
+  // Home
+  'home.trainingGoals': 'Training goals',
+  'home.statistics': 'Statistics',
+  'home.thisWeek': 'This week',
+  'home.thisMonth': 'This month',
+  'home.last7days': 'Last 7 days',
+
+  // Sync status
+  'syncStatus.failed': 'Sync failed',
+  'syncStatus.retry': 'Try again',
+
+  // Report prompt
+  'reportPrompt.viewReport': 'View report',
+
   // Calendar
   'calendar.errorLoading': 'Could not load calendar data',
   'calendar.weekdays.mon': 'Mon',
@@ -307,6 +374,11 @@ const en = {
   'month.0': 'January', 'month.1': 'February', 'month.2': 'March', 'month.3': 'April',
   'month.4': 'May', 'month.5': 'June', 'month.6': 'July', 'month.7': 'August',
   'month.8': 'September', 'month.9': 'October', 'month.10': 'November', 'month.11': 'December',
+
+  // Months short
+  'month.short.0': 'Jan', 'month.short.1': 'Feb', 'month.short.2': 'Mar', 'month.short.3': 'Apr',
+  'month.short.4': 'May', 'month.short.5': 'Jun', 'month.short.6': 'Jul', 'month.short.7': 'Aug',
+  'month.short.8': 'Sep', 'month.short.9': 'Oct', 'month.short.10': 'Nov', 'month.short.11': 'Dec',
 
   // Weekdays
   'weekday.mon': 'M', 'weekday.tue': 'T', 'weekday.wed': 'W', 'weekday.thu': 'T',
@@ -336,6 +408,15 @@ const en = {
   'peak.waypointAddError': 'Could not add waypoint',
   'peak.waypointUpdateError': 'Could not update waypoint',
 
+  // Progress wheel
+  'wheel.setGoal': 'Set goal',
+  'wheel.onTrack': "You're on track",
+  'wheel.ahead': '{n} {unit} ahead of schedule',
+  'wheel.behind': '{n} {unit} behind schedule',
+  'wheel.session': 'workout',
+  'wheel.sessions': 'workouts',
+  'wheel.prognosisLabel': 'Prognosis: {n} workouts',
+
   // Weather
   'weather.unavailable': 'Weather data is currently unavailable',
 
@@ -346,6 +427,11 @@ const en = {
   'workoutDetail.avgMax': 'Average / Max',
   'workoutDetail.calories': 'Calories',
   'workoutDetail.mapUnavailableWeb': 'The map is only available in the app',
+
+  // Workout
+  'workout.h': 'h',
+  'workout.min': 'min',
+  'workout.sec': 'sec',
 
   // Training
   'training.statistics': 'Statistics',
@@ -362,6 +448,26 @@ const en = {
   'metric.minutes.label': 'Time',
   'metric.distance.label': 'Distance',
   'metric.elevation.label': 'Elevation',
+
+  // Stats
+  'stats.sessions': 'Workouts',
+  'stats.time': 'Time',
+  'stats.distance': 'Distance',
+  'stats.elevation': 'Elevation',
+
+  // Goals
+  'goals.otherGoals': 'Other goals',
+
+  // Goal card
+  'goalCard.thisWeek': 'This week',
+  'goalCard.thisMonth': 'This month',
+  'goalCard.thisYear': 'This year',
+  'goalCard.daysLeft': 'days left',
+  'goalCard.reached': '✓ Reached!',
+  'goalCard.onTrack': 'On track',
+  'goalCard.ahead': 'Ahead of schedule',
+  'goalCard.behind': 'Behind schedule',
+  'goalCard.remaining': 'remaining',
 
   // Activity types
   'activity.styrke': 'Strength', 'activity.løping': 'Running', 'activity.fjelltur': 'Hiking',
