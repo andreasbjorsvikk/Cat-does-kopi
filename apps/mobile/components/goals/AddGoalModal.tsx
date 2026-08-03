@@ -312,12 +312,12 @@ export const AddGoalModal = ({
                     {repeatGoal && <Check size={14} color="#FFFFFF" strokeWidth={4} />}
                   </View>
                   <Text style={{ color: textPrimary, fontSize: 14, fontWeight: '600' }}>
-                    {period === 'week' ? t('goalForm.repeatWeekly') : period === 'month' ? t('goalForm.repeatMonthly') : t('goalForm.repeatMonthly')}
+                    {period === 'week' ? t('goalForm.repeatWeekly') : period === 'month' ? t('goalForm.repeatMonthly') : t('goalForm.repeatYearly')}
                   </Text>
                   <TouchableOpacity 
                     onPress={() => {
-                      const p = period === 'week' ? 'uke' : period === 'month' ? 'måned' : 'år';
-                      Alert.alert("Gjenta mål", `Målet vil bli gjentatt hver ${p}`);
+                      const p = period === 'week' ? t('goals.period.week') : period === 'month' ? t('goals.period.month') : t('goals.period.year');
+                      Alert.alert(t('goalForm.repeatGoal'), t('goalForm.repeatGoalDesc', { period: p }));
                     }}
                     style={{ padding: 4 }}
                   >

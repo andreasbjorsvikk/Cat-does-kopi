@@ -1314,7 +1314,7 @@ export default function TrainingScreen() {
                     { id: "sessions", label: t("stats.sessions") },
                     { id: "distance", label: t("stats.distance") },
                     { id: "elevation", label: t("stats.elevation") },
-                    { id: "steps", label: t("metric.steps.label") || "Skritt" }
+                    { id: "steps", label: t("metric.steps.label") }
                   ] as const).map((m) => {
                     const isActive = chartMetric === m.id;
                     return (
@@ -1596,7 +1596,7 @@ export default function TrainingScreen() {
                       { color: chartType === "bar" ? "#FFFFFF" : (isDark ? "#FFFFFF" : "#1F2937") }
                     ])}
                   >
-                    {t('activity.styrke') === 'Styrke' ? 'Stolpe' : 'Bar'}
+                    {t('chart.bar')}
                   </Text>
                 </HStack>
               </TouchableOpacity>
@@ -1619,7 +1619,7 @@ export default function TrainingScreen() {
                       { color: chartType === "line" ? "#FFFFFF" : (isDark ? "#FFFFFF" : "#1F2937") }
                     ])}
                   >
-                    {t('activity.styrke') === 'Styrke' ? 'Linje' : 'Line'}
+                    {t('chart.line')}
                   </Text>
                 </HStack>
               </TouchableOpacity>
@@ -1942,7 +1942,7 @@ export default function TrainingScreen() {
                     isDark ? styles.inputDark : styles.inputLight,
                     { paddingLeft: 34, height: 36, borderRadius: 10 }
                   ])}
-                  placeholder="Søk i historikk..."
+                  placeholder={t('common.search') + "..."}
                   placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
                   value={historySearch}
                   onChangeText={setHistorySearch}
@@ -1984,7 +1984,7 @@ export default function TrainingScreen() {
               >
                 <MenuItem key="log-workout" onPress={() => setIsWorkoutModalOpen(true)}>
                   <Plus size={18} color={isDark ? '#9CA3AF' : '#6B7280'} />
-                  <MenuItemLabel size="sm">Loggfør ny treningsøkt</MenuItemLabel>
+                  <MenuItemLabel size="sm">{t('workout.add')}</MenuItemLabel>
                 </MenuItem>
               </Menu>
               </HStack>
@@ -2008,7 +2008,7 @@ export default function TrainingScreen() {
                   styles.historyFilterBadgeText,
                   { color: historyFilter === "alle" ? (isDark ? '#111827' : '#FFFFFF') : (isDark ? '#9CA3AF' : '#6B7280') }
                 ])}>
-                  Alle
+                  {t('common.all')}
                 </Text>
               </TouchableOpacity>
 
@@ -2141,7 +2141,7 @@ export default function TrainingScreen() {
             ) : (
               <View style={{ padding: 40, alignItems: 'center' }}>
                 <Text style={{ color: isDark ? '#9CA3AF' : '#6B7280', textAlign: 'center' }}>
-                  Ingen treningsøkter funnet for dette valget.
+                  {t('training.noSessionsFound')}
                 </Text>
               </View>
             )}
@@ -2155,7 +2155,7 @@ export default function TrainingScreen() {
             
             {/* Running Records Section */}
             <Heading className={`text-base font-bold mx-4 mb-3 ${themeClasses.text}`}>
-              {t('records.running')} ({t('common.all') === 'Alle' ? 'Estimert' : 'Estimated'})
+              {t('records.running')} ({t('chart.estimated')})
             </Heading>
             
             <View style={styles.recordsListWrapper}>
@@ -2177,7 +2177,7 @@ export default function TrainingScreen() {
                           </Text>
                           {r.record && (
                             <Text style={styles.recordDetailsDate}>
-                              Satt {new Date(r.record.date).toLocaleDateString("no-NO", { day: "numeric", month: "short" })}
+                              {language === 'no' ? 'Satt' : 'Set'} {new Date(r.record.date).toLocaleDateString(language === 'no' ? 'no-NO' : 'en-US', { day: "numeric", month: "short" })}
                             </Text>
                           )}
                         </VStack>
@@ -2201,7 +2201,7 @@ export default function TrainingScreen() {
 
             {/* Cycling Records Section */}
             <Heading className={`text-base font-bold mx-4 mt-6 mb-3 ${themeClasses.text}`}>
-              {t('records.cycling')} ({t('common.all') === 'Alle' ? 'Estimert' : 'Estimated'})
+              {t('records.cycling')} ({t('chart.estimated')})
             </Heading>
 
             <View style={styles.recordsListWrapper}>
@@ -2223,7 +2223,7 @@ export default function TrainingScreen() {
                           </Text>
                           {r.record && (
                             <Text style={styles.recordDetailsDate}>
-                              Satt {new Date(r.record.date).toLocaleDateString("no-NO", { day: "numeric", month: "short" })}
+                              {language === 'no' ? 'Satt' : 'Set'} {new Date(r.record.date).toLocaleDateString(language === 'no' ? 'no-NO' : 'en-US', { day: "numeric", month: "short" })}
                             </Text>
                           )}
                         </VStack>
@@ -2270,7 +2270,7 @@ export default function TrainingScreen() {
               <VStack style={{ gap: 4 }}>
                 <Text className={`font-semibold text-xs ${themeClasses.text}`}>{t('primaryGoal.sessionsPerPeriod')}</Text>
                 <TextInput
-                  placeholder="F.eks. 3"
+                  placeholder={language === 'no' ? 'F.eks. 3' : 'e.g. 3'}
                   placeholderTextColor="#9CA3AF"
                   keyboardType="numeric"
                   style={flattenStyle([styles.inputField, isDark ? styles.inputDark : styles.inputLight])}

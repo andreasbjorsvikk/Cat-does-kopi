@@ -166,12 +166,17 @@ const no = {
   'workout.h': 't',
   'workout.min': 'min',
   'workout.sec': 'sek',
+  'workout.add': 'Loggfør økt',
+  'workout.date': 'Dato',
 
   // Training
   'training.statistics': 'Statistikk',
   'training.history': 'Historikk',
   'training.goals': 'Mål',
   'training.records': 'Rekorder',
+  'training.noSessionsFound': 'Ingen treningsøkter funnet',
+  'training.session': 'økt',
+  'training.sessions': 'økter',
 
   // Metrics
   'metric.sessions': 'økter',
@@ -182,6 +187,8 @@ const no = {
   'metric.minutes.label': 'Tid',
   'metric.distance.label': 'Distanse',
   'metric.elevation.label': 'Høydemeter',
+  'metric.totalTime': 'Total tid',
+  'metric.steps.label': 'Skritt',
 
   // Stats
   'stats.sessions': 'Økter',
@@ -191,6 +198,22 @@ const no = {
 
   // Goals
   'goals.otherGoals': 'Andre mål',
+  'goals.generalGoal': 'Generelt treningsmål',
+  'goals.sessionsPer': 'økter per',
+  'goals.period.week': 'uke',
+  'goals.period.month': 'måned',
+  'goals.period.year': 'år',
+  'goals.perWeek': 'per uke',
+  'goals.perMonth': 'per måned',
+  'goals.perYear': 'per år',
+  'goals.previousGoals': 'Tidligere mål',
+  'goals.setGoal': 'Sett mål',
+  'goals.updateGoal': 'Oppdater mål',
+  'goals.archivedGoals': 'Arkiverte mål',
+  'goals.addGoal': 'Legg til mål',
+  'goals.noGoalsYet': 'Ingen mål ennå',
+  'goals.validFrom': 'Gyldig fra',
+  'goals.unarchive': 'Gjenopprett',
 
   // Goal card
   'goalCard.thisWeek': 'Denne uken',
@@ -202,6 +225,30 @@ const no = {
   'goalCard.ahead': 'Foran skjema',
   'goalCard.behind': 'Bak skjema',
   'goalCard.remaining': 'igjen',
+  'goalCard.deleteDesc': 'Er du sikker på at du vil slette dette målet?',
+
+  // Goal Form
+  'goalForm.week': 'Uke',
+  'goalForm.month': 'Måned',
+  'goalForm.year': 'År',
+  'goalForm.custom': 'Egendefinert',
+  'goalForm.editGoal': 'Rediger mål',
+  'goalForm.newGoal': 'Nytt mål',
+  'goalForm.metricType': 'Måltype',
+  'goalForm.target': 'Mål',
+  'goalForm.from': 'Fra',
+  'goalForm.to': 'Til',
+  'goalForm.repeatWeekly': 'Gjenta hver uke',
+  'goalForm.repeatMonthly': 'Gjenta hver måned',
+  'goalForm.repeatYearly': 'Gjenta hvert år',
+  'goalForm.repeatGoal': 'Gjenta mål',
+  'goalForm.repeatGoalDesc': 'Målet vil bli gjentatt hver {period}',
+  'goalForm.activityType': 'Aktivitetstype',
+  'goalForm.create': 'Opprett mål',
+  'goalForm.all': 'Alle',
+
+  // Primary Goal
+  'primaryGoal.sessionsPerPeriod': 'Økter per periode',
 
   // Activity types
   'activity.styrke': 'Styrke', 'activity.løping': 'Løping', 'activity.fjelltur': 'Fjelltur',
@@ -264,6 +311,16 @@ const no = {
 
   // Welcome
   'welcome.title': 'Velkommen',
+
+  // Periods
+  'period.month': 'Måned',
+  'period.year': 'År',
+  'period.total': 'Totalt',
+
+  // Chart
+  'chart.bar': 'Stolpe',
+  'chart.line': 'Linje',
+  'chart.estimated': 'Estimert',
 };
 
 const en = {
@@ -432,12 +489,17 @@ const en = {
   'workout.h': 'h',
   'workout.min': 'min',
   'workout.sec': 'sec',
+  'workout.add': 'Log workout',
+  'workout.date': 'Date',
 
   // Training
   'training.statistics': 'Statistics',
   'training.history': 'History',
   'training.goals': 'Goals',
   'training.records': 'Records',
+  'training.noSessionsFound': 'No workouts found',
+  'training.session': 'workout',
+  'training.sessions': 'workouts',
 
   // Metrics
   'metric.sessions': 'workouts',
@@ -448,6 +510,8 @@ const en = {
   'metric.minutes.label': 'Time',
   'metric.distance.label': 'Distance',
   'metric.elevation.label': 'Elevation',
+  'metric.totalTime': 'Total time',
+  'metric.steps.label': 'Steps',
 
   // Stats
   'stats.sessions': 'Workouts',
@@ -457,6 +521,22 @@ const en = {
 
   // Goals
   'goals.otherGoals': 'Other goals',
+  'goals.generalGoal': 'General training goal',
+  'goals.sessionsPer': 'workouts per',
+  'goals.period.week': 'week',
+  'goals.period.month': 'month',
+  'goals.period.year': 'year',
+  'goals.perWeek': 'per week',
+  'goals.perMonth': 'per month',
+  'goals.perYear': 'per year',
+  'goals.previousGoals': 'Previous goals',
+  'goals.setGoal': 'Set goal',
+  'goals.updateGoal': 'Update goal',
+  'goals.archivedGoals': 'Archived goals',
+  'goals.addGoal': 'Add goal',
+  'goals.noGoalsYet': 'No goals yet',
+  'goals.validFrom': 'Valid from',
+  'goals.unarchive': 'Restore',
 
   // Goal card
   'goalCard.thisWeek': 'This week',
@@ -468,6 +548,30 @@ const en = {
   'goalCard.ahead': 'Ahead of schedule',
   'goalCard.behind': 'Behind schedule',
   'goalCard.remaining': 'remaining',
+  'goalCard.deleteDesc': 'Are you sure you want to delete this goal?',
+
+  // Goal Form
+  'goalForm.week': 'Week',
+  'goalForm.month': 'Month',
+  'goalForm.year': 'Year',
+  'goalForm.custom': 'Custom',
+  'goalForm.editGoal': 'Edit goal',
+  'goalForm.newGoal': 'New goal',
+  'goalForm.metricType': 'Metric type',
+  'goalForm.target': 'Target',
+  'goalForm.from': 'From',
+  'goalForm.to': 'To',
+  'goalForm.repeatWeekly': 'Repeat every week',
+  'goalForm.repeatMonthly': 'Repeat every month',
+  'goalForm.repeatYearly': 'Repeat every year',
+  'goalForm.repeatGoal': 'Repeat goal',
+  'goalForm.repeatGoalDesc': 'The goal will be repeated every {period}',
+  'goalForm.activityType': 'Activity type',
+  'goalForm.create': 'Create goal',
+  'goalForm.all': 'All',
+
+  // Primary Goal
+  'primaryGoal.sessionsPerPeriod': 'Workouts per period',
 
   // Activity types
   'activity.styrke': 'Strength', 'activity.løping': 'Running', 'activity.fjelltur': 'Hiking',
@@ -530,6 +634,16 @@ const en = {
 
   // Welcome
   'welcome.title': 'Welcome',
+
+  // Periods
+  'period.month': 'Month',
+  'period.year': 'Year',
+  'period.total': 'Total',
+
+  // Chart
+  'chart.bar': 'Bar',
+  'chart.line': 'Line',
+  'chart.estimated': 'Estimated',
 };
 
 export const translations: Record<Language, Record<string, string>> = { no, en };
