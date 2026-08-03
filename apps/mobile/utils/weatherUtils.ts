@@ -57,6 +57,46 @@ export const mapWmoCodeToEmoji = (code: number): string => {
 };
 
 /**
+ * Maps WMO weather codes (from Open-Meteo) to standard emojis, with optional night variants.
+ */
+export const getWeatherEmoji = (code: number, isNight: boolean = false): string => {
+  if (isNight) {
+    switch (code) {
+      case 0:
+        return "🌙"; // Clear sky (night)
+      case 1:
+      case 2:
+        return "☁️🌙"; // Mainly clear, partly cloudy (night)
+      default:
+        // For other conditions (rain, snow, fog), we use the standard emojis
+        // as they usually represent clouds already.
+        break;
+    }
+  }
+
+  return mapWmoCodeToEmoji(code);
+};
+
+/**
+ * Compares Open-Meteo's local-time strings without converting them to the
+ * device timezone. The API returns all three values in the peak's timezone.
+ */
+export const isNightTime = (
+  time?: string,
+  sunrise?: string,
+  sunset?: string
+): boolean => {
+  if (!time || !sunrise || !sunset) return false;
+
+  const normalize = (value: string) => value.length === 16 ? `${value}:00` : value;
+  const current = normalize(time);
+  const rise = normalize(sunrise);
+  const set = normalize(sunset);
+
+  return current < rise || current > set;
+};
+
+/**
  * Maps WMO weather codes to user-friendly descriptions.
  */
 export const mapWmoCodeToDescription = (code: number): string => {

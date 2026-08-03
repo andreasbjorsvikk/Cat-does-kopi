@@ -172,11 +172,15 @@ export default function MapScreen() {
   const [activeWaypointIndex, setActiveWaypointIndex] = useState<number | null>(null); // -1 for start, 0+ for waypoints
   const [originalPosition, setOriginalPosition] = useState<{ latitude: number; longitude: number } | null>(null);
   const [movedWaypointPos, setMovedWaypointPos] = useState<{ latitude: number; longitude: number } | null>(null);
+  const movedWaypointPosRef = useRef<{ latitude: number; longitude: number } | null>(null);
+  const [activeWaypointScreenPos, setActiveWaypointScreenPos] = useState<{ x: number, y: number } | null>(null);
 
   // Clear selection when route is cleared
   useEffect(() => {
     if (!activeRoute) {
       setActiveWaypointIndex(null);
+      setActiveWaypointScreenPos(null);
+      movedWaypointPosRef.current = null;
     }
   }, [activeRoute]);
 
@@ -189,6 +193,39 @@ export default function MapScreen() {
   const [areaStatsMode, setAreaStatsMode] = useState<'off' | 'kommune' | 'fylke'>('off');
   const [areaBoundaries, setAreaBoundaries] = useState<Record<string, any>>({});
   const [currentZoom, setCurrentZoom] = useState(15);
+
+  const updateActiveWaypointScreenPos = useCallback(async () => {
+    if (activeWaypointIndex === null || !activeRoute) {
+      setActiveWaypointScreenPos(null);
+      return;
+    }
+
+    const coord = activeWaypointIndex === -1
+      ? activeRoute.startPoint
+      : activeRoute.waypoints[activeWaypointIndex];
+
+    if (isMapboxAvailable && isMapboxLayer && mapboxMapRef.current) {
+      try {
+        const point = await mapboxMapRef.current.getPointInView([coord.longitude, coord.latitude]);
+        const x = Array.isArray(point) ? point[0] : point?.x;
+        const y = Array.isArray(point) ? point[1] : point?.y;
+        if (typeof x === 'number' && typeof y === 'number') {
+          setActiveWaypointScreenPos({ x, y });
+        }
+      } catch (e) {}
+    } else if (mapRef.current) {
+      try {
+        const point = await mapRef.current.pointForCoordinate(coord);
+        if (point) {
+          setActiveWaypointScreenPos(point);
+        }
+      } catch (e) {}
+    }
+  }, [activeWaypointIndex, activeRoute, isMapboxLayer]);
+
+  useEffect(() => {
+    updateActiveWaypointScreenPos();
+  }, [activeWaypointIndex, activeRoute, updateActiveWaypointScreenPos]);
 
   const getMapCenter = useCallback(async () => {
     try {
@@ -262,6 +299,17 @@ export default function MapScreen() {
       Alert.alert("Feil", "Kunne ikke oppdatere veipunkt.");
     }
   }, [activeRoute, updateRoute]);
+
+  const finishWaypointDrag = useCallback(async () => {
+    const index = activeWaypointIndex;
+    const coord = movedWaypointPosRef.current;
+    if (index === null || !coord) return;
+
+    await handleUpdateWaypoint(index, coord);
+    movedWaypointPosRef.current = null;
+    setMovedWaypointPos(null);
+    void updateActiveWaypointScreenPos();
+  }, [activeWaypointIndex, handleUpdateWaypoint, updateActiveWaypointScreenPos]);
 
   const peaksWithMinZoom = React.useMemo(() => {
     // Sort peaks by priority (height descending)
@@ -1037,6 +1085,10 @@ export default function MapScreen() {
       regionRef.current = newRegion;
       AsyncStorage.setItem('last_map_region', JSON.stringify(newRegion)).catch(() => {});
     }
+
+    if (activeWaypointIndex !== null) {
+      void updateActiveWaypointScreenPos();
+    }
   };
 
   const handleRegionChangeComplete = async (currentRegion: any, details: any) => {
@@ -1059,6 +1111,10 @@ export default function MapScreen() {
     // Approximate zoom from latitudeDelta
     const zoom = Math.log2(360 / currentRegion.latitudeDelta);
     setCurrentZoom(zoom);
+
+    if (activeWaypointIndex !== null) {
+      void updateActiveWaypointScreenPos();
+    }
 
     if (!mapRef.current || isAdjustingCamera.current) return;
 
@@ -1126,7 +1182,6 @@ export default function MapScreen() {
           attributionEnabled={false}
           onPress={() => {
             setSelectedPeak(null);
-            setActiveWaypointIndex(null);
           }}
           onLongPress={handleMapboxLongPress}
           onDidFinishLoadingStyle={handleDidFinishLoadingStyle}
@@ -1272,43 +1327,30 @@ export default function MapScreen() {
               <Mapbox.PointAnnotation
                 key="start-point"
                 id="start-point"
-                coordinate={[activeRoute.startPoint.longitude, activeRoute.startPoint.latitude]}
-                draggable={activeWaypointIndex === -1}
+                coordinate={[
+                  movedWaypointPos && activeWaypointIndex === -1 ? movedWaypointPos.longitude : activeRoute.startPoint.longitude,
+                  movedWaypointPos && activeWaypointIndex === -1 ? movedWaypointPos.latitude : activeRoute.startPoint.latitude
+                ]}
+                draggable={false}
                 onSelected={() => {
                   setActiveWaypointIndex(-1);
                   setOriginalPosition(activeRoute.startPoint);
                   setMovedWaypointPos(null);
-                }}
-                onDrag={() => {
-                  if (activeWaypointIndex !== -1) setActiveWaypointIndex(-1);
-                }}
-                onDragEnd={async (e: any) => {
-                  const coord = e.geometry.coordinates;
-                  const newCoord = { latitude: coord[1], longitude: coord[0] };
-                  await handleUpdateWaypoint(-1, newCoord);
+                  movedWaypointPosRef.current = null;
                 }}
               >
-                <View style={styles.waypointHitArea}>
-                  {/* Glow / Halo Effect */}
-                  {activeWaypointIndex === -1 && <View style={styles.waypointGlow} />}
-                  <View style={flattenStyle([
-                    styles.waypointMarker,
-                    activeWaypointIndex === -1 && styles.waypointMarkerSelected
-                  ])}>
-                    <Text style={styles.waypointText}>1</Text>
+                {activeWaypointIndex === -1 ? (
+                  <View style={styles.waypointHitArea}>
+                    <View style={styles.waypointGlow} />
+                    <View style={styles.waypointMarkerSelected}>
+                      <Text style={styles.waypointText}>1</Text>
+                    </View>
                   </View>
-                  
-                  {activeWaypointIndex === -1 && (
-                    <HStack style={styles.waypointActions}>
-                      <TouchableOpacity 
-                        onPress={() => setActiveWaypointIndex(null)}
-                        style={flattenStyle([styles.waypointActionBtn, { backgroundColor: '#10B981' }])}
-                      >
-                        <Check size={14} color="#FFFFFF" />
-                      </TouchableOpacity>
-                    </HStack>
-                  )}
-                </View>
+                ) : (
+                  <View style={styles.waypointHitArea}>
+                    <View style={styles.waypointMarker} />
+                  </View>
+                )}
               </Mapbox.PointAnnotation>
 
               <Mapbox.ShapeSource
@@ -1337,54 +1379,30 @@ export default function MapScreen() {
                 <Mapbox.PointAnnotation
                   key={`wp-${idx}`}
                   id={`wp-${idx}`}
-                  coordinate={[wp.longitude, wp.latitude]}
-                  draggable={activeWaypointIndex === idx}
+                  coordinate={[
+                    movedWaypointPos && activeWaypointIndex === idx ? movedWaypointPos.longitude : wp.longitude,
+                    movedWaypointPos && activeWaypointIndex === idx ? movedWaypointPos.latitude : wp.latitude
+                  ]}
+                  draggable={false}
                   onSelected={() => {
                     setActiveWaypointIndex(idx);
                     setOriginalPosition({ latitude: wp.latitude, longitude: wp.longitude });
                     setMovedWaypointPos(null);
-                  }}
-                  onDrag={() => {
-                    if (activeWaypointIndex !== idx) {
-                      setActiveWaypointIndex(idx);
-                    }
-                  }}
-                  onDragEnd={async (e: any) => {
-                    const coord = e.geometry.coordinates;
-                    const newCoord = { latitude: coord[1], longitude: coord[0] };
-                    await handleUpdateWaypoint(idx, newCoord);
+                    movedWaypointPosRef.current = null;
                   }}
                 >
+                {activeWaypointIndex === idx ? (
                   <View style={styles.waypointHitArea}>
-                    {/* Glow / Halo Effect */}
-                    {activeWaypointIndex === idx && <View style={styles.waypointGlow} />}
-                    <View style={flattenStyle([
-                      styles.waypointMarker,
-                      activeWaypointIndex === idx && styles.waypointMarkerSelected
-                    ])}>
+                    <View style={styles.waypointGlow} />
+                    <View style={styles.waypointMarkerSelected}>
                       <Text style={styles.waypointText}>{idx + 2}</Text>
                     </View>
-                    
-                    {activeWaypointIndex === idx && (
-                      <HStack style={styles.waypointActions}>
-                        <TouchableOpacity 
-                          onPress={() => setActiveWaypointIndex(null)}
-                          style={flattenStyle([styles.waypointActionBtn, { backgroundColor: '#10B981' }])}
-                        >
-                          <Check size={14} color="#FFFFFF" />
-                        </TouchableOpacity>
-                        <TouchableOpacity 
-                          onPress={() => {
-                            removeWaypoint(idx);
-                            setActiveWaypointIndex(null);
-                          }}
-                          style={flattenStyle([styles.waypointActionBtn, { backgroundColor: '#EF4444' }])}
-                        >
-                          <X size={14} color="#FFFFFF" />
-                        </TouchableOpacity>
-                      </HStack>
-                    )}
                   </View>
+                ) : (
+                  <View style={styles.waypointHitArea}>
+                    <View style={styles.waypointMarker} />
+                  </View>
+                )}
                 </Mapbox.PointAnnotation>
               ))}
             </>
@@ -1447,7 +1465,6 @@ export default function MapScreen() {
           onMapReady={handleMapReady}
           onPress={() => {
             setSelectedPeak(null);
-            setActiveWaypointIndex(null);
           }}
           onRegionChangeComplete={handleRegionChangeComplete}
           userInterfaceStyle={colorScheme as any}
@@ -1470,48 +1487,28 @@ export default function MapScreen() {
               {/* Start Point Marker (Index 1) */}
               <Marker
                 key="start-point"
-                coordinate={activeRoute.startPoint}
+                coordinate={movedWaypointPos && activeWaypointIndex === -1 ? movedWaypointPos : activeRoute.startPoint}
                 anchor={{ x: 0.5, y: 0.5 }}
-                draggable={activeWaypointIndex === -1}
+                draggable={false}
                 onPress={() => {
                   setActiveWaypointIndex(-1);
                   setOriginalPosition(activeRoute.startPoint);
                   setMovedWaypointPos(null);
-                }}
-                onDragStart={() => {
-                  setActiveWaypointIndex(-1);
-                  setOriginalPosition(activeRoute.startPoint);
-                  setMovedWaypointPos(null);
-                }}
-                onDrag={() => {
-                  if (activeWaypointIndex !== -1) setActiveWaypointIndex(-1);
-                }}
-                onDragEnd={async (e) => {
-                  const newCoord = e.nativeEvent.coordinate;
-                  await handleUpdateWaypoint(-1, newCoord);
+                  movedWaypointPosRef.current = null;
                 }}
               >
-                <View style={styles.waypointHitArea}>
-                  {/* Glow / Halo Effect */}
-                  {activeWaypointIndex === -1 && <View style={styles.waypointGlow} />}
-                  <View style={flattenStyle([
-                    styles.waypointMarker,
-                    activeWaypointIndex === -1 && styles.waypointMarkerSelected
-                  ])}>
-                    <Text style={styles.waypointText}>1</Text>
+                {activeWaypointIndex === -1 ? (
+                  <View style={styles.waypointHitArea}>
+                    <View style={styles.waypointGlow} />
+                    <View style={styles.waypointMarkerSelected}>
+                      <Text style={styles.waypointText}>1</Text>
+                    </View>
                   </View>
-
-                  {activeWaypointIndex === -1 && (
-                    <HStack style={styles.waypointActions}>
-                      <TouchableOpacity 
-                        onPress={() => setActiveWaypointIndex(null)}
-                        style={flattenStyle([styles.waypointActionBtn, { backgroundColor: '#10B981' }])}
-                      >
-                        <Check size={14} color="#FFFFFF" />
-                      </TouchableOpacity>
-                    </HStack>
-                  )}
-                </View>
+                ) : (
+                  <View style={styles.waypointHitArea}>
+                    <View style={styles.waypointMarker} />
+                  </View>
+                )}
               </Marker>
 
               <Polyline
@@ -1525,59 +1522,28 @@ export default function MapScreen() {
               {activeRoute.waypoints.map((wp, idx) => (
                 <Marker
                   key={`wp-${idx}`}
-                  coordinate={wp}
+                  coordinate={movedWaypointPos && activeWaypointIndex === idx ? movedWaypointPos : wp}
                   anchor={{ x: 0.5, y: 0.5 }}
-                  draggable={activeWaypointIndex === idx}
+                  draggable={false}
                   onPress={() => {
                     setActiveWaypointIndex(idx);
                     setOriginalPosition({ latitude: wp.latitude, longitude: wp.longitude });
                     setMovedWaypointPos(null);
-                  }}
-                  onDragStart={() => {
-                    setActiveWaypointIndex(idx);
-                    setOriginalPosition({ latitude: wp.latitude, longitude: wp.longitude });
-                    setMovedWaypointPos(null);
-                  }}
-                  onDrag={() => {
-                    if (activeWaypointIndex !== idx) {
-                      setActiveWaypointIndex(idx);
-                    }
-                  }}
-                  onDragEnd={async (e) => {
-                    const newCoord = e.nativeEvent.coordinate;
-                    await handleUpdateWaypoint(idx, newCoord);
+                    movedWaypointPosRef.current = null;
                   }}
                 >
+                {activeWaypointIndex === idx ? (
                   <View style={styles.waypointHitArea}>
-                    {/* Glow / Halo Effect */}
-                    {activeWaypointIndex === idx && <View style={styles.waypointGlow} />}
-                    <View style={flattenStyle([
-                      styles.waypointMarker,
-                      activeWaypointIndex === idx && styles.waypointMarkerSelected
-                    ])}>
+                    <View style={styles.waypointGlow} />
+                    <View style={styles.waypointMarkerSelected}>
                       <Text style={styles.waypointText}>{idx + 2}</Text>
                     </View>
-
-                    {activeWaypointIndex === idx && (
-                      <HStack style={styles.waypointActions}>
-                        <TouchableOpacity 
-                          onPress={() => setActiveWaypointIndex(null)}
-                          style={flattenStyle([styles.waypointActionBtn, { backgroundColor: '#10B981' }])}
-                        >
-                          <Check size={14} color="#FFFFFF" />
-                        </TouchableOpacity>
-                        <TouchableOpacity 
-                          onPress={() => {
-                            removeWaypoint(idx);
-                            setActiveWaypointIndex(null);
-                          }}
-                          style={flattenStyle([styles.waypointActionBtn, { backgroundColor: '#EF4444' }])}
-                        >
-                          <X size={14} color="#FFFFFF" />
-                        </TouchableOpacity>
-                      </HStack>
-                    )}
                   </View>
+                ) : (
+                  <View style={styles.waypointHitArea}>
+                    <View style={styles.waypointMarker} />
+                  </View>
+                )}
                 </Marker>
               ))}
             </>
@@ -1894,7 +1860,93 @@ export default function MapScreen() {
         />
       )}
 
-      {activeRoute && activeTab === "kart" && <CustomRouteBar />}
+      {activeRoute && activeTab === "kart" && (
+        <>
+          <CustomRouteBar />
+
+          {/* Waypoint Actions Overlay */}
+          {activeWaypointIndex !== null && activeWaypointScreenPos && (
+            <View
+              pointerEvents="box-none"
+              style={flattenStyle([
+                styles.waypointActionsOverlay,
+                {
+                  top: activeWaypointScreenPos.y - 110,
+                  left: activeWaypointScreenPos.x - 60,
+                }
+              ])}
+            >
+              <View style={styles.waypointActions}>
+                <TouchableOpacity
+                  onPress={() => setActiveWaypointIndex(null)}
+                  style={flattenStyle([styles.waypointActionBtn, { backgroundColor: '#10B981' }])}
+                >
+                  <Check size={20} color="#FFFFFF" strokeWidth={3} />
+                </TouchableOpacity>
+                {activeWaypointIndex !== -1 && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      removeWaypoint(activeWaypointIndex);
+                      setActiveWaypointIndex(null);
+                    }}
+                    style={flattenStyle([styles.waypointActionBtn, { backgroundColor: '#EF4444' }])}
+                  >
+                    <X size={20} color="#FFFFFF" strokeWidth={3} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          )}
+
+          {/* Immediate Drag Handle */}
+          {activeWaypointIndex !== null && activeWaypointScreenPos && (
+            <View
+              pointerEvents="auto"
+              style={{
+                position: 'absolute',
+                top: activeWaypointScreenPos.y - 40,
+                left: activeWaypointScreenPos.x - 40,
+                width: 80,
+                height: 80,
+                zIndex: 1001,
+                backgroundColor: 'transparent',
+              }}
+              onStartShouldSetResponder={() => true}
+              onMoveShouldSetResponder={() => true}
+              onResponderTerminationRequest={() => false}
+              onResponderGrant={() => {
+                movedWaypointPosRef.current = null;
+                setMovedWaypointPos(null);
+              }}
+              onResponderMove={async (evt) => {
+                const { pageX, pageY } = evt.nativeEvent;
+                let coord;
+                if (isMapboxAvailable && isMapboxLayer && mapboxMapRef.current) {
+                  const c = await mapboxMapRef.current.getCoordinateFromView([pageX, pageY]);
+                  if (Array.isArray(c)) {
+                    coord = { latitude: c[1], longitude: c[0] };
+                  } else if (c?.coordinates && Array.isArray(c.coordinates)) {
+                    coord = { latitude: c.coordinates[1], longitude: c.coordinates[0] };
+                  }
+                } else if (mapRef.current) {
+                  coord = await mapRef.current.coordinateForPoint({ x: pageX, y: pageY });
+                }
+                if (coord) {
+                  movedWaypointPosRef.current = coord;
+                  setMovedWaypointPos(coord);
+                  setActiveWaypointScreenPos({ x: pageX, y: pageY });
+                }
+              }}
+              onResponderRelease={async () => {
+                await finishWaypointDrag();
+              }}
+              onResponderTerminate={async () => {
+                await finishWaypointDrag();
+              }}
+            />
+          )}
+        </>
+      )}
 
       {isPickingStart && (
         <RouteStartPicker 
@@ -2359,69 +2411,81 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   waypointHitArea: {
-    width: 64,
-    height: 64,
+    width: 100,
+    height: 100,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'visible',
+    backgroundColor: 'transparent',
   },
   waypointGlow: {
     position: 'absolute',
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: 'rgba(245, 158, 11, 0.3)',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(16, 185, 129, 0.25)',
     borderWidth: 2,
-    borderColor: 'rgba(245, 158, 11, 0.6)',
+    borderColor: 'rgba(16, 185, 129, 0.65)',
     zIndex: -1,
   },
   waypointMarker: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
     backgroundColor: "#10B981",
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3,
-    elevation: 5,
   },
   waypointMarkerSelected: {
-    backgroundColor: "#F59E0B",
-    borderWidth: 4,
-    borderColor: "#FFFFFF",
-    transform: [{ scale: 1.2 }],
-  },
-  waypointText: {
-    color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "bold",
-  },
-  waypointActions: {
-    position: 'absolute',
-    bottom: 58,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 20,
-    padding: 4,
-    gap: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.1)',
-    alignItems: 'center',
-    flexDirection: 'row',
-  },
-  waypointActionBtn: {
     width: 24,
     height: 24,
     borderRadius: 12,
+    backgroundColor: "#10B981",
+    borderWidth: 3,
+    borderColor: "#FFFFFF",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 8,
+  },
+  waypointText: {
+    color: "#FFFFFF",
+    fontSize: 9,
+    fontWeight: "bold",
+  },
+  waypointActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 88,
+    height: 48,
+    backgroundColor: '#111827',
+    borderRadius: 24,
+    padding: 6,
+    gap: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
+  },
+  waypointActionsOverlay: {
+    position: 'absolute',
+    zIndex: 1000,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 120,
+    height: 50,
+  },
+  waypointActionBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },

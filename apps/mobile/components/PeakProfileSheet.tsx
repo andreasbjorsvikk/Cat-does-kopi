@@ -38,7 +38,7 @@ import { flattenStyle } from "@/utils/flatten-style";
 import { PeakLeaderboard } from "./leaderboard/PeakLeaderboard";
 import { supabase } from "@/lib/supabase";
 import { WeatherTab } from "./WeatherTab";
-import { mapWmoCodeToEmoji, mapWmoCodeToDescription } from "@/utils/weatherUtils";
+import { getWeatherEmoji, isNightTime, mapWmoCodeToDescription, mapWmoCodeToEmoji } from "@/utils/weatherUtils";
 import { useRoute } from "@/context/RouteContext";
 
 interface PeakProfileSheetProps {
@@ -73,6 +73,8 @@ export function PeakProfileSheet({
     sunrise: string;
     sunset: string;
   } | null>(null);
+  const [fullForecast, setFullForecast] = useState<any[] | null>(null);
+  const [dailyInfo, setDailyInfo] = useState<Record<string, any> | null>(null);
 
   // Formatting distance
   const getDistanceMeters = (
@@ -111,24 +113,23 @@ export function PeakProfileSheet({
   useEffect(() => {
     const fetchWeather = async () => {
       try {
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${peak.latitude}&longitude=${peak.longitude}&current=temperature_2m,weather_code,wind_speed_10m&daily=sunrise,sunset&timezone=auto&forecast_days=1`;
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${peak.latitude}&longitude=${peak.longitude}&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,precipitation,snow_depth,weather_code,wind_speed_10m,wind_direction_10m&daily=sunrise,sunset&timezone=auto&wind_speed_unit=ms&forecast_days=10`;
         const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`Weather API returned ${response.status}`);
+        }
         const json = await response.json();
-        
-        if (json.current && json.daily) {
+
+        if (json.current && json.daily && json.hourly) {
           const current = json.current;
           const daily = json.daily;
+          const hourly = json.hourly;
           const sunrise = daily.sunrise[0];
           const sunset = daily.sunset[0];
-          const now = new Date().toISOString();
-          
-          const isNight = now < sunrise || now > sunset;
-          let symbol = mapWmoCodeToEmoji(current.weather_code);
-          
-          if (isNight) {
-            if (symbol === "☀️") symbol = "🌙";
-            else if (symbol === "🌤️" || symbol === "⛅") symbol = "☁️🌙";
-          }
+
+          // Use current.time from API for robust night detection in the same timezone
+          const isNight = isNightTime(current.time, sunrise, sunset);
+          const symbol = getWeatherEmoji(current.weather_code, isNight);
 
           setWeatherData({
             temp: Math.round(current.temperature_2m),
@@ -141,6 +142,43 @@ export function PeakProfileSheet({
             sunrise: sunrise.split("T")[1].substring(0, 5),
             sunset: sunset.split("T")[1].substring(0, 5),
           });
+
+          // Format data for WeatherTab
+          const formattedHourly = hourly.time.map((time: string, i: number) => {
+            const hourlyUnits = json.hourly_units;
+            const isWindKmH = (hourlyUnits?.wind_speed_10m_best_match || hourlyUnits?.wind_speed_10m) === 'km/h';
+
+            const windSpeedRaw = hourly.wind_speed_10m_best_match?.[i] ?? hourly.wind_speed_10m?.[i] ?? 0;
+            const windSpeed = isWindKmH ? windSpeedRaw / 3.6 : windSpeedRaw;
+
+            const temp = hourly.temperature_2m_best_match?.[i] ?? hourly.temperature_2m?.[i] ?? 0;
+            const precip = hourly.precipitation_best_match?.[i] ?? hourly.precipitation?.[i] ?? 0;
+            const windDir = hourly.wind_direction_10m_best_match?.[i] ?? hourly.wind_direction_10m?.[i] ?? 0;
+            const weatherCode = hourly.weather_code_best_match?.[i] ?? hourly.weather_code?.[i] ?? 0;
+            const snowDepth = hourly.snow_depth_metno_nordic?.[i] ?? hourly.snow_depth_best_match?.[i] ?? hourly.snow_depth?.[i] ?? 0;
+
+            return {
+              time,
+              temp,
+              precip,
+              windSpeed,
+              windDir,
+              symbol: mapWmoCodeToEmoji(weatherCode),
+              wmoCode: weatherCode,
+              snowDepth,
+            };
+          });
+
+          const dailyMap: Record<string, any> = {};
+          daily.time.forEach((date: string, i: number) => {
+            dailyMap[date] = {
+              sunrise: daily.sunrise[i],
+              sunset: daily.sunset[i],
+            };
+          });
+
+          setFullForecast(formattedHourly);
+          setDailyInfo(dailyMap);
         }
       } catch (err) {
         console.warn("Failed to fetch weather", err);
@@ -318,8 +356,8 @@ export function PeakProfileSheet({
             <View style={flattenStyle([styles.infoCard, { backgroundColor: isDark ? "#1F2937" : "#F8FAFC" }])}>
               <HStack className="justify-between items-center">
                 <HStack space="md" className="items-center">
-                  <View style={{ width: 48, height: 48, alignItems: "center", justifyContent: "center" }}>
-                    <Text style={{ fontSize: 32, lineHeight: 42, includeFontPadding: false }}>{weatherData?.symbol || "☁️"}</Text>
+                  <View style={{ width: 56, height: 58, alignItems: "center", justifyContent: "center", overflow: "visible" }}>
+                    <Text style={{ fontSize: 32, lineHeight: 42, includeFontPadding: true, textAlign: 'center' }}>{weatherData?.symbol || "☁️"}</Text>
                   </View>
                   <VStack>
                     <Text 
@@ -415,6 +453,8 @@ export function PeakProfileSheet({
             latitude={peak.latitude} 
             longitude={peak.longitude} 
             astronomy={astronomy}
+            weatherData={fullForecast}
+            dailyInfo={dailyInfo}
           />
         )}
       </ScrollView>

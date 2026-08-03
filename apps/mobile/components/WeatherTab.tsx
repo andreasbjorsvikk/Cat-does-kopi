@@ -17,12 +17,14 @@ import Svg, { Path, Rect, G, Line, Circle, Text as SvgText, TSpan, Polygon } fro
 import { Image } from 'expo-image';
 import useColorScheme from '@/hooks/useColorScheme';
 import { flattenStyle } from '@/utils/flatten-style';
-import { mapWmoCodeToEmoji } from '@/utils/weatherUtils';
+import { getWeatherEmoji, isNightTime, mapWmoCodeToEmoji } from '@/utils/weatherUtils';
 
 interface WeatherTabProps {
   latitude: number;
   longitude: number;
   astronomy?: { sunrise: string; sunset: string } | null;
+  weatherData?: WeatherData[] | null;
+  dailyInfo?: Record<string, { sunrise?: string; sunset?: string }> | null;
 }
 
 interface WeatherData {
@@ -32,10 +34,17 @@ interface WeatherData {
   windSpeed: number;
   windDir: number;
   symbol: string;
+  wmoCode: number;
   snowDepth: number;
 }
 
-export function WeatherTab({ latitude, longitude, astronomy }: WeatherTabProps) {
+export function WeatherTab({
+  latitude,
+  longitude,
+  astronomy,
+  weatherData: weatherDataProp,
+  dailyInfo: dailyInfoProp
+}: WeatherTabProps) {
   const isDark = useColorScheme() === 'dark';
   const [data, setData] = useState<WeatherData[]>([]);
   const [dailyInfo, setDailyInfo] = useState<Record<string, { sunrise?: string; sunset?: string }>>({});
@@ -48,6 +57,13 @@ export function WeatherTab({ latitude, longitude, astronomy }: WeatherTabProps) 
   };
 
   useEffect(() => {
+    if (weatherDataProp && dailyInfoProp) {
+      setData(weatherDataProp);
+      setDailyInfo(dailyInfoProp);
+      setLoading(false);
+      return;
+    }
+
     async function fetchWeather() {
       try {
         const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&hourly=temperature_2m,precipitation,snow_depth,weather_code,wind_speed_10m,wind_direction_10m&daily=sunrise,sunset&timezone=auto&forecast_days=10`;
@@ -89,6 +105,7 @@ export function WeatherTab({ latitude, longitude, astronomy }: WeatherTabProps) 
             windSpeed,
             windDir: hourly.wind_direction_10m_best_match?.[i] ?? hourly.wind_direction_10m?.[i] ?? 0,
             symbol: emoji,
+            wmoCode: weatherCode,
             snowDepth,
           };
         });
@@ -115,7 +132,7 @@ export function WeatherTab({ latitude, longitude, astronomy }: WeatherTabProps) 
     }
 
     fetchWeather();
-  }, [latitude, longitude]);
+  }, [latitude, longitude, weatherDataProp, dailyInfoProp]);
 
   const days = useMemo(() => {
     if (!data || data.length === 0) return [];
@@ -207,6 +224,7 @@ export function WeatherTab({ latitude, longitude, astronomy }: WeatherTabProps) 
         windSpeed: 0,
         windDir: 0,
         symbol: 'cloudy_day',
+        wmoCode: 3, // Default to cloudy
         snowDepth: 0,
         label: String(hour).padStart(2, '0')
       };
@@ -454,21 +472,10 @@ export function WeatherTab({ latitude, longitude, astronomy }: WeatherTabProps) 
              const x = getXFromPointIndex(i);
              const y = getYTemp(h.temp);
              
-             // Night time logic
-             const isNight = (() => {
-               if (!currentDay) return false;
-               const time = h.time;
-               const sunrise = currentDay.sunrise;
-               const sunset = currentDay.sunset;
-               if (!sunrise || !sunset) return false;
-               return time < sunrise || time > sunset;
-             })();
+            const isNight = isNightTime(h.time, currentDay?.sunrise, currentDay?.sunset);
 
-             let displaySymbol = h.symbol;
-             if (isNight) {
-               if (h.symbol === '☀️') displaySymbol = '🌙';
-               else if (h.symbol === '🌤️' || h.symbol === '⛅') displaySymbol = '☁️🌙';
-             }
+            // Use the shared utility for reliable night emojis
+            const displaySymbol = getWeatherEmoji(h.wmoCode, isNight);
 
              return (
                <View 
