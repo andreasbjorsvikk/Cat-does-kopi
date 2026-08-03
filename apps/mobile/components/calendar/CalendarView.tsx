@@ -363,8 +363,8 @@ export const CalendarView: React.FC = () => {
 
         {/* Weekday Labels */}
         <HStack style={styles.weekdays}>
-          {DAYS_LOCALIZED.map(day => (
-            <View key={day} style={styles.weekdayCol}>
+          {DAYS_LOCALIZED.map((day, index) => (
+            <View key={index} style={styles.weekdayCol}>
               <Text style={styles.weekdayText}>{day}</Text>
             </View>
           ))}

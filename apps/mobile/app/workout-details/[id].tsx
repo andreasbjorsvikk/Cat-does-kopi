@@ -485,6 +485,36 @@ export default function WorkoutDetailsPage() {
     return [];
   }, [streams?.altitudeData]);
 
+  const displayDate = useMemo(() => {
+    if (!session) return "";
+    const dateObj = new Date(session.date);
+    const weekdayKey = `weekday.long.${["sun", "mon", "tue", "wed", "thu", "fri", "sat"][dateObj.getDay()]}`;
+    const monthKey = `month.${dateObj.getMonth()}`;
+    const formatted = `${t(weekdayKey)}, ${dateObj.getDate()}. ${t(monthKey)} ${dateObj.getFullYear()}`;
+    return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+  }, [session?.date, t]);
+
+  const durationText = useMemo(() => {
+    if (!session) return "";
+    if (session.durationMinutes >= 60) {
+      const h = Math.floor(session.durationMinutes / 60);
+      const m = session.durationMinutes % 60;
+      return `${h} ${t("workout.h")} ${m} ${t("workout.min")}`;
+    }
+    return `${session.durationMinutes} ${t("workout.min")}`;
+  }, [session?.durationMinutes, t]);
+
+  const pace = useMemo(() => {
+    if (!session) return "--:-- /km";
+    if (session.distance && session.durationMinutes > 0) {
+      const minPerKm = session.durationMinutes / session.distance;
+      const mins = Math.floor(minPerKm);
+      const secs = Math.round((minPerKm % 1) * 60);
+      return `${mins}:${secs.toString().padStart(2, '0')} /km`;
+    }
+    return `--:-- /km`;
+  }, [session?.distance, session?.durationMinutes]);
+
   useEffect(() => {
     if (session && decodedRoute.length > 0 && mapRef.current) {
       setTimeout(() => {
@@ -570,33 +600,6 @@ export default function WorkoutDetailsPage() {
       </View>
     );
   }
-
-  const displayDate = useMemo(() => {
-    const dateObj = new Date(session.date);
-    const weekdayKey = `weekday.long.${["sun", "mon", "tue", "wed", "thu", "fri", "sat"][dateObj.getDay()]}`;
-    const monthKey = `month.${dateObj.getMonth()}`;
-    const formatted = `${t(weekdayKey)}, ${dateObj.getDate()}. ${t(monthKey)} ${dateObj.getFullYear()}`;
-    return formatted.charAt(0).toUpperCase() + formatted.slice(1);
-  }, [session.date, t]);
-
-  const durationText = useMemo(() => {
-    if (session.durationMinutes >= 60) {
-      const h = Math.floor(session.durationMinutes / 60);
-      const m = session.durationMinutes % 60;
-      return `${h} ${t("workout.h")} ${m} ${t("workout.min")}`;
-    }
-    return `${session.durationMinutes} ${t("workout.min")}`;
-  }, [session.durationMinutes, t]);
-
-  const pace = useMemo(() => {
-    if (session.distance && session.durationMinutes > 0) {
-      const minPerKm = session.durationMinutes / session.distance;
-      const mins = Math.floor(minPerKm);
-      const secs = Math.round((minPerKm % 1) * 60);
-      return `${mins}:${secs.toString().padStart(2, '0')} /km`;
-    }
-    return `--:-- /km`;
-  }, [session.distance, session.durationMinutes]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
