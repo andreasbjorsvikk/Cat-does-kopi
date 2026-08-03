@@ -20,6 +20,7 @@ import { Mail, Lock, LogIn, ArrowRight } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import useColorScheme from "@/hooks/useColorScheme";
 import { flattenStyle } from "@/utils/flatten-style";
+import { useLanguage } from "@/context/LanguageContext";
 
 const { height } = Dimensions.get("window");
 
@@ -31,10 +32,11 @@ export default function LoginScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
+  const { t, language } = useLanguage();
 
   const handleLogin = async () => {
     if (!email || !password) {
-      setError("Vennligst fyll ut alle felt");
+      setError(t("auth.fillAllFields"));
       return;
     }
 
@@ -74,7 +76,7 @@ export default function LoginScreen() {
       console.error("- Code:", err.code);
       console.error("- Status:", err.status);
       console.error("- Project URL used:", (supabase as any).supabaseUrl);
-      setError(err.message || "Kunne ikke logge inn");
+      setError(err.message || t("auth.errorSignIn"));
     } finally {
       setLoading(false);
     }
@@ -100,11 +102,13 @@ export default function LoginScreen() {
             <View style={styles.logoContainer}>
               <LogIn size={40} color="#FFFFFF" />
             </View>
-            <Heading size="3xl" className="text-white font-extrabold text-center">
-              Treningsappen
-            </Heading>
+            <VStack space="xs">
+              <Heading size="3xl" className="text-white font-extrabold text-center">
+                {t("common.appName")}
+              </Heading>
+            </VStack>
             <Text className="text-white/80 text-center text-lg">
-              Din partner for en aktiv livsstil
+              {t("auth.partnerActiveLifestyle")}
             </Text>
           </VStack>
         </ImageBackground>
@@ -113,24 +117,24 @@ export default function LoginScreen() {
           <VStack space="xl">
             <VStack space="xs">
               <Heading size="xl" className={isDark ? "text-white" : "text-typography-950"}>
-                Velkommen
+                {t("welcome.title")}
               </Heading>
               <Text className={isDark ? "text-white/70" : "text-typography-500"}>
-                Logg inn for å fortsette din treningsreise
+                {t("auth.loginJourney")}
               </Text>
             </VStack>
 
             <VStack space="md">
               <VStack space="xs">
                 <Text className={`font-medium ${isDark ? "text-white/90" : "text-typography-700"}`}>
-                  E-post
+                  {t("auth.email")}
                 </Text>
                 <Input size="lg" className={isDark ? "border-outline-700" : "border-outline-200"}>
                   <InputSlot className="pl-3">
                     <InputIcon as={Mail} color={isDark ? "#FFFFFF" : "#6B7280"} />
                   </InputSlot>
                   <InputField
-                    placeholder="Din e-post"
+                    placeholder={t("auth.emailPlaceholder")}
                     placeholderTextColor={isDark ? "#9CA3AF" : "#9CA3AF"}
                     value={email}
                     onChangeText={(val) => {
@@ -146,14 +150,14 @@ export default function LoginScreen() {
 
               <VStack space="xs">
                 <Text className={`font-medium ${isDark ? "text-white/90" : "text-typography-700"}`}>
-                  Passord
+                  {t("auth.password")}
                 </Text>
                 <Input size="lg" className={isDark ? "border-outline-700" : "border-outline-200"}>
                   <InputSlot className="pl-3">
                     <InputIcon as={Lock} color={isDark ? "#FFFFFF" : "#6B7280"} />
                   </InputSlot>
                   <InputField
-                    placeholder="Ditt passord"
+                    placeholder={t("auth.passwordPlaceholder")}
                     placeholderTextColor={isDark ? "#9CA3AF" : "#9CA3AF"}
                     value={password}
                     onChangeText={(val) => {
@@ -174,7 +178,7 @@ export default function LoginScreen() {
 
               <TouchableOpacity onPress={() => router.push("/forgot-password")} disabled={loading}>
                 <Text className="text-right text-sm text-emerald-500 font-semibold py-1">
-                  Glemt passord?
+                  {t("auth.forgotPassword")}
                 </Text>
               </TouchableOpacity>
             </VStack>
@@ -187,7 +191,7 @@ export default function LoginScreen() {
               >
                 {loading ? <ButtonSpinner /> : (
                   <>
-                    <ButtonText className="text-white font-bold text-lg">Logg inn</ButtonText>
+                    <ButtonText className="text-white font-bold text-lg">{t("settings.signIn")}</ButtonText>
                     <ButtonIcon as={ArrowRight} className="ml-2" color="white" />
                   </>
                 )}
@@ -196,9 +200,9 @@ export default function LoginScreen() {
               <TouchableOpacity onPress={() => router.push("/signup")} disabled={loading}>
                 <HStack space="xs" className="justify-center items-center py-2">
                   <Text className={isDark ? "text-white/70" : "text-typography-500"}>
-                    Har du ikke konto?
+                    {t("auth.noAccount")}
                   </Text>
-                  <Text className="text-emerald-500 font-bold">Registrer deg</Text>
+                  <Text className="text-emerald-500 font-bold">{t("auth.signup")}</Text>
                 </HStack>
               </TouchableOpacity>
             </VStack>

@@ -71,9 +71,11 @@ import { goalService } from "@/services/goalService";
 import { primaryGoalService, convertGoalValue, getActiveGoalForDate } from "@/services/primaryGoalService";
 import { WorkoutModal } from "@/components/WorkoutModal";
 import { ExtraGoal, PrimaryGoalPeriod, GoalMetric, GoalPeriod } from "@/types/workout";
+import type { PrimaryGoalPeriodType } from "@/utils/constants";
 import { computeMonthWheelData, computeYearWheelData } from "@/utils/goalWheelData";
-import { getSessionsInPeriod, computeProgress, getPeriodFractionElapsed, metricLabels, getDaysRemainingInPeriod } from "@/utils/goalUtils";
+import { getSessionsInPeriod, computeProgress, getPeriodFractionElapsed, getDaysRemainingInPeriod } from "@/utils/goalUtils";
 import { Modal, ModalBackdrop, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/modal";
+import { useLanguage } from "@/context/LanguageContext";
 import {
   Select,
   SelectTrigger,
@@ -91,17 +93,6 @@ import {
   MenuItem,
   MenuItemLabel,
 } from "@/components/ui/menu";
-
-// Norwegian translations for date navigation
-const MONTH_NAMES = [
-  "Januar", "Februar", "Mars", "April", "Mai", "Juni", 
-  "Juli", "August", "September", "Oktober", "November", "Desember"
-];
-
-const MONTH_LABELS_SHORT = [
-  "Jan", "Feb", "Mar", "Apr", "Mai", "Jun", 
-  "Jul", "Aug", "Sep", "Okt", "Nov", "Des"
-];
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -124,54 +115,13 @@ interface WorkoutTypeConfig {
   colors: WorkoutTypeColors;
 }
 
-const WORKOUT_TYPES: WorkoutTypeConfig[] = [
-  { id: "styrke", label: "Styrke", icon: Dumbbell, colors: { darkSelectedBg: "#374151", darkSelectedText: "#FFFFFF", lightSelectedBg: "#D1D5DB", lightSelectedText: "#374151" } },
-  { id: "løping", label: "Løping", icon: Flame, colors: { darkSelectedBg: "#3B82F6", darkSelectedText: "#FFFFFF", lightSelectedBg: "#DBEAFE", lightSelectedText: "#1D4ED8" } },
-  { id: "fjelltur", label: "Fjelltur", icon: Compass, colors: { darkSelectedBg: "#10B981", darkSelectedText: "#FFFFFF", lightSelectedBg: "#D1FAE5", lightSelectedText: "#065F46" } },
-  { id: "svømming", label: "Svømming", icon: Waves, colors: { darkSelectedBg: "#0EA5E9", darkSelectedText: "#FFFFFF", lightSelectedBg: "#E0F2FE", lightSelectedText: "#0369A1" } },
-  { id: "sykling", label: "Sykling", icon: Bike, colors: { darkSelectedBg: "#EF4444", darkSelectedText: "#FFFFFF", lightSelectedBg: "#FEE2E2", lightSelectedText: "#B91C1C" } },
-  { id: "gå", label: "Gå", icon: Footprints, colors: { darkSelectedBg: "#B45309", darkSelectedText: "#FFFFFF", lightSelectedBg: "#FEF3C7", lightSelectedText: "#78350F" } },
-  { id: "tennis", label: "Tennis", icon: Target, colors: { darkSelectedBg: "#F59E0B", darkSelectedText: "#FFFFFF", lightSelectedBg: "#FEF3C7", lightSelectedText: "#B45309" } },
-  { id: "yoga", label: "Yoga", icon: Sparkles, colors: { darkSelectedBg: "#EC4899", darkSelectedText: "#FFFFFF", lightSelectedBg: "#FCE7F3", lightSelectedText: "#BE185D" } },
-  { id: "fotball", label: "Fotball", icon: Trophy, colors: { darkSelectedBg: "#0D9488", darkSelectedText: "#FFFFFF", lightSelectedBg: "#CCFBF1", lightSelectedText: "#0F766E" } },
-  { id: "trappemaskin", label: "Trappemaskin", icon: TrendingUp, colors: { darkSelectedBg: "#F97316", darkSelectedText: "#FFFFFF", lightSelectedBg: "#FFEDD5", lightSelectedText: "#C2410C" } },
-  { id: "roing", label: "Roing", icon: Anchor, colors: { darkSelectedBg: "#EAB308", darkSelectedText: "#FFFFFF", lightSelectedBg: "#FEF9C3", lightSelectedText: "#A16207" } },
-  { id: "kajakk", label: "Kajakk", icon: Waves, colors: { darkSelectedBg: "#6366F1", darkSelectedText: "#FFFFFF", lightSelectedBg: "#E0E7FF", lightSelectedText: "#4338CA" } },
-  { id: "tredemølle", label: "Tredemølle", icon: Activity, colors: { darkSelectedBg: "#4F46E5", darkSelectedText: "#FFFFFF", lightSelectedBg: "#EDE9FE", lightSelectedText: "#6D28D9" } },
-  { id: "annet", label: "Annet", icon: Heart, colors: { darkSelectedBg: "#4B5563", darkSelectedText: "#FFFFFF", lightSelectedBg: "#F3F4F6", lightSelectedText: "#4B5563" } },
-];
-
 // Best Personal Records/Benchmarks
 interface Benchmark {
   distance: number;
   label: string;
 }
 
-const RUNNING_BENCHMARKS: Benchmark[] = [
-  { distance: 5.0, label: "5 km rekord" },
-  { distance: 10.0, label: "10 km rekord" },
-  { distance: 21.1, label: "Halvmaraton rekord" },
-];
-
-const CYCLING_BENCHMARKS: Benchmark[] = [
-  { distance: 10.0, label: "10 km tempo" },
-  { distance: 20.0, label: "20 km tempo" },
-  { distance: 50.0, label: "50 km distanse" },
-];
-
 const PRIMARY_PERIODS_OPTIONS = ["week", "month", "year"] as const;
-const EXTRA_METRICS_OPTIONS = [
-  { id: "sessions", label: "Økter" },
-  { id: "minutes", label: "Tid (timer)" },
-  { id: "distance", label: "Distanse (km)" },
-  { id: "elevation", label: "Høydemeter" }
-] as const;
-const EXTRA_PERIODS_OPTIONS = [
-  { id: "week", label: "Uke" },
-  { id: "month", label: "Måned" },
-  { id: "year", label: "År" },
-  { id: "custom", label: "Tilpasset" }
-] as const;
 
 // Helper to simulate and find best personal record
 function estimateBestTime(sessions: WorkoutSession[], targetDistance: number) {
@@ -211,12 +161,64 @@ export default function TrainingScreen() {
   const isDark = colorScheme === "dark";
   const { user } = useAuth();
   const params = useLocalSearchParams();
+  const { t, language } = useLanguage();
+
+  const WORKOUT_TYPES: WorkoutTypeConfig[] = useMemo(() => [
+    { id: "styrke", label: t('activity.styrke'), icon: Dumbbell, colors: { darkSelectedBg: "#374151", darkSelectedText: "#FFFFFF", lightSelectedBg: "#D1D5DB", lightSelectedText: "#374151" } },
+    { id: "løping", label: t('activity.løping'), icon: Flame, colors: { darkSelectedBg: "#3B82F6", darkSelectedText: "#FFFFFF", lightSelectedBg: "#DBEAFE", lightSelectedText: "#1D4ED8" } },
+    { id: "fjelltur", label: t('activity.fjelltur'), icon: Compass, colors: { darkSelectedBg: "#10B981", darkSelectedText: "#FFFFFF", lightSelectedBg: "#D1FAE5", lightSelectedText: "#065F46" } },
+    { id: "svømming", label: t('activity.svømming'), icon: Waves, colors: { darkSelectedBg: "#0EA5E9", darkSelectedText: "#FFFFFF", lightSelectedBg: "#E0F2FE", lightSelectedText: "#0369A1" } },
+    { id: "sykling", label: t('activity.sykling'), icon: Bike, colors: { darkSelectedBg: "#EF4444", darkSelectedText: "#FFFFFF", lightSelectedBg: "#FEE2E2", lightSelectedText: "#B91C1C" } },
+    { id: "gå", label: t('activity.gå'), icon: Footprints, colors: { darkSelectedBg: "#B45309", darkSelectedText: "#FFFFFF", lightSelectedBg: "#FEF3C7", lightSelectedText: "#78350F" } },
+    { id: "tennis", label: t('activity.tennis'), icon: Target, colors: { darkSelectedBg: "#F59E0B", darkSelectedText: "#FFFFFF", lightSelectedBg: "#FEF3C7", lightSelectedText: "#B45309" } },
+    { id: "yoga", label: t('activity.yoga'), icon: Sparkles, colors: { darkSelectedBg: "#EC4899", darkSelectedText: "#FFFFFF", lightSelectedBg: "#FCE7F3", lightSelectedText: "#BE185D" } },
+    { id: "fotball", label: t('activity.fotball'), icon: Trophy, colors: { darkSelectedBg: "#0D9488", darkSelectedText: "#FFFFFF", lightSelectedBg: "#CCFBF1", lightSelectedText: "#0F766E" } },
+    { id: "trappemaskin", label: t('activity.trappemaskin'), icon: TrendingUp, colors: { darkSelectedBg: "#F97316", darkSelectedText: "#FFFFFF", lightSelectedBg: "#FFEDD5", lightSelectedText: "#C2410C" } },
+    { id: "roing", label: t('activity.roing'), icon: Anchor, colors: { darkSelectedBg: "#EAB308", darkSelectedText: "#FFFFFF", lightSelectedBg: "#FEF9C3", lightSelectedText: "#A16207" } },
+    { id: "kajakk", label: t('activity.kajakk'), icon: Waves, colors: { darkSelectedBg: "#6366F1", darkSelectedText: "#FFFFFF", lightSelectedBg: "#E0E7FF", lightSelectedText: "#4338CA" } },
+    { id: "tredemølle", label: t('activity.tredemølle'), icon: Activity, colors: { darkSelectedBg: "#4F46E5", darkSelectedText: "#FFFFFF", lightSelectedBg: "#EDE9FE", lightSelectedText: "#6D28D9" } },
+    { id: "annet", label: t('activity.annet'), icon: Heart, colors: { darkSelectedBg: "#4B5563", darkSelectedText: "#FFFFFF", lightSelectedBg: "#F3F4F6", lightSelectedText: "#4B5563" } },
+  ], [t]);
+
+  const RUNNING_BENCHMARKS: Benchmark[] = useMemo(() => [
+    { distance: 5.0, label: t("records.running5km") },
+    { distance: 10.0, label: t("records.running10km") },
+    { distance: 21.1, label: t("records.runningHalfMarathon") },
+  ], [t]);
+
+  const CYCLING_BENCHMARKS: Benchmark[] = useMemo(() => [
+    { distance: 10.0, label: t("records.cycling10km") },
+    { distance: 20.0, label: t("records.cycling20km") },
+    { distance: 50.0, label: t("records.cycling50km") },
+  ], [t]);
+
+  const MONTH_NAMES = useMemo(() => [
+    t('month.0'), t('month.1'), t('month.2'), t('month.3'), t('month.4'), t('month.5'),
+    t('month.6'), t('month.7'), t('month.8'), t('month.9'), t('month.10'), t('month.11'),
+  ], [t]);
+
+  const MONTH_LABELS_SHORT = useMemo(() => [
+    t('month.short.0'), t('month.short.1'), t('month.short.2'), t('month.short.3'), t('month.short.4'), t('month.short.5'),
+    t('month.short.6'), t('month.short.7'), t('month.short.8'), t('month.short.9'), t('month.short.10'), t('month.short.11'),
+  ], [t]);
 
   // Sessions and loading
   const [sessions, setSessions] = useState<WorkoutSession[]>([]);
+  const EXTRA_METRICS_OPTIONS = [
+    { id: "sessions", label: t("metric.sessions.label") },
+    { id: "minutes", label: t("metric.minutes.label") },
+    { id: "distance", label: t("metric.distance.label") },
+    { id: "elevation", label: t("metric.elevation.label") }
+  ] as const;
+  const EXTRA_PERIODS_OPTIONS = [
+    { id: "week", label: t("goalForm.week") },
+    { id: "month", label: t("goalForm.month") },
+    { id: "year", label: t("goalForm.year") },
+    { id: "custom", label: t("goalForm.custom") }
+  ] as const;
 
   // Navigation State
-  const [activeSubTab, setActiveSubTab] = useState<"statistikk" | "mål" | "historikk" | "rekorder">("statistikk");
+  const [activeSubTab, setActiveSubTab] = useState<"statistics" | "goals" | "history" | "records">("statistics");
   const [period, setPeriod] = useState<"month" | "year" | "total">("year");
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
@@ -263,7 +265,7 @@ export default function TrainingScreen() {
   // Modals state
   const [showPrimaryModal, setShowPrimaryModal] = useState(false);
   const [primaryInputTarget, setPrimaryInputTarget] = useState("");
-  const [primaryInputPeriod, setPrimaryInputPeriod] = useState<GoalPeriod>("week");
+  const [primaryInputPeriod, setPrimaryInputPeriod] = useState<PrimaryGoalPeriodType>("week");
   const [primaryStartDate, setPrimaryStartDate] = useState("");
   const [editingPrimaryPeriodId, setEditingPrimaryPeriodId] = useState<string | null>(null);
 
@@ -305,13 +307,18 @@ export default function TrainingScreen() {
   }, []);
 
   // Format YYYY-MM-DD to "1. apr. 2026"
-  const formatDisplayDate = useCallback((str: string) => {
-    if (!str) return "Velg dato";
+  const formatDisplayDate = useCallback((str: string | undefined | null) => {
+    if (!str) return t('workout.date');
     const parts = str.split("-");
     if (parts.length !== 3) return str;
-    const date = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-    return `${date.getDate()}. ${MONTH_LABELS_SHORT[date.getMonth()].toLowerCase()}. ${date.getFullYear()}`;
-  }, []);
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    if (isNaN(year) || isNaN(month) || isNaN(day)) return str;
+    const date = new Date(year, month, day);
+    const monthKey = `month.short.${date.getMonth()}`;
+    return `${date.getDate()}. ${t(monthKey).toLowerCase()}. ${date.getFullYear()}`;
+  }, [t]);
 
   // Open Calendar Picker helper
   const openCalendarPicker = useCallback((targetField: "primaryStart" | "extraStart" | "extraEnd", currentVal: string) => {
@@ -349,7 +356,7 @@ export default function TrainingScreen() {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
     
     // Lock vertical scroll on the Statistikk tab as requested
-    setPageScrollEnabled(activeSubTab !== "statistikk");
+    setPageScrollEnabled(activeSubTab !== "statistics");
   }, [activeSubTab]);
 
   const [loading, setLoading] = useState(true);
@@ -373,7 +380,7 @@ export default function TrainingScreen() {
       setExtraGoals(goalsData);
     } catch (err) {
       console.error("Error loading data in TrainingScreen:", err);
-      setError("Kunne ikke hente treningsdata eller mål.");
+      setError(t('training.noSessionsFound') + " " + t('common.unknown').toLowerCase());
     } finally {
       setLoading(false);
     }
@@ -383,8 +390,8 @@ export default function TrainingScreen() {
     useCallback(() => {
       loadAllData();
 
-      if (params.tab === 'mål') {
-        setActiveSubTab('mål');
+      if (params.tab === 'goals') {
+        setActiveSubTab('goals');
       }
     }, [loadAllData])
   );
@@ -414,20 +421,24 @@ export default function TrainingScreen() {
     const hrs = Math.floor(minutes / 60);
     const mins = minutes % 60;
     if (hrs > 0) {
-      return `${hrs} t ${mins} min`;
+      return `${hrs} ${t('workout.h')} ${mins} ${t('workout.min')}`;
     }
-    return `${mins} min`;
+    return `${mins} ${t('workout.min')}`;
   };
 
-  // Handle Delete workout session
-  const handleDeleteWorkout = async (id: string) => {
+  const handleDeleteWorkout = useCallback(async (id: string) => {
+    const sessionToDelete = sessions.find(s => s.id === id);
+    const sessionName = sessionToDelete
+      ? (sessionToDelete.title || t("activity." + sessionToDelete.type.toLowerCase()))
+      : t('training.session');
+
     Alert.alert(
-      "Slett økt",
-      "Er du sikker på at du vil slette denne økten?",
+      t("workoutDetail.delete"),
+      t("workoutDetail.confirmDeleteDesc", { name: sessionName }),
       [
-        { text: "Avbryt", style: "cancel" },
+        { text: t('common.cancel'), style: "cancel" },
         { 
-          text: "Slett", 
+          text: t('common.delete'),
           style: "destructive",
           onPress: async () => {
             try {
@@ -440,18 +451,18 @@ export default function TrainingScreen() {
         }
       ]
     );
-  };
+  }, [t, sessions]);
 
   // Handle Save/Update Primary Goal Period
   const handleSavePrimaryGoal = async () => {
     const userId = user?.id || "guest-user";
     const targetNum = parseFloat(primaryInputTarget);
     if (isNaN(targetNum) || targetNum <= 0) {
-      alert("Vennligst oppgi et gyldig måltall");
+      alert(t("auth.fillAllFields"));
       return;
     }
     if (!primaryStartDate) {
-      alert("Vennligst oppgi en startdato");
+      alert(t("auth.fillAllFields"));
       return;
     }
     try {
@@ -481,12 +492,12 @@ export default function TrainingScreen() {
   // Handle Delete Primary Goal Period
   const handleDeletePrimaryGoal = async (id: string) => {
     Alert.alert(
-      "Slett mål",
-      "Er du sikker på at du vil slette dette målet?",
+      t('common.delete') + " " + t('common.goal'),
+      t('goalCard.deleteDesc'),
       [
-        { text: "Avbryt", style: "cancel" },
+        { text: t('common.cancel'), style: "cancel" },
         { 
-          text: "Slett", 
+          text: t('common.delete'),
           style: "destructive",
           onPress: async () => {
             try {
@@ -1005,10 +1016,10 @@ export default function TrainingScreen() {
         } else if (dx < -30) {
           handleNextDate();
         }
-        setPageScrollEnabled(activeSubTab !== "statistikk");
+        setPageScrollEnabled(activeSubTab !== "statistics");
       },
       onPanResponderTerminate: () => {
-        setPageScrollEnabled(activeSubTab !== "statistikk");
+        setPageScrollEnabled(activeSubTab !== "statistics");
       },
     });
   }, [handlePrevDate, handleNextDate, isScrollEnabled]);
@@ -1053,7 +1064,7 @@ export default function TrainingScreen() {
               <Dumbbell size={20} color="#10B981" />
             </View>
             <VStack>
-              <Heading className={`text-2xl font-bold ${themeClasses.text}`}>Trening</Heading>
+              <Heading className={`text-2xl font-bold ${themeClasses.text}`}>{t("nav.training")}</Heading>
             </VStack>
           </HStack>
           
@@ -1061,24 +1072,24 @@ export default function TrainingScreen() {
           <TouchableOpacity 
             style={styles.headerLogBtn}
             onPress={() => {
-              setActiveSubTab("historikk");
+              setActiveSubTab("history");
               setIsWorkoutModalOpen(true);
             }}
           >
             <Plus size={16} color="#FFFFFF" />
-            <Text style={{ color: "#FFFFFF", fontSize: 12, fontWeight: "bold", marginLeft: 4 }}>Logg</Text>
+            <Text style={{ color: "#FFFFFF", fontSize: 12, fontWeight: "bold", marginLeft: 4 }}>{t('workout.add')}</Text>
           </TouchableOpacity>
         </HStack>
       </View>
 
       {/* Main Sub-Tabs Navigation (Statistikk, Mål, Historikk, Rekorder) */}
       <View style={flattenStyle([styles.subTabsContainer, { backgroundColor: isDark ? "#111827" : "#F3F4F6", marginBottom: 12 }])}>
-        {(["statistikk", "mål", "historikk", "rekorder"] as const).map((tab) => {
+        {(["statistics", "goals", "history", "records"] as const).map((tab) => {
           const isActive = activeSubTab === tab;
-          const label = tab === "statistikk" ? "Statistikk" 
-                      : tab === "mål" ? "Mål" 
-                      : tab === "historikk" ? "Historikk" 
-                      : "Rekorder";
+          const label = tab === "statistics" ? t("training.statistics")
+                      : tab === "goals" ? t("training.goals")
+                      : tab === "history" ? t("training.history")
+                      : t("training.records");
           return (
             <TouchableOpacity
               key={tab}
@@ -1119,21 +1130,21 @@ export default function TrainingScreen() {
                 onPress={() => loadAllData()}
                 style={{ backgroundColor: '#EF4444', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 }}
               >
-                <Text className="text-white font-bold">Prøv igjen</Text>
+                <Text className="text-white font-bold">{t("syncStatus.retry")}</Text>
               </TouchableOpacity>
             </VStack>
           </Card>
         )}
 
         {/* TAB 1: STATISTIKK */}
-        {activeSubTab === "statistikk" && (
+        {activeSubTab === "statistics" && (
           <View style={styles.tabContent} {...panResponder.panHandlers}>
             
             {/* Period selector tabs with animation */}
             <View style={flattenStyle([styles.periodTabsWrapper, { backgroundColor: isDark ? "#1F2937" : "#E5E7EB", marginBottom: 12 }])}>
               {(["month", "year", "total"] as const).map((p) => {
                 const isActive = period === p;
-                const label = p === "month" ? "Måned" : p === "year" ? "År" : "Total";
+                const label = p === "month" ? t("period.month") : p === "year" ? t("period.year") : t("period.total");
                 return (
                   <TouchableOpacity
                     key={p}
@@ -1164,7 +1175,7 @@ export default function TrainingScreen() {
                     <ChevronLeft size={18} color={isDark ? "#FFFFFF" : "#111827"} />
                   </TouchableOpacity>
                   <Text style={flattenStyle([styles.dateSelectorLabel, { color: isDark ? "#FFFFFF" : "#111827", fontSize: 26, paddingTop: 4 }])}>
-                    {period === "month" ? `${MONTH_NAMES[selectedMonth]} ${selectedYear}` : selectedYear.toString()}
+                    {period === "month" ? `${t("month." + selectedMonth)} ${selectedYear}` : selectedYear.toString()}
                   </Text>
                   <TouchableOpacity onPress={handleNextDate} style={styles.dateSelectorArrow}>
                     <ChevronRight size={18} color={isDark ? "#FFFFFF" : "#111827"} />
@@ -1172,7 +1183,7 @@ export default function TrainingScreen() {
                 </>
               ) : (
                 <Text style={flattenStyle([styles.dateSelectorLabel, { color: isDark ? "#FFFFFF" : "#111827", fontSize: 26, paddingTop: 4 }])}>
-                  Total livstidsfremgang
+                  {t('metric.totalTime')}
                 </Text>
               )}
             </HStack>
@@ -1184,7 +1195,7 @@ export default function TrainingScreen() {
               <View style={flattenStyle([styles.metricCard, dynamicCardStyle, { width: (Dimensions.get("window").width - 48) / 4 }])}>
                 <VStack style={{ alignItems: "center" }}>
                   <Activity size={18} color="#10B981" style={{ marginBottom: 4 }} />
-                  <Text style={styles.metricCardLabel}>ØKTER</Text>
+                  <Text style={styles.metricCardLabel}>{t("stats.sessions").toUpperCase()}</Text>
                   <Text style={flattenStyle([styles.metricCardValue, { color: isDark ? "#FFFFFF" : "#111827" }])}>
                     {computedStats.sessions}
                   </Text>
@@ -1195,7 +1206,7 @@ export default function TrainingScreen() {
               <View style={flattenStyle([styles.metricCard, dynamicCardStyle, { width: (Dimensions.get("window").width - 48) / 4 }])}>
                 <VStack style={{ alignItems: "center" }}>
                   <Clock size={18} color="#A855F7" style={{ marginBottom: 4 }} />
-                  <Text style={styles.metricCardLabel}>TOTAL TID</Text>
+                  <Text style={styles.metricCardLabel}>{t("metric.totalTime").toUpperCase()}</Text>
                   <Text style={flattenStyle([styles.metricCardValue, { color: isDark ? "#FFFFFF" : "#111827" }])}>
                     {computedStats.durationStr}
                   </Text>
@@ -1206,7 +1217,7 @@ export default function TrainingScreen() {
               <View style={flattenStyle([styles.metricCard, dynamicCardStyle, { width: (Dimensions.get("window").width - 48) / 4 }])}>
                 <VStack style={{ alignItems: "center" }}>
                   <MapPin size={18} color="#3B82F6" style={{ marginBottom: 4 }} />
-                  <Text style={styles.metricCardLabel}>DISTANSE</Text>
+                  <Text style={styles.metricCardLabel}>{t("stats.distance").toUpperCase()}</Text>
                   <Text style={flattenStyle([styles.metricCardValue, { color: isDark ? "#FFFFFF" : "#111827" }])}>
                     {computedStats.distanceStr}
                   </Text>
@@ -1217,7 +1228,7 @@ export default function TrainingScreen() {
               <View style={flattenStyle([styles.metricCard, dynamicCardStyle, { width: (Dimensions.get("window").width - 48) / 4 }])}>
                 <VStack style={{ alignItems: "center" }}>
                   <TrendingUp size={18} color="#F59E0B" style={{ marginBottom: 4 }} />
-                  <Text style={styles.metricCardLabel}>HØYDEMETER</Text>
+                  <Text style={styles.metricCardLabel}>{t("stats.elevation").toUpperCase()}</Text>
                   <Text style={flattenStyle([styles.metricCardValue, { color: isDark ? "#FFFFFF" : "#111827" }])}>
                     {computedStats.elevationStr}
                   </Text>
@@ -1249,7 +1260,7 @@ export default function TrainingScreen() {
                         { color: isAllTypesSelected ? (isDark ? "#000000" : "#FFFFFF") : (isDark ? "#9CA3AF" : "#4B5563") }
                       ])}
                     >
-                      Alle
+                      {t('common.all')}
                     </Text>
                   </TouchableOpacity>
 
@@ -1299,11 +1310,11 @@ export default function TrainingScreen() {
               >
                 <HStack style={{ gap: 16 }}>
                   {([
-                    { id: "minutes", label: "Total tid" },
-                    { id: "sessions", label: "Økter" },
-                    { id: "distance", label: "Distanse" },
-                    { id: "elevation", label: "Høydemeter" },
-                    { id: "steps", label: "Skritt" }
+                    { id: "minutes", label: t("metric.totalTime") },
+                    { id: "sessions", label: t("stats.sessions") },
+                    { id: "distance", label: t("stats.distance") },
+                    { id: "elevation", label: t("stats.elevation") },
+                    { id: "steps", label: t("metric.steps.label") || "Skritt" }
                   ] as const).map((m) => {
                     const isActive = chartMetric === m.id;
                     return (
@@ -1585,7 +1596,7 @@ export default function TrainingScreen() {
                       { color: chartType === "bar" ? "#FFFFFF" : (isDark ? "#FFFFFF" : "#1F2937") }
                     ])}
                   >
-                    Stolpe
+                    {t('activity.styrke') === 'Styrke' ? 'Stolpe' : 'Bar'}
                   </Text>
                 </HStack>
               </TouchableOpacity>
@@ -1608,7 +1619,7 @@ export default function TrainingScreen() {
                       { color: chartType === "line" ? "#FFFFFF" : (isDark ? "#FFFFFF" : "#1F2937") }
                     ])}
                   >
-                    Linje
+                    {t('activity.styrke') === 'Styrke' ? 'Linje' : 'Line'}
                   </Text>
                 </HStack>
               </TouchableOpacity>
@@ -1619,13 +1630,13 @@ export default function TrainingScreen() {
 
 
         {/* TAB 2: MÅL */}
-        {activeSubTab === "mål" && (
+        {activeSubTab === "goals" && (
           <View style={styles.tabContent} {...goalsPanResponder.panHandlers}>
             {/* Sub-tabs for Mål: Generelt treningsmål | Andre mål */}
             <View style={flattenStyle([styles.subSubTabsContainer, { backgroundColor: isDark ? "#111827" : "#F3F4F6", marginBottom: 16 }])}>
               {(["generelt", "andre"] as const).map((tab) => {
                 const isActive = activeGoalSubTab === tab;
-                const label = tab === "generelt" ? "Generelt treningsmål" : "Andre mål";
+                const label = tab === "generelt" ? t('goals.generalGoal') : t('goals.otherGoals');
                 return (
                   <TouchableOpacity
                     key={tab}
@@ -1654,8 +1665,8 @@ export default function TrainingScreen() {
               const viewedMonthEnd = new Date(targetYear, targetMonth + 1, 0);
               const viewedGoal = getActiveGoalForDate(primaryPeriods, viewedMonthEnd);
               const now = new Date();
-              const monthData = computeMonthWheelData(primaryPeriods, sessions, targetMonth, targetYear, now, "økter");
-              const yearData = computeYearWheelData(primaryPeriods, sessions, targetYear, now, "økter");
+              const monthData = computeMonthWheelData(primaryPeriods, sessions, targetMonth, targetYear, now, t('metric.sessions'));
+              const yearData = computeYearWheelData(primaryPeriods, sessions, targetYear, now, t('metric.sessions'));
               return (
                 <View style={{ flex: 1 }}>
                   {activeGoalSubTab === "generelt" ? (
@@ -1696,8 +1707,8 @@ export default function TrainingScreen() {
 
                       {/* Overlapping progress wheels side-by-side */}
                       <HStack style={{ justifyContent: 'space-around', alignItems: 'center', marginBottom: 8 }}>
-                        <ProgressWheel title={MONTH_NAMES[targetMonth]} percent={monthData.percent} current={monthData.current} target={monthData.target} unit="økter" hasGoal={monthData.target > 0} expectedFraction={monthData.expectedFraction} paceDiff={monthData.diff} isDark={isDark} />
-                        <ProgressWheel title={targetYear.toString()} percent={yearData.percent} current={yearData.current} target={yearData.target} unit="økter" hasGoal={yearData.target > 0} expectedFraction={yearData.expectedFraction} paceDiff={yearData.diff} isDark={isDark} />
+                        <ProgressWheel title={MONTH_NAMES[targetMonth]} percent={monthData.percent} current={monthData.current} target={monthData.target} unit={t('metric.sessions')} hasGoal={monthData.target > 0} expectedFraction={monthData.expectedFraction} paceDiff={monthData.diff} isDark={isDark} />
+                        <ProgressWheel title={targetYear.toString()} percent={yearData.percent} current={yearData.current} target={yearData.target} unit={t('metric.sessions')} hasGoal={yearData.target > 0} expectedFraction={yearData.expectedFraction} paceDiff={yearData.diff} isDark={isDark} />
                       </HStack>
 
                       {viewedGoal ? (
@@ -1706,17 +1717,17 @@ export default function TrainingScreen() {
                             <Target size={18} color="#10B981" />
                           </View>
                           <Text style={{ fontSize: 20, fontWeight: 'bold', color: isDark ? "#FFFFFF" : "#111827", textAlign: 'center' }}>
-                            {viewedGoal.inputTarget} økter per {viewedGoal.inputPeriod === 'week' ? 'uke' : viewedGoal.inputPeriod === 'month' ? 'måned' : 'år'}
+                            {viewedGoal.inputTarget} {t('goals.sessionsPer')} {viewedGoal.inputPeriod === 'week' ? t('goals.period.week') : viewedGoal.inputPeriod === 'month' ? t('goals.period.month') : t('goals.period.year')}
                           </Text>
                           
                           <Text style={{ fontSize: 16, color: isDark ? "#9CA3AF" : "#6B7280", marginTop: 2 }}>
                             <Text style={{ fontWeight: 'bold', color: isDark ? '#FFFFFF' : '#111827' }}>
                               {convertGoalValue(viewedGoal.inputTarget, viewedGoal.inputPeriod, 'week')}
-                            </Text> /uke  ·  <Text style={{ fontWeight: 'bold', color: isDark ? '#FFFFFF' : '#111827' }}>
+                            </Text> {t('goals.perWeek')}  ·  <Text style={{ fontWeight: 'bold', color: isDark ? '#FFFFFF' : '#111827' }}>
                               {convertGoalValue(viewedGoal.inputTarget, viewedGoal.inputPeriod, 'month')}
-                            </Text> /mnd  ·  <Text style={{ fontWeight: 'bold', color: isDark ? '#FFFFFF' : '#111827' }}>
+                            </Text> {t('goals.perMonth')}  ·  <Text style={{ fontWeight: 'bold', color: isDark ? '#FFFFFF' : '#111827' }}>
                               {convertGoalValue(viewedGoal.inputTarget, viewedGoal.inputPeriod, 'year')}
-                            </Text> /år
+                            </Text> {t('goals.perYear')}
                           </Text>
 
                           <Text style={{ fontSize: 15, color: isDark ? '#6B7280' : '#9CA3AF', marginTop: 2 }}>
@@ -1733,18 +1744,18 @@ export default function TrainingScreen() {
                                 setShowPrimaryModal(true);
                               }}
                             >
-                              <Text style={{ color: isDark ? '#9CA3AF' : '#6B7280', fontWeight: 'bold', fontSize: 13, textDecorationLine: 'underline' }}>Endre</Text>
+                              <Text style={{ color: isDark ? '#9CA3AF' : '#6B7280', fontWeight: 'bold', fontSize: 13, textDecorationLine: 'underline' }}>{t('common.edit')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity onPress={() => handleDeletePrimaryGoal(viewedGoal.id)}>
-                              <Text style={{ color: '#EF4444', fontWeight: 'bold', fontSize: 13, textDecorationLine: 'underline' }}>Slett</Text>
+                              <Text style={{ color: '#EF4444', fontWeight: 'bold', fontSize: 13, textDecorationLine: 'underline' }}>{t('common.delete')}</Text>
                             </TouchableOpacity>
                           </HStack>
                         </VStack>
                       ) : (
                         <VStack style={{ alignItems: 'center', gap: 8, marginTop: 12 }}>
-                          <Text style={{ color: isDark ? '#9CA3AF' : '#6B7280', fontSize: 13, textAlign: 'center' }}>Du har ikke satt noe generelt treningsmål for denne perioden.</Text>
+                          <Text style={{ color: isDark ? '#9CA3AF' : '#6B7280', fontSize: 13, textAlign: 'center' }}>{t('home.noGoalSet')}</Text>
                           <TouchableOpacity style={flattenStyle([styles.submitBtn, { backgroundColor: '#10B981', paddingHorizontal: 16, height: 36, marginTop: 4 }])} onPress={() => { setEditingPrimaryPeriodId(null); setPrimaryInputTarget("3"); setPrimaryInputPeriod("week"); setPrimaryStartDate(new Date().toISOString().slice(0, 10)); setShowPrimaryModal(true); }}>
-                            <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 12 }}>Sett treningsmål</Text>
+                            <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 12 }}>{t('goals.setGoal')}</Text>
                           </TouchableOpacity>
                         </VStack>
                       )}
@@ -1757,7 +1768,7 @@ export default function TrainingScreen() {
                         activeOpacity={0.8}
                       >
                         <Heading style={{ fontSize: 13, fontWeight: '700', color: isDark ? "#9CA3AF" : "#6B7280", letterSpacing: 0.5 }}>
-                          TIDLIGERE MÅL
+                          {t('goals.previousGoals').toUpperCase()}
                         </Heading>
                         {tidligereOpen ? <ChevronDown size={14} color={isDark ? "#9CA3AF" : "#6B7280"} /> : <ChevronRight size={14} color={isDark ? "#9CA3AF" : "#6B7280"} />}
                       </TouchableOpacity>
@@ -1777,10 +1788,10 @@ export default function TrainingScreen() {
                                   <HStack style={{ justifyContent: 'space-between', alignItems: 'center' }}>
                                     <VStack>
                                       <Text style={{ fontWeight: 'bold', color: isDark ? '#FFFFFF' : '#111827', fontSize: 13 }}>
-                                        {p.inputTarget} økter per {p.inputPeriod === 'week' ? 'uke' : p.inputPeriod === 'month' ? 'måned' : 'år'}
+                                        {p.inputTarget} {t('goals.sessionsPer')} {p.inputPeriod === 'week' ? t('goals.period.week') : p.inputPeriod === 'month' ? t('goals.period.month') : t('goals.period.year')}
                                       </Text>
                                       <Text style={{ fontSize: 11, color: isDark ? '#9CA3AF' : '#6B7280' }}>
-                                        Gjeldende fra: {formatDisplayDate(p.validFrom)}
+                                        {t('goals.validFrom')}: {formatDisplayDate(p.validFrom)}
                                       </Text>
                                     </VStack>
                                     <HStack style={{ gap: 12 }}>
@@ -1793,10 +1804,10 @@ export default function TrainingScreen() {
                                           setShowPrimaryModal(true);
                                         }}
                                       >
-                                        <Text style={{ color: '#10B981', fontSize: 12, fontWeight: 'bold' }}>Endre</Text>
+                                        <Text style={{ color: '#10B981', fontSize: 12, fontWeight: 'bold' }}>{t('common.edit')}</Text>
                                       </TouchableOpacity>
                                       <TouchableOpacity onPress={() => handleDeletePrimaryGoal(p.id)}>
-                                        <Text style={{ color: '#EF4444', fontSize: 12, fontWeight: 'bold' }}>Slett</Text>
+                                        <Text style={{ color: '#EF4444', fontSize: 12, fontWeight: 'bold' }}>{t('common.delete')}</Text>
                                       </TouchableOpacity>
                                     </HStack>
                                   </HStack>
@@ -1804,7 +1815,7 @@ export default function TrainingScreen() {
                               ))
                           ) : (
                             <Card className={`p-4 border border-dashed ${themeClasses.cardBg}`} style={flattenStyle([styles.cardBorderRadius, { alignItems: 'center' }])}>
-                              <Text style={{ color: isDark ? '#9CA3AF' : '#6B7280', fontSize: 12, textAlign: 'center' }}>Ingen tidligere mål funnet.</Text>
+                              <Text style={{ color: isDark ? '#9CA3AF' : '#6B7280', fontSize: 12, textAlign: 'center' }}>{t('goals.noGoalsYet')}</Text>
                             </Card>
                           )}
                         </VStack>
@@ -1848,7 +1859,7 @@ export default function TrainingScreen() {
                           <HStack style={{ alignItems: 'center', gap: 8 }}>
                             <Plus size={16} color="#10B981" />
                             <Text style={{ color: isDark ? "#FFFFFF" : "#111827", fontWeight: 'bold', fontSize: 13 }}>
-                              Legg til annet mål
+                              {t('goals.addGoal')}
                             </Text>
                           </HStack>
                         </TouchableOpacity>
@@ -1879,7 +1890,7 @@ export default function TrainingScreen() {
                           </View>
                         ) : (
                           <Card className={`p-4 border border-dashed ${themeClasses.cardBg}`} style={flattenStyle([styles.cardBorderRadius, { alignItems: 'center' }])}>
-                            <Text style={{ color: isDark ? '#9CA3AF' : '#6B7280', fontSize: 13, textAlign: 'center' }}>Ingen andre aktive mål.</Text>
+                            <Text style={{ color: isDark ? '#9CA3AF' : '#6B7280', fontSize: 13, textAlign: 'center' }}>{t('goals.noGoalsYet')}</Text>
                           </Card>
                         )}
 
@@ -1890,7 +1901,7 @@ export default function TrainingScreen() {
                             style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 }}
                           >
                             <Heading style={{ fontSize: 13, fontWeight: '700', color: isDark ? "#9CA3AF" : "#6B7280", letterSpacing: 0.5 }}>
-                              ARKIVERTE MÅL & HISTORIKK
+                              {t('goals.archivedGoals').toUpperCase()} & {t('training.history').toUpperCase()}
                             </Heading>
                             {archivedOpen ? <ChevronDown size={14} color={isDark ? "#9CA3AF" : "#6B7280"} /> : <ChevronRight size={14} color={isDark ? "#9CA3AF" : "#6B7280"} />}
                           </TouchableOpacity>
@@ -1916,7 +1927,7 @@ export default function TrainingScreen() {
 
 
         {/* TAB 3: HISTORIKK */}
-        {activeSubTab === "historikk" && (
+        {activeSubTab === "history" && (
           <View style={styles.tabContent}>
 
             {/* History Header: Year Selector & Menu */}
@@ -2048,7 +2059,7 @@ export default function TrainingScreen() {
                           </Text>
                           <View style={flattenStyle([styles.sessionCountBadge, { backgroundColor: isDark ? '#1F2937' : '#FFFFFF' }])}>
                             <Text style={flattenStyle([styles.sessionCountText, { color: isDark ? '#9CA3AF' : '#6B7280' }])}>
-                              {group.sessions.length} økter
+                              {group.sessions.length} {group.sessions.length === 1 ? t('training.session') : t('training.sessions')}
                             </Text>
                           </View>
                         </HStack>
@@ -2071,9 +2082,9 @@ export default function TrainingScreen() {
                           
                           let dateLabel = "";
                           if (sessionDate.toDateString() === today.toDateString()) {
-                            dateLabel = "I dag";
+                            dateLabel = t('common.today');
                           } else if (sessionDate.toDateString() === yesterday.toDateString()) {
-                            dateLabel = "I går";
+                            dateLabel = t('common.yesterday');
                           } else {
                             dateLabel = `${sessionDate.getDate()}. ${MONTH_LABELS_SHORT[sessionDate.getMonth()].toLowerCase()}`;
                           }
@@ -2139,12 +2150,12 @@ export default function TrainingScreen() {
         )}
 
         {/* TAB 4: REKORDER */}
-        {activeSubTab === "rekorder" && (
+        {activeSubTab === "records" && (
           <View style={styles.tabContent}>
             
             {/* Running Records Section */}
             <Heading className={`text-base font-bold mx-4 mb-3 ${themeClasses.text}`}>
-              Løperekorder (Estimert)
+              {t('records.running')} ({t('common.all') === 'Alle' ? 'Estimert' : 'Estimated'})
             </Heading>
             
             <View style={styles.recordsListWrapper}>
@@ -2190,7 +2201,7 @@ export default function TrainingScreen() {
 
             {/* Cycling Records Section */}
             <Heading className={`text-base font-bold mx-4 mt-6 mb-3 ${themeClasses.text}`}>
-              Sykkelrekorder (Estimert)
+              {t('records.cycling')} ({t('common.all') === 'Alle' ? 'Estimert' : 'Estimated'})
             </Heading>
 
             <View style={styles.recordsListWrapper}>
@@ -2251,13 +2262,13 @@ export default function TrainingScreen() {
         <ModalContent>
           <ModalHeader>
             <Heading className={`text-lg font-semibold ${themeClasses.text}`}>
-              {editingPrimaryPeriodId ? "Endre treningsmål" : "Nytt treningsmål"}
+              {editingPrimaryPeriodId ? t('goals.updateGoal') : t('goals.setGoal')}
             </Heading>
           </ModalHeader>
           <ModalBody className="mt-3 mb-4">
             <VStack style={{ gap: 12 }}>
               <VStack style={{ gap: 4 }}>
-                <Text className={`font-semibold text-xs ${themeClasses.text}`}>Målantall økter</Text>
+                <Text className={`font-semibold text-xs ${themeClasses.text}`}>{t('primaryGoal.sessionsPerPeriod')}</Text>
                 <TextInput
                   placeholder="F.eks. 3"
                   placeholderTextColor="#9CA3AF"
@@ -2268,7 +2279,7 @@ export default function TrainingScreen() {
                 />
               </VStack>
               <VStack style={{ gap: 4 }}>
-                <Text className={`font-semibold text-xs ${themeClasses.text}`}>Tidsperiode</Text>
+                <Text className={`font-semibold text-xs ${themeClasses.text}`}>{t('goalForm.period')}</Text>
                 <HStack style={{ gap: 6 }}>
                   {PRIMARY_PERIODS_OPTIONS.map((periodType) => (
                     <TouchableOpacity
@@ -2283,21 +2294,21 @@ export default function TrainingScreen() {
                       onPress={() => setPrimaryInputPeriod(periodType)}
                     >
                       <Text style={flattenStyle([styles.typeBadgeText, primaryInputPeriod === periodType && { color: "#FFFFFF" }])}>
-                        {periodType === 'week' ? 'Uke' : periodType === 'month' ? 'Måned' : 'År'}
+                        {periodType === 'week' ? t('goalForm.week') : periodType === 'month' ? t('goalForm.month') : t('goalForm.year')}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </HStack>
               </VStack>
               <VStack style={{ gap: 4 }}>
-                <Text className={`font-semibold text-xs ${themeClasses.text}`}>Gjeldende fra</Text>
+                <Text className={`font-semibold text-xs ${themeClasses.text}`}>{t('goals.validFrom')}</Text>
                 <TouchableOpacity 
                   style={flattenStyle([styles.inputField, isDark ? styles.inputDark : styles.inputLight, { justifyContent: 'center' }])}
                   onPress={() => openCalendarPicker("primaryStart", primaryStartDate)}
                 >
                   <HStack style={{ justifyContent: 'space-between', alignItems: 'center' }}>
                     <Text style={{ color: primaryStartDate ? (isDark ? "#FAFAFA" : "#1F2937") : "#9CA3AF", fontSize: 13 }}>
-                      {primaryStartDate ? formatDisplayDate(primaryStartDate) : "Velg dato"}
+                      {primaryStartDate ? formatDisplayDate(primaryStartDate) : t('workout.date')}
                     </Text>
                     <Calendar size={16} color="#10B981" />
                   </HStack>
@@ -2310,14 +2321,14 @@ export default function TrainingScreen() {
               style={flattenStyle([styles.submitBtn, { backgroundColor: '#4B5563', paddingHorizontal: 16, height: 38, marginRight: 8, marginTop: 0 }])}
               onPress={() => setShowPrimaryModal(false)}
             >
-              <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 }}>Avbryt</Text>
+              <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 }}>{t('common.cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               style={flattenStyle([styles.submitBtn, { backgroundColor: '#10B981', paddingHorizontal: 16, height: 38, marginTop: 0 }])}
               onPress={handleSavePrimaryGoal}
               disabled={submitting}
             >
-              <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 }}>Lagre</Text>
+              <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 }}>{t('common.save')}</Text>
             </TouchableOpacity>
           </ModalFooter>
         </ModalContent>
@@ -2352,7 +2363,7 @@ export default function TrainingScreen() {
         <ModalContent style={{ backgroundColor: isDark ? "#111827" : "#FFFFFF" }}>
           <ModalHeader>
             <Heading className={`text-lg font-semibold ${themeClasses.text}`}>
-              Velg dato
+              {t('workout.date')}
             </Heading>
           </ModalHeader>
           <ModalBody>
@@ -2394,7 +2405,10 @@ export default function TrainingScreen() {
 
               {/* Day headers */}
               <HStack style={{ justifyContent: 'space-around', marginBottom: 4 }}>
-                {["Ma", "Ti", "On", "To", "Fr", "Lø", "Sø"].map(day => (
+                {[
+                  t('weekday.mon'), t('weekday.tue'), t('weekday.wed'), t('weekday.thu'),
+                  t('weekday.fri'), t('weekday.sat'), t('weekday.sun')
+                ].map(day => (
                   <Text key={day} style={{ fontSize: 12, fontWeight: 'bold', width: 36, textAlign: 'center', color: isDark ? "#A1A1AA" : "#71717A" }}>
                     {day}
                   </Text>
@@ -2457,7 +2471,7 @@ export default function TrainingScreen() {
               style={flattenStyle([styles.submitBtn, { backgroundColor: '#4B5563', paddingHorizontal: 16, height: 38, marginTop: 0 }])}
               onPress={() => setCalendarPicker(null)}
             >
-              <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 }}>Lukk</Text>
+              <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 }}>{t('common.cancel')}</Text>
             </TouchableOpacity>
           </ModalFooter>
         </ModalContent>

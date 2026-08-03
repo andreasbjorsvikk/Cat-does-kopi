@@ -13,6 +13,7 @@ import { useAuth } from "@/hooks/useAuth";
 import * as Linking from "expo-linking";
 import { supabase } from "@/lib/supabase";
 import { RouteProvider } from "@/context/RouteContext";
+import { LanguageProvider } from "@/context/LanguageContext";
 
 // Initialize CatDoes Watch for error tracking
 // Set EXPO_PUBLIC_CATDOES_WATCH_KEY in your environment to enable
@@ -122,9 +123,11 @@ export default function RootLayout() {
   return (
     <ErrorBoundary>
       <GluestackInitializer colorScheme={colorScheme}>
-        <RouteProvider>
-          <InitialLayout />
-        </RouteProvider>
+        <LanguageProvider>
+          <RouteProvider>
+            <InitialLayout />
+          </RouteProvider>
+        </LanguageProvider>
         <StatusBar style="auto" />
       </GluestackInitializer>
     </ErrorBoundary>

@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
+import { useLanguage } from '@/context/LanguageContext';
 
 export interface MonthInfo {
   id: string; // YYYY-MM
@@ -7,11 +8,6 @@ export interface MonthInfo {
   label: string;
   weeks: number;
 }
-
-const MONTH_NAMES = [
-  'januar', 'februar', 'mars', 'april', 'mai', 'juni',
-  'juli', 'august', 'september', 'oktober', 'november', 'desember'
-];
 
 function getWeeksCount(year: number, month: number) {
   const firstDay = new Date(year, month, 1);
@@ -26,6 +22,7 @@ function getWeeksCount(year: number, month: number) {
 }
 
 export function useInfiniteMonths() {
+  const { t } = useLanguage();
   const today = new Date();
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth();
@@ -45,10 +42,10 @@ export function useInfiniteMonths() {
       id: `${y}-${m.toString().padStart(2, '0')}`,
       year: y,
       month: m,
-      label: `${MONTH_NAMES[m]} ${y}`,
+      label: `${t(`month.${m}`)} ${y}`,
       weeks
     };
-  }, [currentYear, currentMonth]);
+  }, [currentYear, currentMonth, t]);
 
   const months = useMemo(() => {
     const list: MonthInfo[] = [];

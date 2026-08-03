@@ -3,6 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import Svg, { Path, Circle, Defs, LinearGradient, Stop, Text as SvgText } from 'react-native-svg';
 import { PrimaryGoalPeriod, WorkoutSession } from '@/types/workout';
 import { getMonthTarget } from '@/services/primaryGoalService';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface GoalGraphProps {
   sessions: WorkoutSession[];
@@ -12,6 +13,7 @@ interface GoalGraphProps {
 }
 
 const GoalGraph = memo(function GoalGraph({ sessions, periods, compact, isDark }: GoalGraphProps) {
+  const { t } = useLanguage();
   const data = useMemo(() => {
     const now = new Date();
     const currentMonth = now.getMonth();
@@ -28,8 +30,6 @@ const GoalGraph = memo(function GoalGraph({ sessions, periods, compact, isDark }
     const totalMonths = (currentYear - startYear) * 12 + (currentMonth - startMonth) + 1;
     const monthsToShow = Math.max(2, Math.min(totalMonths, 7)); // Show last 7 months for mobile
 
-    const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAI', 'JUN', 'JUL', 'AUG', 'SEP', 'OKT', 'NOV', 'DES'];
-
     for (let i = monthsToShow - 1; i >= 0; i--) {
       let m = currentMonth - i;
       let y = currentYear;
@@ -39,7 +39,7 @@ const GoalGraph = memo(function GoalGraph({ sessions, periods, compact, isDark }
         return d.getMonth() === m && d.getFullYear() === y;
       }).length;
       const target = getMonthTarget(periods, y, m);
-      const label = monthNames[m];
+      const label = t("month.short." + m).toUpperCase();
       months.push({ month: m, year: y, label, count, target });
     }
     return months;

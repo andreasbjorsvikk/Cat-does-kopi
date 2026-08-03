@@ -9,6 +9,7 @@ import { getPeakLeaderboardData, LeaderboardEntry } from '@/services/leaderboard
 import { useAuth } from '@/hooks/useAuth';
 import useColorScheme from '@/hooks/useColorScheme';
 import { flattenStyle } from '@/utils/flatten-style';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface PeakLeaderboardProps {
   peakId: string;
@@ -17,6 +18,7 @@ interface PeakLeaderboardProps {
 export const PeakLeaderboard = ({ peakId }: PeakLeaderboardProps) => {
   const isDark = useColorScheme() === 'dark';
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
 
@@ -53,7 +55,7 @@ export const PeakLeaderboard = ({ peakId }: PeakLeaderboardProps) => {
         className="uppercase tracking-wider font-semibold"
         style={{ color: isDark ? "#9CA3AF" : "#4B5563" }}
       >
-        Topp 10 på denne toppen
+        {t('peakLeaderboard.top10')}
       </Heading>
       
       <VStack style={{ gap: 8 }}>
@@ -122,7 +124,9 @@ export const PeakLeaderboard = ({ peakId }: PeakLeaderboardProps) => {
 
               <HStack className="items-baseline" style={{ gap: 2 }}>
                 <Text style={{ fontWeight: 'bold', fontSize: 14, color: textColor }}>{item.totalTrips}</Text>
-                <Text style={{ fontSize: 10, color: isDark ? "#9CA3AF" : "#6B7280" }}>{item.totalTrips === 1 ? 'tur' : 'turer'}</Text>
+                <Text style={{ fontSize: 10, color: isDark ? "#9CA3AF" : "#6B7280" }}>
+                  {item.totalTrips === 1 ? (t('globalLeaderboard.trip') || 'tur') : (t('globalLeaderboard.trips'))}
+                </Text>
               </HStack>
             </HStack>
           );

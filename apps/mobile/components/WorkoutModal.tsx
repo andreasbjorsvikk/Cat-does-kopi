@@ -46,6 +46,7 @@ import useColorScheme from "@/hooks/useColorScheme";
 import { flattenStyle } from "@/utils/flatten-style";
 import { useAuth } from "@/hooks/useAuth";
 import { ActivityIcon } from "./ActivityIcon";
+import { useLanguage } from "@/context/LanguageContext";
 
 interface WorkoutModalProps {
   isOpen: boolean;
@@ -55,33 +56,6 @@ interface WorkoutModalProps {
   sessionToEdit?: WorkoutSession | null;
 }
 
-const MONTH_NAMES = [
-  "Januar", "Februar", "Mars", "April", "Mai", "Juni", 
-  "Juli", "August", "September", "Oktober", "November", "Desember"
-];
-
-const MONTH_LABELS_SHORT = [
-  "Jan", "Feb", "Mar", "Apr", "Mai", "Jun", 
-  "Jul", "Aug", "Sep", "Okt", "Nov", "Des"
-];
-
-const WORKOUT_TYPES: { id: SessionType; label: string }[] = [
-  { id: "styrke", label: "Styrke" },
-  { id: "løping", label: "Løping" },
-  { id: "fjelltur", label: "Fjelltur" },
-  { id: "svømming", label: "Svømming" },
-  { id: "sykling", label: "Sykling" },
-  { id: "gå", label: "Gå" },
-  { id: "tennis", label: "Tennis" },
-  { id: "yoga", label: "Yoga" },
-  { id: "fotball", label: "Fotball" },
-  { id: "trappemaskin", label: "Trappemaskin" },
-  { id: "roing", label: "Roing" },
-  { id: "kajakk", label: "Kajakk" },
-  { id: "tredemølle", label: "Tredemølle" },
-  { id: "annet", label: "Annet" },
-];
-
 interface DurationPickerProps {
   initialHours: number;
   initialMinutes: number;
@@ -89,12 +63,14 @@ interface DurationPickerProps {
   onConfirm: (hours: number, minutes: number) => void;
   onClose: () => void;
   themeClasses: any;
+  t: (key: string) => string;
 }
 
 const DurationPicker = ({
   initialHours,
   initialMinutes,
   isDark,
+  t,
   onConfirm,
   onClose,
   themeClasses,
@@ -106,7 +82,7 @@ const DurationPicker = ({
     <ModalContent style={flattenStyle([{ backgroundColor: isDark ? "#111827" : "#FFFFFF", borderRadius: 20, width: 360, alignSelf: 'center' }])}>
       <ModalHeader style={{ justifyContent: 'center', paddingTop: 20 }}>
         <Heading style={{ fontSize: 24, fontWeight: '900', color: isDark ? "#FFFFFF" : "#1F2937", textAlign: 'center' }}>
-          Varighet
+          {t('workout.duration')}
         </Heading>
       </ModalHeader>
       <ModalBody>
@@ -122,7 +98,7 @@ const DurationPicker = ({
               itemStyle={{ color: isDark ? "#FFFFFF" : "#1F2937", fontSize: 22 }}
             >
               {Array.from({ length: 24 }, (_, i) => (
-                <Picker.Item key={i} label={`${i} t`} value={i} />
+                <Picker.Item key={i} label={`${i} ${t('workout.h')}`} value={i} />
               ))}
             </Picker>
           </View>
@@ -140,7 +116,7 @@ const DurationPicker = ({
               itemStyle={{ color: isDark ? "#FFFFFF" : "#1F2937", fontSize: 22 }}
             >
               {Array.from({ length: 60 }, (_, i) => (
-                <Picker.Item key={i} label={`${i} min`} value={i} />
+                <Picker.Item key={i} label={`${i} ${t('workout.min')}`} value={i} />
               ))}
             </Picker>
           </View>
@@ -151,7 +127,7 @@ const DurationPicker = ({
           style={flattenStyle([styles.primaryBtn, { flex: 1, marginTop: 0, backgroundColor: "#10B981", borderRadius: 16 }])}
           onPress={() => onConfirm(h, m)}
         >
-          <Text style={[styles.primaryBtnText, { fontSize: 18, fontWeight: '800' }]}>Bekreft</Text>
+          <Text style={[styles.primaryBtnText, { fontSize: 18, fontWeight: '800' }]}>{t('workout.confirm') || t('common.ok')}</Text>
         </TouchableOpacity>
       </ModalFooter>
     </ModalContent>
@@ -165,9 +141,27 @@ export const WorkoutModal = ({
   onSuccess,
   sessionToEdit,
 }: WorkoutModalProps) => {
+  const { t, locale } = useLanguage();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const { user } = useAuth();
+
+  const WORKOUT_TYPES: { id: SessionType; label: string }[] = useMemo(() => [
+    { id: "styrke", label: t('activity.styrke') },
+    { id: "løping", label: t('activity.løping') },
+    { id: "fjelltur", label: t('activity.fjelltur') },
+    { id: "svømming", label: t('activity.svømming') },
+    { id: "sykling", label: t('activity.sykling') },
+    { id: "gå", label: t('activity.gå') },
+    { id: "tennis", label: t('activity.tennis') },
+    { id: "yoga", label: t('activity.yoga') },
+    { id: "fotball", label: t('activity.fotball') },
+    { id: "trappemaskin", label: t('activity.trappemaskin') },
+    { id: "roing", label: t('activity.roing') },
+    { id: "kajakk", label: t('activity.kajakk') },
+    { id: "tredemølle", label: t('activity.tredemølle') },
+    { id: "annet", label: t('activity.annet') },
+  ], [t]);
 
   const distAccID = "workout_modal_dist_done";
   const elevAccID = "workout_modal_elev_done";
@@ -229,16 +223,17 @@ export const WorkoutModal = ({
     }
   }, [isOpen, initialDate, sessionToEdit]);
 
-  const handleDelete = async () => {
+  const handleDelete = useCallback(async () => {
     if (!sessionToEdit) return;
+    const sessionName = sessionToEdit.title || t("activity." + sessionToEdit.type.toLowerCase());
     
     Alert.alert(
-      "Slett økt",
-      "Er du sikker på at du vil slette denne økten?",
+      t("workoutDetail.delete"),
+      t("workoutDetail.confirmDeleteDesc", { name: sessionName }),
       [
-        { text: "Avbryt", style: "cancel" },
+        { text: t('common.cancel'), style: "cancel" },
         { 
-          text: "Slett", 
+          text: t('common.delete'),
           style: "destructive",
           onPress: async () => {
             try {
@@ -252,15 +247,20 @@ export const WorkoutModal = ({
         }
       ]
     );
-  };
+  }, [sessionToEdit, t, onSuccess, onClose]);
 
-  const formatDisplayDate = (str: string) => {
-    if (!str) return "Velg dato";
+  const formatDisplayDate = useCallback((str: string) => {
+    if (!str) return t('workout.date');
     const parts = str.split("-");
     if (parts.length !== 3) return str;
-    const date = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-    return `${date.getDate()}. ${MONTH_LABELS_SHORT[date.getMonth()].toLowerCase()} ${date.getFullYear()}`;
-  };
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    if (isNaN(year) || isNaN(month) || isNaN(day)) return str;
+    const date = new Date(year, month, day);
+    const monthKey = `month.short.${date.getMonth()}`;
+    return `${date.getDate()}. ${t(monthKey).toLowerCase()}. ${date.getFullYear()}`;
+  }, [t]);
 
   const handleSave = async () => {
     setSubmitting(true);
@@ -340,7 +340,7 @@ export const WorkoutModal = ({
           <ModalHeader style={flattenStyle([{ borderBottomWidth: 0, paddingHorizontal: 20, paddingTop: 20 }])}>
             <View style={{ flex: 1, alignItems: "center" }}>
               <Heading style={{ color: isDark ? "#FFFFFF" : "#1F2937", fontSize: 20, fontWeight: "bold" }}>
-                {sessionToEdit ? "Rediger økt" : "Ny økt"}
+                {sessionToEdit ? t('workout.editSession') : t('workout.newSession')}
               </Heading>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
@@ -352,7 +352,7 @@ export const WorkoutModal = ({
             <VStack style={{ gap: 20 }}>
               {/* Activity Type Select */}
               <VStack style={{ gap: 8 }}>
-                <Text style={{ color: isDark ? "#FFFFFF" : "#1F2937", fontWeight: "bold", fontSize: 14 }}>Type</Text>
+                <Text style={{ color: isDark ? "#FFFFFF" : "#1F2937", fontWeight: "bold", fontSize: 14 }}>{t('workout.type')}</Text>
                 <Menu
                   placement="bottom"
                   offset={5}
@@ -400,9 +400,9 @@ export const WorkoutModal = ({
 
               {/* Name Input */}
               <VStack style={{ gap: 8 }}>
-                <Text style={{ color: isDark ? "#FFFFFF" : "#1F2937", fontWeight: "bold", fontSize: 14 }}>Navn på økt</Text>
+                <Text style={{ color: isDark ? "#FFFFFF" : "#1F2937", fontWeight: "bold", fontSize: 14 }}>{t('workout.name')}</Text>
                 <TextInput
-                  placeholder="F.eks. Morgenløp"
+                  placeholder={t('workout.namePlaceholder')}
                   placeholderTextColor="#9CA3AF"
                   style={flattenStyle([styles.inputField, isDark ? styles.inputDark : styles.inputLight])}
                   value={title}
@@ -415,7 +415,7 @@ export const WorkoutModal = ({
               {/* Date & Duration Row */}
               <HStack style={{ gap: 12 }}>
                 <VStack style={{ flex: 1, gap: 8 }}>
-                  <Text style={{ color: isDark ? "#FFFFFF" : "#1F2937", fontWeight: "bold", fontSize: 14 }}>Dato</Text>
+                  <Text style={{ color: isDark ? "#FFFFFF" : "#1F2937", fontWeight: "bold", fontSize: 14 }}>{t('workout.date')}</Text>
                   <TouchableOpacity
                     style={flattenStyle([styles.customPicker, isDark ? styles.inputDark : styles.inputLight])}
                     onPress={() => setShowCalendar(true)}
@@ -430,7 +430,7 @@ export const WorkoutModal = ({
                 </VStack>
 
                 <VStack style={{ flex: 1, gap: 8 }}>
-                  <Text style={{ color: isDark ? "#FFFFFF" : "#1F2937", fontWeight: "bold", fontSize: 14 }}>Varighet</Text>
+                  <Text style={{ color: isDark ? "#FFFFFF" : "#1F2937", fontWeight: "bold", fontSize: 14 }}>{t('workout.duration')}</Text>
                   <TouchableOpacity
                     style={flattenStyle([styles.customPicker, isDark ? styles.inputDark : styles.inputLight])}
                     onPress={() => setShowDuration(true)}
@@ -438,7 +438,7 @@ export const WorkoutModal = ({
                     <HStack style={{ alignItems: "center", gap: 10, paddingLeft: 12 }}>
                       <Clock size={18} color="#10B981" />
                       <Text style={{ fontSize: 14, color: isDark ? "#FFFFFF" : "#1F2937" }}>
-                        {hours > 0 ? `${hours} t ` : ""}{minutes} min
+                        {hours > 0 ? `${hours} ${t('workout.h')} ` : ""}{minutes} {t('workout.min')}
                       </Text>
                     </HStack>
                   </TouchableOpacity>
@@ -448,7 +448,7 @@ export const WorkoutModal = ({
               {/* Distance & Elevation Row with specific Keyboard Accessories */}
               <HStack style={{ gap: 12 }}>
                 <VStack style={{ flex: 1, gap: 8 }}>
-                  <Text style={{ color: isDark ? "#FFFFFF" : "#1F2937", fontWeight: "bold", fontSize: 14 }}>Distanse (km)</Text>
+                  <Text style={{ color: isDark ? "#FFFFFF" : "#1F2937", fontWeight: "bold", fontSize: 14 }}>{t('workout.distanceKm')}</Text>
                   <TextInput
                     placeholder="0.0"
                     placeholderTextColor="#9CA3AF"
@@ -464,14 +464,14 @@ export const WorkoutModal = ({
                     <InputAccessoryView nativeID={distAccID}>
                       <View style={[styles.accessoryBar, { backgroundColor: isDark ? "#1F2937" : "#F3F4F6", borderTopColor: isDark ? "#374151" : "#E5E7EB" }]}>
                         <TouchableOpacity onPress={() => Keyboard.dismiss()}>
-                          <Text style={styles.accessoryText}>Ferdig</Text>
+                          <Text style={styles.accessoryText}>{t('common.done')}</Text>
                         </TouchableOpacity>
                       </View>
                     </InputAccessoryView>
                   )}
                 </VStack>
                 <VStack style={{ flex: 1, gap: 8 }}>
-                  <Text style={{ color: isDark ? "#FFFFFF" : "#1F2937", fontWeight: "bold", fontSize: 14 }}>Høydemeter (m)</Text>
+                  <Text style={{ color: isDark ? "#FFFFFF" : "#1F2937", fontWeight: "bold", fontSize: 14 }}>{t('workout.elevation')} (m)</Text>
                   <TextInput
                     placeholder="0"
                     placeholderTextColor="#9CA3AF"
@@ -487,7 +487,7 @@ export const WorkoutModal = ({
                     <InputAccessoryView nativeID={elevAccID}>
                       <View style={[styles.accessoryBar, { backgroundColor: isDark ? "#1F2937" : "#F3F4F6", borderTopColor: isDark ? "#374151" : "#E5E7EB" }]}>
                         <TouchableOpacity onPress={() => Keyboard.dismiss()}>
-                          <Text style={styles.accessoryText}>Ferdig</Text>
+                          <Text style={styles.accessoryText}>{t('common.done')}</Text>
                         </TouchableOpacity>
                       </View>
                     </InputAccessoryView>
@@ -497,9 +497,9 @@ export const WorkoutModal = ({
 
               {/* Notes Area with specific Keyboard Accessory */}
               <VStack style={{ gap: 8 }}>
-                <Text style={{ color: isDark ? "#FFFFFF" : "#1F2937", fontWeight: "bold", fontSize: 14 }}>Notater</Text>
+                <Text style={{ color: isDark ? "#FFFFFF" : "#1F2937", fontWeight: "bold", fontSize: 14 }}>{t('workout.notes')}</Text>
                 <TextInput
-                  placeholder="Skriv notater her..."
+                  placeholder={t('workout.notesPlaceholder')}
                   placeholderTextColor="#9CA3AF"
                   multiline
                   numberOfLines={3}
@@ -515,7 +515,7 @@ export const WorkoutModal = ({
                   <InputAccessoryView nativeID={notesAccID}>
                     <View style={[styles.accessoryBar, { backgroundColor: isDark ? "#1F2937" : "#F3F4F6", borderTopColor: isDark ? "#374151" : "#E5E7EB" }]}>
                       <TouchableOpacity onPress={() => Keyboard.dismiss()}>
-                        <Text style={styles.accessoryText}>Ferdig</Text>
+                        <Text style={styles.accessoryText}>{t('common.done')}</Text>
                       </TouchableOpacity>
                     </View>
                   </InputAccessoryView>
@@ -534,7 +534,7 @@ export const WorkoutModal = ({
                     <CheckboxIcon as={Check} />
                   </CheckboxIndicator>
                   <CheckboxLabel className={isDark ? "text-typography-300" : "text-typography-600"}>
-                    Ikke tell som en økt
+                    {t('workout.excludeFromCount')}
                   </CheckboxLabel>
                 </Checkbox>
                 <TouchableOpacity>
@@ -555,14 +555,14 @@ export const WorkoutModal = ({
                   {submitting ? (
                     <ActivityIndicator color="#FFFFFF" />
                   ) : (
-                    <Text style={styles.primaryBtnText}>{sessionToEdit ? "Lagre" : "Legg til"}</Text>
+                    <Text style={styles.primaryBtnText}>{sessionToEdit ? t('common.save') : t('common.add')}</Text>
                   )}
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={flattenStyle([styles.secondaryBtn, { flex: 1, backgroundColor: isDark ? "#1F2937" : "#F3F4F6" }])}
                   onPress={onClose}
                 >
-                  <Text style={flattenStyle([styles.secondaryBtnText, { color: isDark ? "#FFFFFF" : "#1F2937" }])}>Avbryt</Text>
+                  <Text style={flattenStyle([styles.secondaryBtnText, { color: isDark ? "#FFFFFF" : "#1F2937" }])}>{t('common.cancel')}</Text>
                 </TouchableOpacity>
               </HStack>
               {sessionToEdit && (
@@ -570,7 +570,7 @@ export const WorkoutModal = ({
                   style={flattenStyle([styles.secondaryBtn, { backgroundColor: "#EF444420", borderWidth: 0, height: 44 }])}
                   onPress={handleDelete}
                 >
-                  <Text style={{ color: "#EF4444", fontWeight: "bold" }}>Slett økt</Text>
+                  <Text style={{ color: "#EF4444", fontWeight: "bold" }}>{t('common.delete')} {t('training.session')}</Text>
                 </TouchableOpacity>
               )}
             </VStack>
@@ -583,7 +583,7 @@ export const WorkoutModal = ({
         <ModalBackdrop />
         <ModalContent style={flattenStyle([{ backgroundColor: isDark ? "#111827" : "#FFFFFF", borderRadius: 20 }])}>
           <ModalHeader>
-            <Heading className={`text-lg font-bold ${themeClasses.text}`}>Velg dato</Heading>
+            <Heading className={`text-lg font-bold ${themeClasses.text}`}>{t('workout.date')}</Heading>
           </ModalHeader>
           <ModalBody>
             <VStack style={{ gap: 16 }}>
@@ -602,7 +602,7 @@ export const WorkoutModal = ({
                   <ChevronLeft size={24} color={isDark ? "#FFFFFF" : "#1F2937"} />
                 </TouchableOpacity>
                 <Text style={flattenStyle([{ fontSize: 18, fontWeight: "bold" }, { color: isDark ? "#FFFFFF" : "#1F2937" }])}>
-                  {MONTH_NAMES[pickerMonth]} {pickerYear}
+                  {t(`month.${pickerMonth}`)} {pickerYear}
                 </Text>
                 <TouchableOpacity
                   onPress={() => {
@@ -620,7 +620,7 @@ export const WorkoutModal = ({
               </HStack>
 
               <HStack style={{ justifyContent: "space-around" }}>
-                {["Ma", "Ti", "On", "To", "Fr", "Lø", "Sø"].map((d) => (
+                {[t('weekday.mon'), t('weekday.tue'), t('weekday.wed'), t('weekday.thu'), t('weekday.fri'), t('weekday.sat'), t('weekday.sun')].map((d) => (
                   <Text key={d} style={flattenStyle([{ fontSize: 12, fontWeight: "bold", width: 40, textAlign: "center" }, { color: isDark ? "#9CA3AF" : "#6B7280" }])}>
                     {d}
                   </Text>
@@ -653,7 +653,7 @@ export const WorkoutModal = ({
           </ModalBody>
           <ModalFooter>
             <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setShowCalendar(false)}>
-              <Text style={styles.modalCloseBtnText}>Lukk</Text>
+              <Text style={styles.modalCloseBtnText}>{t('common.done')}</Text>
             </TouchableOpacity>
           </ModalFooter>
         </ModalContent>
@@ -666,6 +666,7 @@ export const WorkoutModal = ({
           initialHours={hours}
           initialMinutes={minutes}
           isDark={isDark}
+          t={t}
           themeClasses={themeClasses}
           onConfirm={(h, m) => {
             setHours(h);

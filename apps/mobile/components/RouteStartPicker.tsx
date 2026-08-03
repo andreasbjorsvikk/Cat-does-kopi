@@ -6,6 +6,7 @@ import { X, Check } from 'lucide-react-native';
 import { useRoute } from '@/context/RouteContext';
 import useColorScheme from '@/hooks/useColorScheme';
 import { flattenStyle } from '@/utils/flatten-style';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface RouteStartPickerProps {
   onConfirm: (coord: { latitude: number; longitude: number }) => void;
@@ -17,6 +18,7 @@ interface RouteStartPickerProps {
 
 export function RouteStartPicker({ onConfirm, onCancel, title, confirmLabel, getCenter }: RouteStartPickerProps) {
   const isDark = useColorScheme() === 'dark';
+  const { t } = useLanguage();
 
   const handleConfirm = async () => {
     try {
@@ -44,8 +46,8 @@ export function RouteStartPicker({ onConfirm, onCancel, title, confirmLabel, get
           { backgroundColor: isDark ? 'rgba(31, 41, 55, 0.9)' : 'rgba(255, 255, 255, 0.9)' }
         ])}>
           <HStack className="justify-between items-center px-4 py-5">
-            <Text className="font-bold text-xs" style={{ color: isDark ? '#FFFFFF' : '#111827' }}>
-              {title || 'Velg startpunkt'}
+            <Text className="font-bold text-xs" style={{ color: isDark ? '#FFFFFF' : '#111827' }} numberOfLines={1}>
+              {title || t('map.selectStartPoint')}
             </Text>
             <TouchableOpacity onPress={onCancel}>
               <X size={20} color={isDark ? '#FFFFFF' : '#111827'} />
@@ -70,7 +72,7 @@ export function RouteStartPicker({ onConfirm, onCancel, title, confirmLabel, get
           <HStack space="xs" className="items-center">
             <Check size={20} color="#FFFFFF" />
             <Text className="text-white font-bold">
-              {confirmLabel || 'Bekreft punkt'}
+              {confirmLabel || t('map.confirmPoint')}
             </Text>
           </HStack>
         </TouchableOpacity>

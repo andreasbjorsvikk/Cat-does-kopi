@@ -40,6 +40,7 @@ import { supabase } from "@/lib/supabase";
 import { WeatherTab } from "./WeatherTab";
 import { getWeatherEmoji, isNightTime, mapWmoCodeToDescription, mapWmoCodeToEmoji } from "@/utils/weatherUtils";
 import { useRoute } from "@/context/RouteContext";
+import { useLanguage } from "@/context/LanguageContext";
 
 interface PeakProfileSheetProps {
   peak: Peak;
@@ -50,7 +51,7 @@ interface PeakProfileSheetProps {
   onClose: () => void;
 }
 
-type TabType = "info" | "feed" | "lederliste" | "vær";
+type TabType = "info" | "feed" | "leaderboard" | "weather";
 
 export function PeakProfileSheet({
   peak,
@@ -62,6 +63,7 @@ export function PeakProfileSheet({
 }: PeakProfileSheetProps) {
   const { createRoute, setIsPickingStart } = useRoute();
   const isDark = useColorScheme() === "dark";
+  const { t, locale } = useLanguage();
   const [activeTab, setActiveTab] = useState<TabType>("info");
   const [weatherData, setWeatherData] = useState<{
     temp: number;
@@ -98,7 +100,7 @@ export function PeakProfileSheet({
   };
 
   const distance = React.useMemo(() => {
-    if (!userLocation) return "Avstand ukjent";
+    if (!userLocation) return t('map.distanceUnknown');
     const d = getDistanceMeters(
       userLocation.latitude,
       userLocation.longitude,
@@ -106,8 +108,10 @@ export function PeakProfileSheet({
       peak.longitude
     );
     if (d < 1000) return `${Math.round(d)} m`;
-    return `${(d / 1000).toFixed(1).replace(".", ",")} km`;
-  }, [userLocation, peak]);
+    const km = (d / 1000).toFixed(1);
+    const formattedKm = locale === 'nb-NO' ? km.replace(".", ",") : km;
+    return `${formattedKm} ${t('metric.distance')}`;
+  }, [userLocation, peak, t]);
 
   // Fetch real weather from Open-Meteo
   useEffect(() => {
@@ -189,33 +193,33 @@ export function PeakProfileSheet({
 
   const showRouteOptions = () => {
     Alert.alert(
-      "Lag rute",
-      "Hvordan vil du starte turen?",
+      t('map.createRoute'),
+      t('map.howToStart'),
       [
         { 
-          text: "Fra min posisjon", 
+          text: t('map.fromMyPosition'),
           onPress: async () => {
             if (!userLocation) {
-              Alert.alert("Mangler posisjon", "Vi trenger din posisjon for å lage rute fra der du er.");
+              Alert.alert(t('common.error'), t('map.locationDenied'));
               return;
             }
             try {
               await createRoute(userLocation, peak);
               onClose(); 
             } catch (err) {
-              Alert.alert("Feil", "Kunne ikke lage rute. Prøv igjen senere.");
+              Alert.alert(t('common.error'), t('map.createRouteError'));
             }
           } 
         },
         { 
-          text: "Velg startpunkt på kartet", 
+          text: t('map.tab.map'),
           onPress: () => {
             // Important: Set picking state but do NOT call onClose().
             // MapView's conditional rendering will hide the sheet while keeping selectedPeak.
             setIsPickingStart(true);
           } 
         },
-        { text: "Avbryt", style: "cancel" }
+        { text: t('common.cancel'), style: "cancel" }
       ]
     );
   };
@@ -275,7 +279,7 @@ export function PeakProfileSheet({
             <HStack space="xs" className="items-center">
               <Mountain size={14} color="#10B981" />
               <Text className={`text-sm ${themeClasses.textMuted}`}>
-                {peak.heightMoh} moh
+                {peak.heightMoh} {t('common.moh')}
               </Text>
             </HStack>
             <Text className={themeClasses.textMuted}>•</Text>
@@ -306,7 +310,7 @@ export function PeakProfileSheet({
               <CheckCircle size={18} color="#FFFFFF" />
             )}
             <ButtonText className="text-white font-bold text-base">
-              {checkinLoading ? "Sjekker inn..." : "Sjekk inn"}
+              {checkinLoading ? t('map.checkin') + "..." : t('map.checkin')}
             </ButtonText>
           </HStack>
         </Button>
@@ -314,15 +318,15 @@ export function PeakProfileSheet({
         <HStack className="justify-center items-center mt-1 mb-2">
            <MapPin size={10} color={isDark ? "#9CA3AF" : "#6B7280"} />
            <Text className={`text-center text-[10px] ml-1 ${themeClasses.textMuted}`}>
-            Din avstand: {distance}
+            {t('map.yourDistance')}: {distance}
           </Text>
         </HStack>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabContainer}>
-          {renderTabButton("info", "Info", Info)}
-          {renderTabButton("feed", "Feed", Rss)}
-          {renderTabButton("lederliste", "Lederliste", Trophy)}
-          {renderTabButton("vær", "Vær", Cloud)}
+          {renderTabButton("info", t('common.info'), Info)}
+          {renderTabButton("feed", t('map.tab.feed'), Rss)}
+          {renderTabButton("leaderboard", t('map.tab.leaderboard'), Trophy)}
+          {renderTabButton("weather", t('weather.weather'), Cloud)}
         </ScrollView>
       </VStack>
 
@@ -347,7 +351,7 @@ export function PeakProfileSheet({
                 <ButtonText 
                   style={{ color: isDark ? '#F9FAFB' : '#111827', fontWeight: 'bold' }}
                 >
-                  Lag rute
+                  {t('map.createRoute')}
                 </ButtonText>
               </HStack>
             </Button>
@@ -364,9 +368,9 @@ export function PeakProfileSheet({
                       className="font-semibold"
                       style={{ color: isDark ? "#F9FAFB" : "#111827" }}
                     >
-                      Været nå
+                      {t('weather.now')}
                     </Text>
-                    <Text size="xs" className={themeClasses.textMuted}>{weatherData?.description || "Laster..."}</Text>
+                    <Text size="xs" className={themeClasses.textMuted}>{weatherData?.description || t('common.loading') + "..."}</Text>
                   </VStack>
                 </HStack>
                 <HStack space="sm" className="items-center">
@@ -396,7 +400,7 @@ export function PeakProfileSheet({
               >
                 <Sun size={20} color="#EAB308" />
                 <VStack>
-                  <Text style={{ fontSize: 10 }} className="text-yellow-700 dark:text-yellow-500 font-bold uppercase tracking-wider">Soloppgang</Text>
+                  <Text style={{ fontSize: 10 }} className="text-yellow-700 dark:text-yellow-500 font-bold uppercase tracking-wider">{t('weather.sunrise')}</Text>
                   <Text 
                     className="text-xl font-bold"
                     style={{ color: isDark ? "#F9FAFB" : "#111827" }}
@@ -413,7 +417,7 @@ export function PeakProfileSheet({
               >
                 <Moon size={20} color="#3B82F6" />
                 <VStack>
-                  <Text style={{ fontSize: 10 }} className="text-blue-700 dark:text-blue-500 font-bold uppercase tracking-wider">Solnedgang</Text>
+                  <Text style={{ fontSize: 10 }} className="text-blue-700 dark:text-blue-500 font-bold uppercase tracking-wider">{t('weather.sunset')}</Text>
                   <Text 
                     className="text-xl font-bold"
                     style={{ color: isDark ? "#F9FAFB" : "#111827" }}
@@ -431,10 +435,10 @@ export function PeakProfileSheet({
                 className="uppercase tracking-widest font-bold"
                 style={{ color: isDark ? "#F9FAFB" : "#6B7280" }}
               >
-                Beskrivelse
+                {t('workout.notes')}
               </Heading>
               <Text className={`text-sm leading-relaxed ${themeClasses.textMuted}`}>
-                {peak.description || "Ingen beskrivelse tilgjengelig for denne toppen ennå."}
+                {peak.description || t('map.noDescription')}
               </Text>
             </VStack>
           </VStack>
@@ -444,11 +448,11 @@ export function PeakProfileSheet({
           <PeakSpecificFeed peakId={peak.id} />
         )}
 
-        {activeTab === "lederliste" && (
+        {activeTab === "leaderboard" && (
           <PeakLeaderboard peakId={peak.id} />
         )}
 
-        {activeTab === "vær" && (
+        {activeTab === "weather" && (
           <WeatherTab 
             latitude={peak.latitude} 
             longitude={peak.longitude} 
@@ -466,6 +470,7 @@ export function PeakProfileSheet({
 function PeakSpecificFeed({ peakId }: { peakId: string }) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
+  const { t } = useLanguage();
   const [feed, setFeed] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -530,7 +535,7 @@ function PeakSpecificFeed({ peakId }: { peakId: string }) {
       <View className="py-20 items-center justify-center">
         <Rss size={48} color={isDark ? "#374151" : "#E2E8F0"} />
         <Text className="text-typography-500 dark:text-typography-400 mt-4 text-center">
-          Ingen innsjekkinger her ennå.{"\n"}Bli den første!
+          {t('peakFeed.noCheckins')}{"\n"}{t('peakFeed.beFirst')}
         </Text>
       </View>
     );
@@ -541,7 +546,7 @@ function PeakSpecificFeed({ peakId }: { peakId: string }) {
       {feed.map((item) => {
         const profile = item.profiles;
         const child = item.child_profiles;
-        const username = profile?.username || child?.name || "Fjellvandrer";
+        const username = profile?.username || child?.name || t('peak.hiker');
         const avatarUrl = profile?.avatar_url || child?.avatar_url;
         const emoji = child?.emoji;
         
@@ -575,11 +580,10 @@ function PeakSpecificFeed({ peakId }: { peakId: string }) {
                   {username}
                 </Text>
                 <Text size="xs" className="text-typography-500 dark:text-typography-400">
-                  {new Date(item.checked_in_at).toLocaleDateString("no-NO", {
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                  })}
+                  {(() => {
+                    const d = new Date(item.checked_in_at);
+                    return `${d.getDate()}. ${t("month.short." + d.getMonth()).toLowerCase()}. ${d.getFullYear()}`;
+                  })()}
                 </Text>
               </VStack>
             </HStack>

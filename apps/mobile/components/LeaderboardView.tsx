@@ -4,6 +4,7 @@ import { Text } from 'react-native';
 import { Trophy, Users, Globe } from 'lucide-react-native';
 import { useAuth } from '@/hooks/useAuth';
 import useColorScheme from '@/hooks/useColorScheme';
+import { useLanguage } from '@/context/LanguageContext';
 import { 
   getLeaderboardData, 
   LeaderboardEntry, 
@@ -15,6 +16,7 @@ import { hapticsService } from '@/services/hapticsService';
 
 export const LeaderboardView = () => {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -55,7 +57,9 @@ export const LeaderboardView = () => {
     const rank = index + 1;
     const isFirst = rank === 1;
     const value = metric === 'unique' ? item.uniquePeaks : item.totalTrips;
-    const label = metric === 'unique' ? (value === 1 ? 'topp' : 'topper') : (value === 1 ? 'tur' : 'turer');
+    const label = metric === 'unique'
+      ? (value === 1 ? t('globalLeaderboard.peak') || 'topp' : t('globalLeaderboard.peaks'))
+      : (value === 1 ? t('globalLeaderboard.trip') || 'tur' : t('globalLeaderboard.trips'));
     
     const isTop3 = rank <= 3;
     const trophyColor = rank === 1 ? '#FBBF24' : rank === 2 ? '#9CA3AF' : '#D97706';
@@ -171,7 +175,7 @@ export const LeaderboardView = () => {
             }}
           >
             <Globe size={14} color={scope === 'global' ? (isDark ? '#FFFFFF' : '#10B981') : (isDark ? '#9CA3AF' : '#6B7280')} />
-            <Text style={{ fontSize: 14, fontWeight: '600', marginLeft: 8, color: scope === 'global' ? (isDark ? '#FFFFFF' : '#111827') : (isDark ? '#9CA3AF' : '#6B7280') }}>Global</Text>
+            <Text style={{ fontSize: 14, fontWeight: '600', marginLeft: 8, color: scope === 'global' ? (isDark ? '#FFFFFF' : '#111827') : (isDark ? '#9CA3AF' : '#6B7280') }}>{t('globalLeaderboard.global')}</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             onPress={() => { hapticsService.impact('light'); setScope('friends'); }}
@@ -187,7 +191,7 @@ export const LeaderboardView = () => {
             }}
           >
             <Users size={14} color={scope === 'friends' ? (isDark ? '#FFFFFF' : '#10B981') : (isDark ? '#9CA3AF' : '#6B7280')} />
-            <Text style={{ fontSize: 14, fontWeight: '600', marginLeft: 8, color: scope === 'friends' ? (isDark ? '#FFFFFF' : '#111827') : (isDark ? '#9CA3AF' : '#6B7280') }}>Venner</Text>
+            <Text style={{ fontSize: 14, fontWeight: '600', marginLeft: 8, color: scope === 'friends' ? (isDark ? '#FFFFFF' : '#111827') : (isDark ? '#9CA3AF' : '#6B7280') }}>{t('globalLeaderboard.friends')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -213,7 +217,7 @@ export const LeaderboardView = () => {
               ...(metric === 'unique' && !isDark ? { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 } : {})
             }}
           >
-            <Text style={{ fontSize: 14, fontWeight: '600', color: metric === 'unique' ? (isDark ? '#FFFFFF' : '#111827') : (isDark ? '#9CA3AF' : '#6B7280') }}>Unike topper</Text>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: metric === 'unique' ? (isDark ? '#FFFFFF' : '#111827') : (isDark ? '#9CA3AF' : '#6B7280') }}>{t('globalLeaderboard.uniquePeaks') || 'Unike topper'}</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             onPress={() => { hapticsService.impact('light'); setMetric('trips'); }}
@@ -227,7 +231,7 @@ export const LeaderboardView = () => {
               ...(metric === 'trips' && !isDark ? { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 } : {})
             }}
           >
-            <Text style={{ fontSize: 14, fontWeight: '600', color: metric === 'trips' ? (isDark ? '#FFFFFF' : '#111827') : (isDark ? '#9CA3AF' : '#6B7280') }}>Totalt antall turer</Text>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: metric === 'trips' ? (isDark ? '#FFFFFF' : '#111827') : (isDark ? '#9CA3AF' : '#6B7280') }}>{t('globalLeaderboard.totalTrips') || 'Totalt antall turer'}</Text>
           </TouchableOpacity>
         </View>
 
@@ -241,7 +245,7 @@ export const LeaderboardView = () => {
           }}
         >
           {(['month', 'year', 'total'] as LeaderboardPeriod[]).map((p) => {
-            const label = p === 'month' ? 'Måned' : p === 'year' ? 'År' : 'Totalt';
+            const label = p === 'month' ? t('globalLeaderboard.month') : p === 'year' ? t('globalLeaderboard.year') : t('globalLeaderboard.total');
             const isActive = period === p;
             return (
               <TouchableOpacity 
@@ -269,7 +273,7 @@ export const LeaderboardView = () => {
         {loading ? (
           <View className="flex-1 items-center justify-center py-20">
             <ActivityIndicator size="large" color="#10B981" />
-            <Text style={{ marginTop: 16, color: isDark ? '#9CA3AF' : '#6B7280' }}>Laster lederliste...</Text>
+            <Text style={{ marginTop: 16, color: isDark ? '#9CA3AF' : '#6B7280' }}>{t('common.loading')}...</Text>
           </View>
         ) : sortedEntries.length > 0 ? (
           <FlatList
@@ -282,9 +286,8 @@ export const LeaderboardView = () => {
         ) : (
           <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 80, paddingHorizontal: 40 }}>
             <Trophy size={48} color={isDark ? "#374151" : "#E5E7EB"} />
-            <Text style={{ fontSize: 18, fontWeight: 'bold', marginTop: 16, textAlign: 'center', color: isDark ? '#FFFFFF' : '#111827' }}>Ingen data ennå</Text>
-            <Text style={{ fontSize: 14, textAlign: 'center', color: isDark ? '#9CA3AF' : '#6B7280', marginTop: 8 }}>
-              Sjekk inn på topper for å klatre på listen!
+            <Text style={{ fontSize: 18, fontWeight: 'bold', marginTop: 16, textAlign: 'center', color: isDark ? '#FFFFFF' : '#111827' }}>
+              {scope === 'friends' ? t('globalLeaderboard.noFriendCheckins') : t('globalLeaderboard.noCheckins')}
             </Text>
           </View>
         )}

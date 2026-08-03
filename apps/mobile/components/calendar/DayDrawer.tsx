@@ -17,6 +17,8 @@ import { WorkoutSession, HealthEvent } from '@/types/workout';
 import { ActivityIcon } from '@/components/ActivityIcon';
 import { getActivityColors } from '@/utils/activityColors';
 import useColorScheme from '@/hooks/useColorScheme';
+import { useLanguage } from '@/context/LanguageContext';
+import { formatDate } from '@/utils/locale';
 import { Plus, Ambulance, Cross } from 'lucide-react-native';
 
 interface DayDrawerProps {
@@ -44,8 +46,9 @@ export const DayDrawer: React.FC<DayDrawerProps> = ({
 }) => {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const { t, language } = useLanguage();
 
-  const formattedDate = new Date(date).toLocaleDateString('no-NO', {
+  const formattedDate = formatDate(date, language, {
     weekday: 'long',
     day: 'numeric',
     month: 'long'
@@ -75,7 +78,7 @@ export const DayDrawer: React.FC<DayDrawerProps> = ({
                     <ActivityIcon type={event.type} size={24} color="#EF4444" />
                     <VStack>
                       <Text style={styles.eventTitle}>
-                        {event.type === 'sickness' ? 'Sykdom' : 'Skade'}
+                        {event.type === 'sickness' ? t("health.sickness") : t("health.injury")}
                       </Text>
                       {event.notes && (
                         <Text style={styles.eventNotes} numberOfLines={1}>{event.notes}</Text>
@@ -100,11 +103,15 @@ export const DayDrawer: React.FC<DayDrawerProps> = ({
                       <ActivityIcon type={session.type} size={24} color={colors.text} />
                       <VStack>
                         <Text style={[styles.eventTitle, { color: colors.text }]}>
-                          {session.title || session.type.charAt(0).toUpperCase() + session.type.slice(1)}
+                          {session.title || t("activity." + session.type)}
                         </Text>
-                        <Text style={[styles.eventNotes, { color: colors.text }]}>
-                          {session.durationMinutes} min {session.distance ? `• ${session.distance} km` : ''} {session.elevationGain ? `• ${session.elevationGain} m` : ''}
-                        </Text>
+                        <VStack space="none">
+                          <Text style={[styles.eventNotes, { color: colors.text }]}>
+                            {session.durationMinutes} {t("workout.min")}
+                            {session.distance ? ` • ${session.distance} ${t("metric.distance")}` : ''}
+                            {session.elevationGain ? ` • ${session.elevationGain} ${t("metric.elevation")}` : ''}
+                          </Text>
+                        </VStack>
                       </VStack>
                     </HStack>
                   </View>
@@ -113,7 +120,7 @@ export const DayDrawer: React.FC<DayDrawerProps> = ({
             })}
 
             {sessions.length === 0 && healthEvents.length === 0 && (
-              <Text style={styles.emptyText}>Ingen aktiviteter denne dagen.</Text>
+              <Text style={styles.emptyText}>{t("common.noSessions")}</Text>
             )}
           </VStack>
 
@@ -125,7 +132,7 @@ export const DayDrawer: React.FC<DayDrawerProps> = ({
             >
               <HStack space="xs" style={styles.btnContent}>
                 <Plus size={18} color="#FFF" />
-                <Text style={styles.btnText}>Legg til økt</Text>
+                <Text style={styles.btnText}>{t("common.addSession")}</Text>
               </HStack>
             </TouchableOpacity>
             <TouchableOpacity 
@@ -134,7 +141,7 @@ export const DayDrawer: React.FC<DayDrawerProps> = ({
             >
               <HStack space="xs" style={styles.btnContent}>
                 <Ambulance size={18} color="#FFF" />
-                <Text style={styles.btnText}>Helse</Text>
+                <Text style={styles.btnText}>{t("health.newSicknessInjury")}</Text>
               </HStack>
             </TouchableOpacity>
           </HStack>

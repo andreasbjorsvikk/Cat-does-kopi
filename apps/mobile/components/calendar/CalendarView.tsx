@@ -26,14 +26,25 @@ import { WorkoutDetailDrawer } from './WorkoutDetailDrawer';
 import { HealthEventModal } from '@/components/HealthEventModal';
 import { WorkoutSession, HealthEvent } from '@/types/workout';
 import { workoutService } from '@/services/workoutService';
+import { useLanguage } from '@/context/LanguageContext';
 import { Alert } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
-const DAYS_NO = ['Ma', 'Ti', 'On', 'To', 'Fr', 'Lø', 'Sø'];
 
 export const CalendarView: React.FC = () => {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const { t } = useLanguage();
+
+  const DAYS_LOCALIZED = useMemo(() => [
+    t('weekday.mon'),
+    t('weekday.tue'),
+    t('weekday.wed'),
+    t('weekday.thu'),
+    t('weekday.fri'),
+    t('weekday.sat'),
+    t('weekday.sun'),
+  ], [t]);
   
   const { 
     sessionsByDate, 
@@ -212,12 +223,12 @@ export const CalendarView: React.FC = () => {
 
   const handleDeleteWorkout = async (session: WorkoutSession) => {
     Alert.alert(
-      "Slett økt",
-      "Er du sikker på at du vil slette denne økten?",
+      t("workoutDetail.delete"),
+      t("workoutDetail.confirmDeleteDesc", { name: session.title || t("activity." + session.type.toLowerCase()) }),
       [
-        { text: "Avbryt", style: "cancel" },
+        { text: t("common.cancel"), style: "cancel" },
         { 
-          text: "Slett", 
+          text: t("common.delete"),
           style: "destructive",
           onPress: async () => {
             try {
@@ -226,7 +237,7 @@ export const CalendarView: React.FC = () => {
               refresh();
             } catch (error) {
               console.error("Error deleting session:", error);
-              Alert.alert("Feil", "Kunne ikke slette økten.");
+              Alert.alert(t("common.error"), t("workoutDetail.deleteError") || "Kunne ikke slette økten.");
             }
           }
         }
@@ -344,15 +355,15 @@ export const CalendarView: React.FC = () => {
           </View>
           <VStack>
             <Heading style={flattenStyle([styles.title, isDark ? styles.textDark : styles.textLight])}>
-              Kalender
+              {t("nav.calendar")}
             </Heading>
-            <Text style={styles.subtitle}>Treningsaktivitet</Text>
+            <Text style={styles.subtitle}>{t("training.history")}</Text>
           </VStack>
         </HStack>
 
         {/* Weekday Labels */}
         <HStack style={styles.weekdays}>
-          {DAYS_NO.map(day => (
+          {DAYS_LOCALIZED.map(day => (
             <View key={day} style={styles.weekdayCol}>
               <Text style={styles.weekdayText}>{day}</Text>
             </View>
@@ -435,7 +446,7 @@ export const CalendarView: React.FC = () => {
             ) : (
               <ChevronDown size={18} color="#10B981" />
             )}
-            <Text style={styles.todayText}>I dag</Text>
+            <Text style={styles.todayText}>{t("common.today")}</Text>
           </HStack>
         </TouchableOpacity>
       )}

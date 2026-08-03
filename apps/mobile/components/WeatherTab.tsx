@@ -18,6 +18,7 @@ import { Image } from 'expo-image';
 import useColorScheme from '@/hooks/useColorScheme';
 import { flattenStyle } from '@/utils/flatten-style';
 import { getWeatherEmoji, isNightTime, mapWmoCodeToEmoji } from '@/utils/weatherUtils';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface WeatherTabProps {
   latitude: number;
@@ -46,6 +47,7 @@ export function WeatherTab({
   dailyInfo: dailyInfoProp
 }: WeatherTabProps) {
   const isDark = useColorScheme() === 'dark';
+  const { t, locale } = useLanguage();
   const [data, setData] = useState<WeatherData[]>([]);
   const [dailyInfo, setDailyInfo] = useState<Record<string, { sunrise?: string; sunset?: string }>>({});
   const [loading, setLoading] = useState(true);
@@ -154,12 +156,12 @@ export function WeatherTab({
       const isTomorrow = new Date(Date.now() + 86400000).toDateString() === d.toDateString();
       
       let label = '';
-      if (isToday) label = 'I dag';
-      else if (isTomorrow) label = 'I morgen';
+      if (isToday) label = t('common.today');
+      else if (isTomorrow) label = t('common.tomorrow');
       else {
-        const dayName = d.toLocaleDateString('no-NO', { weekday: 'short' });
+        const dayName = d.toLocaleDateString(locale, { weekday: 'short' });
         const dayDate = d.getDate();
-        const monthName = d.toLocaleDateString('no-NO', { month: 'short' });
+        const monthName = d.toLocaleDateString(locale, { month: 'short' });
         label = `${dayName} ${dayDate}. ${monthName}`;
       }
 
@@ -192,14 +194,14 @@ export function WeatherTab({
   if (days.length === 0) {
     return (
       <View style={styles.loadingContainer}>
-        <Text className="text-typography-500">Værdata utilgjengelig</Text>
+        <Text className="text-typography-500">{t('weather.unavailable')}</Text>
       </View>
     );
   }
 
   const formatSnowDepth = (cm: number) => {
-    if (cm === 0) return '0 cm';
-    if (cm >= 100) return `${(cm / 100).toFixed(2)} m`;
+    if (cm === 0) return `0 cm`;
+    if (cm >= 100) return `${(cm / 100).toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} m`;
     return `${Math.round(cm)} cm`;
   };
 

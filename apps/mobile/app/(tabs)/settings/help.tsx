@@ -5,11 +5,13 @@ import { Text } from "@/components/ui/text";
 import { useLocalSearchParams } from "expo-router";
 import useColorScheme from "@/hooks/useColorScheme";
 import { flattenStyle } from "@/utils/flatten-style";
+import { useLanguage } from "@/context/LanguageContext";
 
 export default function PlaceholderPage() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const { title } = useLocalSearchParams();
+  const { t } = useLanguage();
 
   const themeClasses = {
     bg: isDark ? "bg-background-950" : "bg-background-0",
@@ -19,10 +21,9 @@ export default function PlaceholderPage() {
 
   return (
     <View style={flattenStyle([styles.container, isDark ? styles.bgDark : styles.bgLight])}>
-      <Heading className={themeClasses.text}>{title || "Settings Page"}</Heading>
+      <Heading className={themeClasses.text}>{title || t("common.placeholderTitle")}</Heading>
       <Text className={`mt-2 ${themeClasses.textMuted} text-center`}>
-        Dette er en placeholder for {title || "denne siden"}. 
-        Kommer snart i en fremtidig oppdatering!
+        {t("common.placeholderDesc")}
       </Text>
     </View>
   );

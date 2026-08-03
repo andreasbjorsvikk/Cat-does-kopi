@@ -83,7 +83,7 @@ export const workoutService = {
           sync_status: session.syncStatus || 'synced',
           imported_at: session.importedAt || null,
           source_history: session.sourceHistory || '[]',
-          user_modified: session.userModified || true,
+          user_modified: session.userModified ?? true,
         })
         .select()
         .single();

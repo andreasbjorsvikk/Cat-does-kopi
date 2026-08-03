@@ -3,10 +3,12 @@ import { Platform, View } from "react-native";
 import { Home, Calendar, Mountain, Dumbbell, Users, Settings } from "lucide-react-native";
 import useColorScheme from "@/hooks/useColorScheme";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { useLanguage } from "@/context/LanguageContext";
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
+  const { t } = useLanguage();
 
   // Brand emerald/green color constants
   const activeColor = "#10B981"; // Emerald 500
@@ -38,42 +40,42 @@ export default function TabLayout() {
         <Tabs.Screen
           name="index"
           options={{
-            title: "Hjem",
+            title: t("nav.home"),
             tabBarIcon: ({ color, size }) => <Home size={size || 24} color={color} />,
           }}
         />
         <Tabs.Screen
           name="calendar"
           options={{
-            title: "Kalender",
+            title: t("nav.calendar"),
             tabBarIcon: ({ color, size }) => <Calendar size={size || 24} color={color} />,
           }}
         />
         <Tabs.Screen
           name="map"
           options={{
-            title: "Fjellkart",
+            title: t("nav.map"),
             tabBarIcon: ({ color, size }) => <Mountain size={size || 24} color={color} />,
           }}
         />
         <Tabs.Screen
           name="training"
           options={{
-            title: "Trening",
+            title: t("nav.training"),
             tabBarIcon: ({ color, size }) => <Dumbbell size={size || 24} color={color} />,
           }}
         />
         <Tabs.Screen
           name="community"
           options={{
-            title: "Fellesskap",
+            title: t("nav.community"),
             tabBarIcon: ({ color, size }) => <Users size={size || 24} color={color} />,
           }}
         />
         <Tabs.Screen
           name="settings"
           options={{
-            title: "Settings",
+            title: t("nav.settings"),
             tabBarIcon: ({ color, size }) => <Settings size={size || 24} color={color} />,
           }}
         />

@@ -1,3 +1,5 @@
+import type { PrivacyLevel, PrimaryGoalPeriodType, ExtraGoalPeriodType } from '@/utils/constants';
+
 export type SessionType = 
   | 'styrke' 
   | 'løping' 
@@ -49,12 +51,12 @@ export interface UserProfile {
   username?: string;
   avatarUrl?: string;
   sessionTypeColors?: Record<string, string>;
-  privacyPeakCheckins: 'public' | 'friends' | 'private';
-  privacyWorkouts: 'public' | 'friends' | 'private';
-  privacyStats: 'public' | 'friends' | 'private';
-  privacyGoals: 'public' | 'friends' | 'private';
-  privacyChildProfile: 'public' | 'friends' | 'private';
-  privacyChildCheckins: 'public' | 'friends' | 'private';
+  privacyPeakCheckins: PrivacyLevel;
+  privacyWorkouts: PrivacyLevel;
+  privacyStats: PrivacyLevel;
+  privacyGoals: PrivacyLevel;
+  privacyChildProfile: PrivacyLevel;
+  privacyChildCheckins: PrivacyLevel;
   adminMode?: boolean;
   createdAt: string;
 }
@@ -67,7 +69,7 @@ export interface WeeklyStats {
   sessionsByType: Record<SessionType, number>;
 }
 
-export type GoalMetric = 'sessions' | 'distance' | 'duration' | 'minutes' | 'elevation';
+export type GoalMetric = 'sessions' | 'minutes' | 'distance' | 'elevation';
 export type GoalPeriod = 'week' | 'month' | 'year' | 'custom';
 
 export interface WorkoutGoal {
@@ -82,7 +84,7 @@ export interface WorkoutGoal {
 export interface PrimaryGoalPeriod {
   id: string;
   userId: string;
-  inputPeriod: GoalPeriod;
+  inputPeriod: PrimaryGoalPeriodType;
   inputTarget: number;
   validFrom: string;
   createdAt: string;
@@ -90,7 +92,7 @@ export interface PrimaryGoalPeriod {
 
 export interface PrimaryGoal {
   id: string;
-  inputPeriod: GoalPeriod;
+  inputPeriod: PrimaryGoalPeriodType;
   inputTarget: number;
   startDate: string;
   createdAt: string;
@@ -99,7 +101,7 @@ export interface PrimaryGoal {
 export interface ExtraGoal {
   id: string;
   metric: GoalMetric;
-  period: GoalPeriod | 'custom';
+  period: ExtraGoalPeriodType;
   activityType: string;
   target: number;
   customStart?: string;

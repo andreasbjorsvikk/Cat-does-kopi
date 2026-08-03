@@ -21,6 +21,8 @@ import { WorkoutSession } from '@/types/workout';
 import { ActivityIcon } from '@/components/ActivityIcon';
 import { getActivityColors, ActivityColorSet } from '@/utils/activityColors';
 import useColorScheme from '@/hooks/useColorScheme';
+import { useLanguage } from '@/context/LanguageContext';
+import { formatDate } from '@/utils/locale';
 import { 
   Plus, 
   Ambulance, 
@@ -95,6 +97,7 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
 }) => {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const { t, language } = useLanguage();
   const mapRef = React.useRef<any>(null);
   const router = useRouter();
   
@@ -138,23 +141,20 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
 
   if (!session || !isOpen) return null;
 
-  const formattedDate = new Date(session.date).toLocaleDateString('no-NO', {
+  const displayDate = formatDate(session.date, language, {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
     year: 'numeric'
   });
-  
-  // Capitalize first letter of weekday
-  const displayDate = formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1);
 
   const pace = session.distance && session.durationMinutes > 0
     ? `${Math.floor(session.durationMinutes / session.distance)}:${Math.round(((session.durationMinutes / session.distance) % 1) * 60).toString().padStart(2, '0')} /km`
     : '--:-- /km';
 
   const durationText = session.durationMinutes >= 60
-    ? `${Math.floor(session.durationMinutes / 60)} t ${session.durationMinutes % 60} min`
-    : `${session.durationMinutes} min`;
+    ? `${Math.floor(session.durationMinutes / 60)} ${t("workout.h")} ${session.durationMinutes % 60} ${t("workout.min")}`
+    : `${session.durationMinutes} ${t("workout.min")}`;
   return (
     <Actionsheet 
       isOpen={isOpen} 
@@ -194,7 +194,7 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
             ) : (
               <View style={flattenStyle([styles.mapPlaceholder, isDark ? styles.placeholderDark : styles.placeholderLight])}>
                 <MapPin size={48} color={isDark ? "#4B5563" : "#D1D5DB"} />
-                <Text style={styles.placeholderText}>Kart er utilgjengelig på web</Text>
+                <Text style={styles.placeholderText}>{t("workoutDetail.mapUnavailableWeb")}</Text>
               </View>
             )}
           </View>
@@ -213,7 +213,7 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
                 </View>
                 <VStack style={{ flex: 1 }}>
                   <Heading style={styles.title}>
-                    {session.title || session.type.charAt(0).toUpperCase() + session.type.slice(1)}
+                    {session.title || t("activity." + session.type)}
                   </Heading>
                   <Text style={styles.dateLabel}>{displayDate}</Text>
                 </VStack>
@@ -237,31 +237,31 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
 
             <View style={styles.statsGrid}>
               <StatsBox 
-                label="Varighet" 
+                label={t("workoutDetail.duration")}
                 value={durationText} 
                 icon={Clock} 
                 isDark={isDark} 
               />
               <StatsBox 
-                label="Distanse" 
+                label={t("workoutDetail.distance")}
                 value={`${session.distance || 0} km`} 
                 icon={MapPin} 
                 isDark={isDark} 
               />
               <StatsBox 
-                label="Høydemeter" 
+                label={t("workoutDetail.elevation")}
                 value={`${session.elevationGain || 0} m`} 
                 icon={Mountain} 
                 isDark={isDark} 
               />
               <StatsBox 
-                label="Tempo" 
+                label={t("workoutDetail.pace")}
                 value={pace} 
                 icon={Activity} 
                 isDark={isDark} 
               />
               <StatsBox 
-                label="Puls" 
+                label={t("workoutDetail.heartrate")}
                 value={
                   session.averageHeartrate
                     ? `${session.averageHeartrate} / ${session.maxHeartrate || "--"}`
@@ -272,7 +272,7 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
                 isDark={isDark} 
               />
               <StatsBox 
-                label="Kalorier" 
+                label={t("workoutDetail.calories")}
                 value={`${session.calories || 640} kcal`} 
                 icon={Flame} 
                 isDark={isDark} 
@@ -294,13 +294,13 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
               }}
             >
               <HStack space="xs" style={{ alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={styles.moreText}>Mer detaljer</Text>
+                <Text style={styles.moreText}>{t("workoutDetail.moreDetails")}</Text>
               </HStack>
             </TouchableOpacity>
 
             {session.notes && (
               <VStack space="xs">
-                <Text style={styles.sectionTitle}>Notater</Text>
+                <Text style={styles.sectionTitle}>{t("workoutDetail.notes")}</Text>
                 <View style={flattenStyle([styles.notesBox, isDark ? styles.btnDark : styles.btnLight])}>
                   <Text style={styles.notesText}>{session.notes}</Text>
                 </View>
@@ -319,7 +319,7 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
             >
               <HStack space="xs" style={styles.btnContent}>
                 <Plus size={18} color={isDark ? "#FFFFFF" : "#1F2937"} />
-                <Text style={flattenStyle([styles.btnText, { color: isDark ? "#FFFFFF" : "#1F2937" }])}>Legg til økt</Text>
+                <Text style={flattenStyle([styles.btnText, { color: isDark ? "#FFFFFF" : "#1F2937" }])}>{t("common.addSession")}</Text>
               </HStack>
             </TouchableOpacity>
             <TouchableOpacity 
@@ -328,7 +328,7 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
             >
               <HStack space="xs" style={styles.btnContent}>
                 <Ambulance size={18} color="#EF4444" />
-                <Text style={flattenStyle([styles.btnText, { color: '#EF4444' }])}>Ny helsehendelse</Text>
+                <Text style={flattenStyle([styles.btnText, { color: '#EF4444' }])}>{t("health.newEvent")}</Text>
               </HStack>
             </TouchableOpacity>
           </HStack>

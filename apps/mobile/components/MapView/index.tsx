@@ -72,6 +72,8 @@ import KOMMUNER_DATA from "@/data/kommuner.json";
 import { useRoute } from "@/context/RouteContext";
 import { CustomRouteBar } from "../CustomRouteBar";
 import { RouteStartPicker } from "../RouteStartPicker";
+import { useLanguage } from "@/context/LanguageContext";
+import { TranslationKey } from "@/i18n/translations";
 
 let Mapbox: any = null;
 let MapboxMapView: any = null;
@@ -98,11 +100,11 @@ try {
 const isMapboxAvailable = !!MapboxMapView;
 
 const TABS = [
-  { id: "kart", label: "Fjellkart", icon: Mountain },
-  { id: "topper", label: "Topper", icon: Mountain },
-  { id: "feed", label: "Feed", icon: Rss },
-  { id: "lederliste", label: "Lederliste", icon: Trophy },
-  { id: "ar", label: "AR", icon: Sparkles },
+  { id: "kart", labelKey: "map.tab.map", icon: Mountain },
+  { id: "topper", labelKey: "map.tab.peaks", icon: Mountain },
+  { id: "feed", labelKey: "mapSub.feed", icon: Rss },
+  { id: "lederliste", labelKey: "mapSub.leaderboard", icon: Trophy },
+  { id: "ar", labelKey: "mapSub.ar", icon: Sparkles },
 ] as const;
 
 const FYLKE_PALETTE = [
@@ -138,6 +140,7 @@ const CustomMountainIcon = ({ isChecked }: { isChecked: boolean }) => {
 export default function MapScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
+  const { t, locale } = useLanguage();
   const { user, profile } = useAuth();
   const { 
     activeRoute, 
@@ -252,7 +255,7 @@ export default function MapScreen() {
       setPeaks(data);
     } catch (err) {
       console.error("Error fetching peaks in MapScreen", err);
-      setError("Kunne ikke laste fjelltopper.");
+      setError(t('map.noPeaks'));
     } finally {
       setLoadingPeaks(false);
     }
@@ -266,7 +269,7 @@ export default function MapScreen() {
       // Clear selected peak to hide the sheet and show the map "in front"
       setSelectedPeak(null);
     } catch (err) {
-      Alert.alert("Feil", "Kunne ikke lage rute. Prøv igjen.");
+      Alert.alert(t('common.error') || "Feil", t('peak.routeCreateError') || "Kunne ikke lage rute. Prøv igjen.");
     }
   };
 
@@ -278,7 +281,7 @@ export default function MapScreen() {
       setIsPickingWaypoint(false);
       setActiveWaypointIndex(newWaypoints.length - 1);
     } catch (err) {
-      Alert.alert("Feil", "Kunne ikke legge til veipunkt.");
+      Alert.alert(t('common.error') || "Feil", t('peak.waypointAddError') || "Kunne ikke legge til veipunkt.");
     }
   }, [activeRoute, updateRoute, setIsPickingWaypoint]);
 
@@ -296,7 +299,7 @@ export default function MapScreen() {
       setOriginalPosition(null);
       setMovedWaypointPos(null);
     } catch (err) {
-      Alert.alert("Feil", "Kunne ikke oppdatere veipunkt.");
+      Alert.alert(t('common.error') || "Feil", t('peak.waypointUpdateError') || "Kunne ikke oppdatere veipunkt.");
     }
   }, [activeRoute, updateRoute]);
 
@@ -372,7 +375,7 @@ export default function MapScreen() {
 
     peaks.forEach(peak => {
       const areaName = areaStatsMode === 'fylke' ? peak.county : peak.municipality;
-      if (!areaName || areaName === "Ukjent") return;
+      if (!areaName || areaName === "Ukjent" || areaName === t('common.unknown')) return;
 
       if (!statsMap[areaName]) {
         let areaId = "";
@@ -803,7 +806,7 @@ export default function MapScreen() {
   }, [selectedPeak, userLocation]);
 
   const formattedDistance = React.useMemo(() => {
-    if (distanceToPeak === null) return "Avstand ukjent";
+    if (distanceToPeak === null) return t('common.unknown');
     if (distanceToPeak < 1000) {
       const value = distanceToPeak.toFixed(1).replace(".", ",");
       return `${value} m`;
@@ -822,12 +825,12 @@ export default function MapScreen() {
   const lastCheckinDateStr = React.useMemo(() => {
     if (selectedPeakCheckins.length === 0) return null;
     const lastDate = new Date(selectedPeakCheckins[0].checked_in_at);
-    return lastDate.toLocaleDateString("no-NO", {
+    return lastDate.toLocaleDateString(locale, {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
     });
-  }, [selectedPeakCheckins]);
+  }, [selectedPeakCheckins, locale]);
 
   const canCheckin = distanceToPeak !== null && distanceToPeak < 100;
 
@@ -842,10 +845,10 @@ export default function MapScreen() {
     try {
       await checkinPeak(user.id, selectedPeak.id);
       await loadUserCheckins();
-      Alert.alert("Innsjekk registrert!", `Gratulerer, du har sjekket inn på ${selectedPeak.name}!`);
+      Alert.alert(t('map.checkinSuccess'), t('peak.checkinRegistered', { name: selectedPeak.name }));
     } catch (err: any) {
       console.error("Checkin failed:", err);
-      Alert.alert("Feil under innsjekk", err?.message || "Kunne ikke fullføre innsjekking.");
+      Alert.alert(t('map.checkinError'), err?.message || t('map.checkinError'));
     } finally {
       setCheckinLoading(false);
     }
@@ -887,20 +890,20 @@ export default function MapScreen() {
 
   const handleDeleteCheckinPress = (checkinId: string) => {
     Alert.alert(
-      "Slett innsjekk",
-      "Er du sikker på at du vil slette denne innsjekken? Dette kan ikke angres.",
+      t('peakFeed.deleteCheckin'),
+      t('peakFeed.deleteCheckinDesc'),
       [
-        { text: "Avbryt", style: "cancel" },
+        { text: t('common.cancel'), style: "cancel" },
         { 
-          text: "Slett", 
+          text: t('common.delete'),
           style: "destructive", 
           onPress: async () => {
             try {
               await deleteCheckin(checkinId);
               await loadUserCheckins();
-              Alert.alert("Slettet", "Innsjekken har blitt slettet.");
+              Alert.alert(t('common.done'), t('peak.checkinDeleted'));
             } catch (err: any) {
-              Alert.alert("Feil", err.message || "Kunne ikke slette innsjekk.");
+              Alert.alert(t('common.error') || "Feil", err.message || t('peak.checkinDeleteFailed'));
             }
           }
         }
@@ -910,16 +913,16 @@ export default function MapScreen() {
 
   const handleEditImagePress = async (checkinId: string) => {
     Alert.alert(
-      "Endre bilde",
-      "Velg hvordan du vil legge til et nytt bilde for denne innsjekken:",
+      t('common.edit') + " " + t('workoutDetail.image'), // Or similar
+      t('checkinImage.chooseFromGallery'), // Approximate
       [
-        { text: "Avbryt", style: "cancel" },
+        { text: t('common.cancel'), style: "cancel" },
         {
-          text: "Ta nytt bilde",
+          text: t('checkinImage.takePhoto'),
           onPress: () => editImagePick(checkinId, 'camera')
         },
         {
-          text: "Velg fra galleri",
+          text: t('checkinImage.chooseFromGallery'),
           onPress: () => editImagePick(checkinId, 'library')
         }
       ]
@@ -932,7 +935,7 @@ export default function MapScreen() {
       if (source === 'camera') {
         const perm = await ImagePicker.requestCameraPermissionsAsync();
         if (!perm.granted) {
-          Alert.alert('Tilgang', 'Kamera-tilgang kreves for å ta bilde.');
+          Alert.alert(t('common.error'), t('map.locationDenied')); // Reuse location denied as generic permission denied or similar
           return;
         }
         result = await ImagePicker.launchCameraAsync({
@@ -960,13 +963,13 @@ export default function MapScreen() {
         if (uploadedUrl) {
           await updateCheckinImage(checkinId, uploadedUrl);
           await loadUserCheckins();
-          Alert.alert("Oppdatert", "Innsjekksbildet har blitt oppdatert!");
+          Alert.alert(t('common.done'), t('peakFeed.imageSaved'));
         } else {
-          throw new Error("Kunne ikke laste opp bilde.");
+          throw new Error(t('peakFeed.imageSaveFailed'));
         }
       }
     } catch (err: any) {
-      Alert.alert("Feil", err.message || "Kunne ikke oppdatere bilde.");
+      Alert.alert(t('common.error'), err.message || t('peakFeed.imageSaveFailed'));
     } finally {
       setCheckinLoading(false);
     }
@@ -1007,9 +1010,9 @@ export default function MapScreen() {
       heightMoh: mohValue,
       latitude: pendingCoordinate.latitude,
       longitude: pendingCoordinate.longitude,
-      area: "Ukjent",
-      municipality: "Ukjent",
-      county: "Ukjent",
+      area: t("common.unknown"),
+      municipality: t("common.unknown"),
+      county: t("common.unknown"),
       description: "Egendefinert fjelltopp lagt til direkte på kartet.",
       imageUrl: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b",
       isPublished: true,
@@ -1232,7 +1235,7 @@ export default function MapScreen() {
                       <Text style={styles.areaLabelName}>{stat.name}</Text>
                       <HStack style={{ gap: 4, alignItems: 'center' }}>
                         <Text style={styles.areaLabelStats}>
-                          {stat.checked} / {stat.total} topper
+                          {stat.checked} / {stat.total} {t("common.peaks")}
                         </Text>
                         <Text style={flattenStyle([
                           styles.areaLabelPercent,
@@ -1617,7 +1620,7 @@ export default function MapScreen() {
                       : (isDark ? styles.tabTextInactiveDark : styles.tabTextInactiveLight)
                   ])}
                 >
-                  {tab.label}
+                  {t(tab.labelKey as any)}
                 </Text>
               </TouchableOpacity>
             );
@@ -1634,7 +1637,7 @@ export default function MapScreen() {
               onPress={() => loadPeaks()}
               style={{ backgroundColor: '#EF4444', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 }}
             >
-              <Text className="text-white font-bold">Prøv igjen</Text>
+              <Text className="text-white font-bold">{t('syncStatus.retry')}</Text>
             </TouchableOpacity>
           </VStack>
         </Card>

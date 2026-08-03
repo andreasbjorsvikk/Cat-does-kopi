@@ -20,6 +20,7 @@ import useColorScheme from "@/hooks/useColorScheme";
 import { sortCountiesByProximity } from "@/utils/norwegianCounties";
 import kommunerData from "@/data/kommuner.json";
 import { hapticsService } from "@/services/hapticsService";
+import { useLanguage } from "@/context/LanguageContext";
 
 export interface PeaksFilter {
   heightRange: [number, number];
@@ -45,6 +46,7 @@ export const PeaksFilterSheet = ({
   uniqueCounties,
 }: PeaksFilterSheetProps) => {
   const isDark = useColorScheme() === "dark";
+  const { t } = useLanguage();
   const [localHeightRange, setLocalHeightRange] = useState<[number, number]>(filter.heightRange);
   const [municipalitySearch, setMunicipalitySearch] = useState("");
 
@@ -111,11 +113,11 @@ export const PeaksFilterSheet = ({
         >
           <HStack className="justify-between items-center">
             <Heading size="md" className={isDark ? "text-typography-50" : "text-typography-950"}>
-              Filtrer topper
+              {t('peaksList.filterTitle')}
             </Heading>
             {hasActiveFilters && (
               <TouchableOpacity onPress={handleReset}>
-                <Text size="sm" className="text-error-500 font-medium">Nullstill</Text>
+                <Text size="sm" className="text-error-500 font-medium">{t('common.reset')}</Text>
               </TouchableOpacity>
             )}
           </HStack>
@@ -124,10 +126,10 @@ export const PeaksFilterSheet = ({
           <VStack style={{ gap: 12 }}>
             <HStack className="justify-between">
               <Text size="sm" className={isDark ? "text-typography-300" : "text-typography-700 font-medium"}>
-                Høyde
+                {t('peaksList.elevation')}
               </Text>
               <Text size="sm" className="text-emerald-500 font-bold">
-                {localHeightRange[0]}–{localHeightRange[1]} moh
+                {localHeightRange[0]}–{localHeightRange[1]} {t('common.moh')}
               </Text>
             </HStack>
             <View className="items-center w-full px-2">
@@ -167,7 +169,7 @@ export const PeaksFilterSheet = ({
           {/* County Selector */}
           <VStack style={{ gap: 12 }}>
             <Text size="sm" className={isDark ? "text-typography-300" : "text-typography-700 font-medium"}>
-              Fylke
+              {t('common.county')}
             </Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-4 px-4">
               <HStack style={{ gap: 8 }}>
@@ -211,7 +213,7 @@ export const PeaksFilterSheet = ({
           {filter.selectedCounty && (
             <VStack style={{ gap: 12 }}>
               <Text size="sm" className={isDark ? "text-typography-300" : "text-typography-700 font-medium"}>
-                Kommune i {filter.selectedCounty}
+                {t('peaksList.municipality')} {t('report.of').toLowerCase()} {filter.selectedCounty}
               </Text>
               
               {filter.selectedMunicipality ? (
@@ -237,7 +239,7 @@ export const PeaksFilterSheet = ({
                       <Search size={16} color={isDark ? "#9CA3AF" : "#6B7280"} />
                     </InputSlot>
                     <InputField
-                      placeholder="Søk i kommuner..."
+                      placeholder={t('peaksList.searchMunicipality')}
                       value={municipalitySearch}
                       onChangeText={setMunicipalitySearch}
                       className={isDark ? "text-typography-50" : "text-typography-950"}
@@ -269,7 +271,7 @@ export const PeaksFilterSheet = ({
                     ))}
                     {municipalitiesInCounty.length > 15 && !municipalitySearch && (
                       <Text size="xs" className="italic text-typography-500 dark:text-typography-400 py-1">
-                        Søk for å finne flere...
+                        {t('peaksList.searchMunicipality')}
                       </Text>
                     )}
                   </View>
@@ -282,7 +284,7 @@ export const PeaksFilterSheet = ({
             className="w-full bg-emerald-500 data-[hover=true]:bg-emerald-600 data-[active=true]:bg-emerald-700 h-12 rounded-xl"
             onPress={onClose}
           >
-            <ButtonText>Vis resultater</ButtonText>
+            <ButtonText>{t('common.showResults')}</ButtonText>
           </Button>
         </VStack>
       </ActionsheetContent>

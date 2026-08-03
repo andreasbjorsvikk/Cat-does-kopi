@@ -10,6 +10,7 @@ import { enqueue } from '@/services/syncQueue';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera, Image as ImageIcon, Check, Trash2, Users, User, Baby } from 'lucide-react-native';
 import useColorScheme from '@/hooks/useColorScheme';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface ChildCheckinSheetProps {
   isOpen: boolean;
@@ -32,6 +33,7 @@ export function ChildCheckinSheet({
   userAvatarUrl,
   onSuccess,
 }: ChildCheckinSheetProps) {
+  const { t } = useLanguage();
   const isDark = useColorScheme() === 'dark';
   const [children, setChildren] = useState<ChildProfile[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set([userId])); // Parent is selected by default
@@ -54,7 +56,7 @@ export function ChildCheckinSheet({
       ]);
       setChildren([...owned, ...shared]);
     } catch (err) {
-      console.error('Kunne ikke laste barneprosjekter:', err);
+      console.error('Could not load child profiles:', err);
     } finally {
       setLoadingChildren(false);
     }
@@ -66,7 +68,7 @@ export function ChildCheckinSheet({
       if (updated.size > 1) {
         updated.delete(id);
       } else {
-        Alert.alert('Innsjekk', 'Du må velge minst én person å sjekke inn.');
+        Alert.alert(t('map.checkin'), t('map.selectAtLeastOne') || 'Du må velge minst én person å sjekke inn.');
       }
     } else {
       updated.add(id);
@@ -77,7 +79,7 @@ export function ChildCheckinSheet({
   const handleTakePhoto = async () => {
     const permResult = await ImagePicker.requestCameraPermissionsAsync();
     if (!permResult.granted) {
-      Alert.alert('Tilgang', 'Du må tillate tilgang til kamera for å ta bilde.');
+      Alert.alert(t('common.error'), t('map.locationDenied'));
       return;
     }
 
@@ -95,7 +97,7 @@ export function ChildCheckinSheet({
   const handlePickPhoto = async () => {
     const permResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permResult.granted) {
-      Alert.alert('Tilgang', 'Du må tillate tilgang til bildegalleriet for å velge bilde.');
+      Alert.alert(t('common.error'), t('map.locationDenied'));
       return;
     }
 
@@ -118,7 +120,7 @@ export function ChildCheckinSheet({
     }
 
     if (idsToCheckIn.size === 0) {
-      Alert.alert('Innsjekk', 'Du må velge minst én person å sjekke inn eller ta et bilde.');
+      Alert.alert(t('map.checkin'), t('map.selectAtLeastOne') || 'Du må velge minst én person å sjekke inn eller ta et bilde.');
       return;
     }
 
@@ -146,47 +148,29 @@ export function ChildCheckinSheet({
           }
           successNames.push(name);
         } catch (onlineErr: any) {
-          const isCooldown = onlineErr.message && (
-            onlineErr.message.includes('allerede sjekket inn') ||
-            onlineErr.message.includes('cooldown')
-          );
-          if (isCooldown) {
-            failedNames.push({ name, error: onlineErr.message });
-          } else {
-            console.log(`Fallback for ${name} to offline sync queue:`, onlineErr);
-            try {
-              await enqueue('peak_checkins', 'insert', {
-                user_id: id,
-                peak_id: peakId,
-                verified: true,
-                checked_in_by: isSelf ? null : userId,
-                image_url: isSelf ? (uploadedUrl || imageUri || null) : null,
-                checked_in_at: timestamp,
-              });
-              successNames.push(`${name} (frakoblet)`);
-            } catch (queueErr: any) {
-              failedNames.push({ name, error: queueErr.message || 'Frakoblet køing feilet' });
-            }
-          }
+          const errMsg = onlineErr.message || '';
+          const isCooldown = errMsg.includes('allerede sjekket inn') || errMsg.includes('cooldown');
+
+          failedNames.push({ name, error: onlineErr.message || t('common.unknown') });
         }
       }
 
       if (successNames.length > 0) {
-        let msg = `Sjekket inn på ${peakName} for:\n${successNames.join(', ')}`;
+        let msg = t('map.checkinSuccess') + ` (${peakName})\n${successNames.join(', ')}`;
         if (failedNames.length > 0) {
-          msg += `\n\nKunne ikke sjekke inn for:\n${failedNames.map(f => `${f.name}: ${f.error}`).join('\n')}`;
+          msg += `\n\n${t('common.error')}:\n${failedNames.map(f => `${f.name}: ${f.error}`).join('\n')}`;
         }
-        Alert.alert('Innsjekk utført', msg);
+        Alert.alert(t('map.checkin'), msg);
         onSuccess(successNames, uploadedUrl || imageUri);
         setImageUri(null);
         setSelectedUserIds(new Set([userId]));
         onClose();
       } else {
         const errorMsg = failedNames.map(f => `${f.name}: ${f.error}`).join('\n');
-        Alert.alert('Innsjekk feilet', `Kunne ikke sjekke inn noen:\n\n${errorMsg}`);
+        Alert.alert(t('map.checkinError'), errorMsg);
       }
     } catch (err: any) {
-      Alert.alert('Innsjekk feilet', err.message || 'Noe gikk galt.');
+      Alert.alert(t('map.checkinError'), err.message || t('common.unknown'));
     } finally {
       setSubmitting(false);
     }
@@ -202,15 +186,15 @@ export function ChildCheckinSheet({
 
         <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
           <Heading size="lg" className="text-center text-typography-900 mt-2">
-            Innsjekk på {peakName}
+            {t('map.checkin')} - {peakName}
           </Heading>
           <Text size="sm" className="text-center text-typography-500 mb-6 mt-1">
-            Velg hvem som skal sjekke inn sammen med deg
+            {t('map.checkinDesc')}
           </Text>
 
           {/* People Selection */}
           <Heading size="xs" className="text-typography-600 mb-2 uppercase tracking-wider font-semibold">
-            Hvem er med på tur?
+            {t('map.whoIsWithYou')}
           </Heading>
 
           {/* Parent Option */}
@@ -232,7 +216,7 @@ export function ChildCheckinSheet({
             </View>
             <View style={styles.personInfo}>
               <Text className="font-semibold text-typography-900">{username}</Text>
-              <Text size="xs" className="text-typography-500">Meg (deg selv)</Text>
+              <Text size="xs" className="text-typography-500">{t('common.me')}</Text>
             </View>
             <View style={[styles.checkbox, selectedUserIds.has(userId) && styles.checkboxSelected]}>
               {selectedUserIds.has(userId) && <Check size={14} color="#FFFFFF" />}
@@ -263,7 +247,7 @@ export function ChildCheckinSheet({
                 </View>
                 <View style={styles.personInfo}>
                   <Text className="font-semibold text-typography-900">{child.name}</Text>
-                  <Text size="xs" className="text-typography-500">Barn</Text>
+                  <Text size="xs" className="text-typography-500">{t('privacy.children')}</Text>
                 </View>
                 <View style={[styles.checkbox, selectedUserIds.has(child.id) && styles.checkboxSelected]}>
                   {selectedUserIds.has(child.id) && <Check size={14} color="#FFFFFF" />}
@@ -274,14 +258,14 @@ export function ChildCheckinSheet({
             <View style={styles.noChildrenBox}>
               <Baby size={20} color={isDark ? '#4B5563' : '#9CA3AF'} />
               <Text size="xs" className="text-typography-400 mt-1 text-center">
-                Ingen registrerte barn. Du kan legge til barn under fellesskaps- eller innstillinger-skjermen.
+                {t('map.noChildren')}
               </Text>
             </View>
           )}
 
           {/* Image Selection */}
           <Heading size="xs" className="text-typography-600 mb-2 mt-6 uppercase tracking-wider font-semibold">
-            Legg til et bilde (valgfritt)
+            {t('map.addImage')}
           </Heading>
 
           {imageUri ? (
@@ -303,7 +287,7 @@ export function ChildCheckinSheet({
                 activeOpacity={0.7}
               >
                 <Camera size={20} color="#10B981" />
-                <Text size="sm" className="font-medium text-typography-800 ml-2">Ta bilde</Text>
+                <Text size="sm" className="font-medium text-typography-800 ml-2">{t('map.takePhoto')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -312,7 +296,7 @@ export function ChildCheckinSheet({
                 activeOpacity={0.7}
               >
                 <ImageIcon size={20} color="#10B981" />
-                <Text size="sm" className="font-medium text-typography-800 ml-2">Velg fra galleri</Text>
+                <Text size="sm" className="font-medium text-typography-800 ml-2">{t('map.pickGallery')}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -327,7 +311,7 @@ export function ChildCheckinSheet({
               {submitting ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
-                <ButtonText className="text-white font-bold text-base">Sjekk inn</ButtonText>
+                <ButtonText className="text-white font-bold text-base">{t('map.checkin')}</ButtonText>
               )}
             </Button>
           </View>

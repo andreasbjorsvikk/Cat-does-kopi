@@ -12,12 +12,14 @@ import { flattenStyle } from '@/utils/flatten-style';
 import { ActivityIcon } from '@/components/ActivityIcon';
 import { getActivityColors } from '@/utils/activityColors';
 import { SessionType } from '@/types/workout';
+import { useLanguage } from '@/context/LanguageContext';
 import { 
   getSessionsInPeriod, 
   computeProgress, 
   getDaysRemainingInPeriod, 
   getPeriodFractionElapsed,
-  getDaysBehind
+  getDaysBehind,
+  getMetricLabel
 } from '@/utils/goalUtils';
 
 interface OtherGoalCardProps {
@@ -28,14 +30,6 @@ interface OtherGoalCardProps {
   onArchive?: (goal: ExtraGoal) => void;
   onDelete?: (goal: ExtraGoal) => void;
 }
-
-const metricLabels: Record<string, string> = {
-  sessions: 'økter',
-  minutes: 'timer',
-  duration: 'timer',
-  distance: 'km',
-  elevation: 'm',
-};
 
 const formatVal = (val: number, metric: string) => {
   if (metric === "elevation" || metric === "sessions") {
@@ -54,6 +48,7 @@ export const OtherGoalCard = memo(({
   onDelete
 }: OtherGoalCardProps) => {
   const isDark = useColorScheme() === "dark";
+  const { t } = useLanguage();
 
   // Calculate session data for the goal's period
   const periodSessions = getSessionsInPeriod(
@@ -79,10 +74,10 @@ export const OtherGoalCard = memo(({
   const isBehind = !isReached && daysBehind > 0;
 
   // Status computation matching Norwegian app standards
-  let statusText = "I rute";
+  let statusText = t('goalCard.onTrack');
   let statusColor = "#10B981"; // emerald-500 (default green for "I rute")
   if (isReached) {
-    statusText = "✓ Nådd!";
+    statusText = t('goalCard.reached');
     statusColor = "#10B981"; // emerald-500
   } else if (isBehind) {
     if (daysBehind <= 3) {
@@ -92,13 +87,13 @@ export const OtherGoalCard = memo(({
     } else {
       statusColor = "#EF4444"; // red-500
     }
-    statusText = "Bak skjema";
+    statusText = t('goalCard.behind');
   }
 
   // Identify specific progress icon type
   const isElevation = goal.metric === 'elevation';
   const isSessions = goal.metric === 'sessions';
-  const isDuration = goal.metric === 'duration' || goal.metric === 'minutes';
+  const isDuration = goal.metric === 'minutes';
   const isDistance = goal.metric === 'distance';
 
   const remaining = Math.max(0, targetVal - progressVal);
@@ -237,14 +232,14 @@ export const OtherGoalCard = memo(({
         <Text style={{ fontSize: 17, fontWeight: 'bold', color: isDark ? "#FFFFFF" : "#111827", marginTop: 10, textAlign: 'center' }}>
           {formatVal(progressVal, goal.metric)} / {formatVal(targetVal, goal.metric)}{' '}
           <Text style={{ fontSize: 13, fontWeight: 'normal', color: isDark ? '#9CA3AF' : '#6B7280' }}>
-            {metricLabels[goal.metric] || 'økter'}
+            {getMetricLabel(goal.metric as any, t)}
           </Text>
         </Text>
 
         {/* Remaining value text */}
         {!isReached && remaining > 0 && (
           <Text style={{ fontSize: 13, color: isDark ? '#9CA3AF' : '#6B7280', marginTop: 4, textAlign: 'center' }}>
-            {formatVal(remaining, goal.metric)} {metricLabels[goal.metric] || 'økter'} igjen
+            {formatVal(remaining, goal.metric)} {getMetricLabel(goal.metric as any, t)} {t('goalCard.remaining')}
           </Text>
         )}
 
@@ -254,14 +249,14 @@ export const OtherGoalCard = memo(({
             <Repeat size={10} color={isDark ? '#9CA3AF' : '#6B7280'} />
           )}
           <Text style={{ fontSize: 12, color: isDark ? '#9CA3AF' : '#6B7280', textAlign: 'center' }}>
-            {goal.period === 'week' ? 'Denne uken' : goal.period === 'month' ? 'Denne måneden' : goal.period === 'year' ? 'Dette året' : 'Tilpasset'}
+            {goal.period === 'week' ? t('goalCard.thisWeek') : goal.period === 'month' ? t('goalCard.thisMonth') : goal.period === 'year' ? t('goalCard.thisYear') : t('goalForm.custom')}
           </Text>
         </HStack>
 
         {/* Days left text */}
         {!isReached && remainingDays > 0 && (
           <Text style={{ fontSize: 12, color: isDark ? '#9CA3AF' : '#6B7280', marginTop: 1, textAlign: 'center' }}>
-            {remainingDays} dager igjen
+            {remainingDays} {t('goalCard.daysLeft')}
           </Text>
         )}
 

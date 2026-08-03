@@ -23,6 +23,7 @@ import useColorScheme from '@/hooks/useColorScheme';
 import { flattenStyle } from '@/utils/flatten-style';
 import { ActivityIcon } from '@/components/ActivityIcon';
 import { getActivityColors } from '@/utils/activityColors';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface ArchivedGoalsSectionProps {
   goals: ExtraGoal[];
@@ -31,28 +32,13 @@ interface ArchivedGoalsSectionProps {
   onRestore: (goal: ExtraGoal) => void;
 }
 
-const metricLabels: Record<string, string> = {
-  sessions: 'økter',
-  minutes: 'timer',
-  duration: 'timer',
-  distance: 'km',
-  elevation: 'm',
-};
-
-const categoryLabels: Record<string, string> = {
-  sessions: 'Antall økter',
-  minutes: 'Total tid',
-  duration: 'Total tid',
-  distance: 'Distanse',
-  elevation: 'Høydemeter',
-};
-
 export const ArchivedGoalsSection = ({ 
   goals, 
   sessions, 
   onDelete, 
   onRestore 
 }: ArchivedGoalsSectionProps) => {
+  const { t, locale } = useLanguage();
   const isDark = useColorScheme() === 'dark';
   const [expandedGoals, setExpandedGoals] = useState<Set<string>>(new Set());
 
@@ -71,8 +57,24 @@ export const ArchivedGoalsSection = ({
   // 2. Archived non-repeating goals
   const archivedNonRepeating = goals.filter(g => !g.repeating && g.archived);
 
+  const metricLabels: Record<string, string> = {
+    sessions: t('metric.sessions'),
+    minutes: t('metric.minutes'),
+    duration: t('metric.minutes'),
+    distance: t('metric.distance'),
+    elevation: t('metric.elevation'),
+  };
+
+  const categoryLabels: Record<string, string> = {
+    sessions: t('metric.sessions.label'),
+    minutes: t('metric.minutes.label'),
+    duration: t('metric.minutes.label'),
+    distance: t('metric.distance.label'),
+    elevation: t('metric.elevation.label'),
+  };
+
   const renderRepeatingGoalFolder = (goal: ExtraGoal) => {
-    const history = calculateGoalHistory(goal, sessions);
+    const history = calculateGoalHistory(goal, sessions, t);
     if (history.length === 0) return null;
 
     const achievedCount = history.filter(h => h.achieved).length;
@@ -102,7 +104,7 @@ export const ArchivedGoalsSection = ({
               <VStack style={{ flex: 1 }}>
                 <HStack space="xs" style={{ alignItems: 'center', marginBottom: 2 }}>
                   <Text style={{ fontWeight: 'bold', color: isDark ? "#FFFFFF" : "#111827", fontSize: 14 }}>
-                    {goal.target} {metricLabels[goal.metric] || 'økter'}
+                    {goal.target} {metricLabels[goal.metric] || t('metric.sessions')}
                   </Text>
                   <Repeat size={12} color="#10B981" />
                 </HStack>
@@ -133,7 +135,7 @@ export const ArchivedGoalsSection = ({
                     })}
                   </HStack>
                   <Text style={{ fontSize: 11, color: isDark ? "#9CA3AF" : "#6B7280", fontWeight: '600' }}>
-                    · {categoryLabels[goal.metric] || 'Mål'} · {achievedCount}/{history.length} klart
+                    · {categoryLabels[goal.metric] || t('common.goal')} · {achievedCount}/{history.length} {t('goalCompletion.achieved').toLowerCase()}
                   </Text>
                 </HStack>
               </VStack>
@@ -181,7 +183,7 @@ export const ArchivedGoalsSection = ({
                   </HStack>
                   
                   <Text style={{ fontSize: 12, color: isDark ? "#9CA3AF" : "#6B7280" }}>
-                    {h.progress} / {h.target} {metricLabels[goal.metric] || 'økter'}
+                    {h.progress} / {h.target} {metricLabels[goal.metric] || t('metric.sessions')}
                   </Text>
                 </HStack>
               </View>
@@ -214,7 +216,7 @@ export const ArchivedGoalsSection = ({
     const progress = computeProgress(periodSessions, goal.metric);
     const achieved = progress >= goal.target;
 
-    const formatDate = (d: Date | null) => d ? d.toLocaleDateString('no-NO', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '';
+    const formatDate = (d: Date | null) => d ? d.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: '2-digit' }) : '';
 
     return (
       <Card 
@@ -240,7 +242,7 @@ export const ArchivedGoalsSection = ({
             <VStack style={{ flex: 1 }}>
               <HStack space="xs" style={{ alignItems: 'center', marginBottom: 2 }}>
                 <Text style={{ fontWeight: 'bold', color: isDark ? "#FFFFFF" : "#111827", fontSize: 14 }}>
-                  {goal.target} {metricLabels[goal.metric] || 'økter'} {categoryLabels[goal.metric] ? `(${categoryLabels[goal.metric].toLowerCase()})` : ''}
+                  {goal.target} {metricLabels[goal.metric] || t('metric.sessions')} {categoryLabels[goal.metric] ? `(${categoryLabels[goal.metric].toLowerCase()})` : ''}
                 </Text>
                 <View style={flattenStyle([
                   styles.statusCircle,
@@ -280,7 +282,7 @@ export const ArchivedGoalsSection = ({
                   })}
                 </HStack>
                 <Text style={{ fontSize: 11, color: isDark ? "#9CA3AF" : "#6B7280", fontWeight: '600' }}>
-                  · {progress} / {goal.target} {metricLabels[goal.metric] || 'økter'}
+                  · {progress} / {goal.target} {metricLabels[goal.metric] || t('metric.sessions')}
                 </Text>
               </HStack>
               <Text style={{ fontSize: 10, color: isDark ? "#9CA3AF" : "#6B7280", marginTop: 1 }}>
@@ -293,7 +295,7 @@ export const ArchivedGoalsSection = ({
             {!isExpired && (
               <TouchableOpacity onPress={() => onRestore(goal)} style={flattenStyle([styles.actionBtn, { width: 'auto', paddingHorizontal: 10, gap: 4, flexDirection: 'row' }])}>
                 <RotateCcw size={14} color="#10B981" />
-                <Text style={{ fontSize: 10, fontWeight: '700', color: "#10B981" }}>GJENOPPRETT</Text>
+                <Text style={{ fontSize: 10, fontWeight: '700', color: "#10B981" }}>{t('goals.unarchive').toUpperCase()}</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity onPress={() => onDelete(goal.id)} style={styles.actionBtn}>
@@ -312,7 +314,7 @@ export const ArchivedGoalsSection = ({
       
       {repeatingGoals.length === 0 && archivedNonRepeating.length === 0 && (
         <View style={{ padding: 20, alignItems: 'center' }}>
-          <Text style={{ color: isDark ? "#9CA3AF" : "#6B7280", fontSize: 13 }}>Ingen historikk å vise.</Text>
+          <Text style={{ color: isDark ? "#9CA3AF" : "#6B7280", fontSize: 13 }}>{t('training.noSessionsFound')}</Text>
         </View>
       )}
     </VStack>

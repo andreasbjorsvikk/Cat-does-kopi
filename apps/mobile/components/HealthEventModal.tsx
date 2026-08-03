@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
   TouchableOpacity, 
@@ -28,6 +28,7 @@ import { HealthEvent, HealthEventType } from '@/types/workout';
 import useColorScheme from '@/hooks/useColorScheme';
 import { useAuth } from '@/hooks/useAuth';
 import { flattenStyle } from '@/utils/flatten-style';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface HealthEventModalProps {
   isOpen: boolean;
@@ -37,16 +38,6 @@ interface HealthEventModalProps {
   eventToEdit?: HealthEvent | null;
 }
 
-const MONTH_NAMES = [
-  "Januar", "Februar", "Mars", "April", "Mai", "Juni", 
-  "Juli", "August", "September", "Oktober", "November", "Desember"
-];
-
-const MONTH_LABELS_SHORT = [
-  "Jan", "Feb", "Mar", "Apr", "Mai", "Jun", 
-  "Jul", "Aug", "Sep", "Okt", "Nov", "Des"
-];
-
 export const HealthEventModal = ({
   isOpen,
   onClose,
@@ -54,6 +45,7 @@ export const HealthEventModal = ({
   onSuccess,
   eventToEdit,
 }: HealthEventModalProps) => {
+  const { t, locale } = useLanguage();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { user } = useAuth();
@@ -94,13 +86,18 @@ export const HealthEventModal = ({
     }
   }, [isOpen, initialDate, eventToEdit]);
 
-  const formatDisplayDate = (str: string) => {
-    if (!str) return "Velg dato";
+  const formatDisplayDate = useCallback((str: string) => {
+    if (!str) return t('workout.date');
     const parts = str.split("-");
     if (parts.length !== 3) return str;
-    const date = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-    return `${date.getDate()}. ${MONTH_LABELS_SHORT[date.getMonth()].toLowerCase()} ${date.getFullYear()}`;
-  };
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    if (isNaN(year) || isNaN(month) || isNaN(day)) return str;
+    const date = new Date(year, month, day);
+    const monthKey = `month.short.${date.getMonth()}`;
+    return `${date.getDate()}. ${t(monthKey).toLowerCase()}. ${date.getFullYear()}`;
+  }, [t]);
 
   const getDaysInMonthList = (year: number, month: number) => {
     const days = [];
@@ -147,7 +144,7 @@ export const HealthEventModal = ({
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
       console.error('Error saving health event:', err);
-      alert('Kunne ikke lagre helsehendelse.');
+      Alert.alert(t('common.error'), t('health.saveFailed') || 'Kunne ikke lagre helsehendelse.');
     } finally {
       setSubmitting(false);
     }
@@ -157,12 +154,12 @@ export const HealthEventModal = ({
     if (!eventToEdit) return;
 
     Alert.alert(
-      "Slett helsehendelse",
-      "Er du sikker på at du vil slette denne helsehendelsen?",
+      t('common.delete') + " " + t('health.newEvent'),
+      t('training.deleteEventConfirm'),
       [
-        { text: "Avbryt", style: "cancel" },
+        { text: t('common.cancel'), style: "cancel" },
         {
-          text: "Slett",
+          text: t('common.delete'),
           style: "destructive",
           onPress: async () => {
             try {
@@ -172,7 +169,7 @@ export const HealthEventModal = ({
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             } catch (err) {
               console.error('Error deleting health event:', err);
-              Alert.alert('Feil', 'Kunne ikke slette helsehendelse.');
+              Alert.alert(t('common.error'), t('health.deleteError') || 'Kunne ikke slette helsehendelse.');
             }
           }
         }
@@ -192,7 +189,7 @@ export const HealthEventModal = ({
           <ModalHeader style={flattenStyle([{ borderBottomWidth: 0, paddingHorizontal: 20, paddingTop: 20 }])}>
             <View style={{ flex: 1, alignItems: 'center' }}>
               <Heading style={{ color: isDark ? '#FFFFFF' : '#1F2937', fontSize: 20, fontWeight: 'bold' }}>
-                {eventToEdit ? "Rediger helsehendelse" : "Ny helsehendelse"}
+                {eventToEdit ? t('health.editEvent') : t('health.newEvent')}
               </Heading>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
@@ -204,7 +201,7 @@ export const HealthEventModal = ({
             <VStack style={{ gap: 20 }}>
               {/* Type Select */}
               <VStack style={{ gap: 8 }}>
-                <Text style={styles.label}>Type</Text>
+                <Text style={styles.label}>{t('health.type')}</Text>
                 <HStack style={{ gap: 12 }}>
                   <TouchableOpacity 
                     style={[
@@ -215,7 +212,7 @@ export const HealthEventModal = ({
                   >
                     <HStack space="xs" style={{ alignItems: 'center' }}>
                       <Ambulance size={18} color={type === 'sickness' ? '#FFF' : '#EF4444'} />
-                      <Text style={[styles.typeBtnText, type === 'sickness' && { color: '#FFF' }]}>Sykdom</Text>
+                      <Text style={[styles.typeBtnText, type === 'sickness' && { color: '#FFF' }]}>{t('health.sickness')}</Text>
                     </HStack>
                   </TouchableOpacity>
                   <TouchableOpacity 
@@ -227,7 +224,7 @@ export const HealthEventModal = ({
                   >
                     <HStack space="xs" style={{ alignItems: 'center' }}>
                       <Cross size={18} color={type === 'injury' ? '#FFF' : '#EF4444'} />
-                      <Text style={[styles.typeBtnText, type === 'injury' && { color: '#FFF' }]}>Skade</Text>
+                      <Text style={[styles.typeBtnText, type === 'injury' && { color: '#FFF' }]}>{t('health.injury')}</Text>
                     </HStack>
                   </TouchableOpacity>
                 </HStack>
@@ -236,7 +233,7 @@ export const HealthEventModal = ({
               {/* Date Selection */}
               <HStack style={{ gap: 12 }}>
                 <VStack style={{ flex: 1, gap: 8 }}>
-                  <Text style={styles.label}>Fra dato</Text>
+                  <Text style={styles.label}>{t('health.dateFrom')}</Text>
                   <TouchableOpacity
                     style={flattenStyle([styles.customPicker, isDark ? styles.inputDark : styles.inputLight])}
                     onPress={() => setShowCalendar({ active: 'from' })}
@@ -251,7 +248,7 @@ export const HealthEventModal = ({
                 </VStack>
 
                 <VStack style={{ flex: 1, gap: 8 }}>
-                  <Text style={styles.label}>Til dato</Text>
+                  <Text style={styles.label}>{t('health.dateTo')}</Text>
                   <TouchableOpacity
                     style={flattenStyle([styles.customPicker, isDark ? styles.inputDark : styles.inputLight])}
                     onPress={() => setShowCalendar({ active: 'to' })}
@@ -268,12 +265,12 @@ export const HealthEventModal = ({
 
               {/* Notes */}
               <VStack style={{ gap: 8 }}>
-                <Text style={styles.label}>Notater</Text>
+                <Text style={styles.label}>{t('health.notes')}</Text>
                 <TextInput
                   style={[styles.inputField, styles.textArea, isDark ? styles.inputDark : styles.inputLight]}
                   value={notes}
                   onChangeText={setNotes}
-                  placeholder="Hva skjedde?..."
+                  placeholder={t('health.notesPlaceholder')}
                   placeholderTextColor="#9CA3AF"
                   multiline
                   numberOfLines={3}
@@ -293,14 +290,14 @@ export const HealthEventModal = ({
                   {submitting ? (
                     <ActivityIndicator color="#FFF" />
                   ) : (
-                    <Text style={styles.saveBtnText}>Lagre</Text>
+                    <Text style={styles.saveBtnText}>{t('health.save')}</Text>
                   )}
                 </TouchableOpacity>
                 <TouchableOpacity 
                   style={[styles.secondaryBtn, isDark ? styles.inputDark : styles.inputLight]}
                   onPress={onClose}
                 >
-                  <Text style={[styles.secondaryBtnText, isDark ? styles.textWhite : styles.textDark]}>Avbryt</Text>
+                  <Text style={[styles.secondaryBtnText, isDark ? styles.textWhite : styles.textDark]}>{t('health.cancel')}</Text>
                 </TouchableOpacity>
               </HStack>
               {eventToEdit && (
@@ -318,7 +315,7 @@ export const HealthEventModal = ({
                   ])}
                   onPress={handleDelete}
                 >
-                  <Text style={{ color: '#EF4444', fontWeight: 'bold', fontSize: 16 }}>Slett helsehendelse</Text>
+                  <Text style={{ color: '#EF4444', fontWeight: 'bold', fontSize: 16 }}>{t('common.delete')} {t('health.newEvent')}</Text>
                 </TouchableOpacity>
               )}
             </VStack>
@@ -332,7 +329,7 @@ export const HealthEventModal = ({
         <ModalContent style={flattenStyle([{ backgroundColor: isDark ? "#111827" : "#FFFFFF", borderRadius: 20 }])}>
           <ModalHeader>
             <Heading style={{ fontSize: 18, fontWeight: 'bold', color: isDark ? '#FFF' : '#1F2937' }}>
-              Velg dato ({showCalendar?.active === 'from' ? 'fra' : 'til'})
+              {t('workout.date')} ({showCalendar?.active === 'from' ? t('goalForm.from').toLowerCase() : t('goalForm.to').toLowerCase()})
             </Heading>
           </ModalHeader>
           <ModalBody>
@@ -352,7 +349,7 @@ export const HealthEventModal = ({
                   <ChevronLeft size={24} color={isDark ? "#FFFFFF" : "#1F2937"} />
                 </TouchableOpacity>
                 <Text style={flattenStyle([{ fontSize: 18, fontWeight: "bold" }, { color: isDark ? "#FFFFFF" : "#1F2937" }])}>
-                  {MONTH_NAMES[pickerMonth]} {pickerYear}
+                  {t(`month.${pickerMonth}`)} {pickerYear}
                 </Text>
                 <TouchableOpacity
                   onPress={() => {
@@ -370,7 +367,7 @@ export const HealthEventModal = ({
               </HStack>
 
               <HStack style={{ justifyContent: "space-around" }}>
-                {["Ma", "Ti", "On", "To", "Fr", "Lø", "Sø"].map((d) => (
+                {[t('weekday.mon'), t('weekday.tue'), t('weekday.wed'), t('weekday.thu'), t('weekday.fri'), t('weekday.sat'), t('weekday.sun')].map((d) => (
                   <Text key={d} style={flattenStyle([{ fontSize: 12, fontWeight: "bold", width: 40, textAlign: "center" }, { color: isDark ? "#9CA3AF" : "#6B7280" }])}>
                     {d}
                   </Text>
@@ -415,7 +412,7 @@ export const HealthEventModal = ({
           </ModalBody>
           <ModalFooter>
             <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setShowCalendar(null)}>
-              <Text style={styles.modalCloseBtnText}>Lukk</Text>
+              <Text style={styles.modalCloseBtnText}>{t('common.done')}</Text>
             </TouchableOpacity>
           </ModalFooter>
         </ModalContent>

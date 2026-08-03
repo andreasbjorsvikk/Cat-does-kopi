@@ -103,19 +103,20 @@ export function getGoalPeriodBoundaries(goal: ExtraGoal): { start: Date; end: Da
 export function computeProgress(sessions: WorkoutSession[], metric: GoalMetric): number {
   switch (metric) {
     case 'sessions': return sessions.filter(s => !s.excludeFromCount).length;
-    case 'minutes': return sessions.reduce((s, w) => s + w.durationMinutes / 60, 0);
-    case 'duration': return sessions.reduce((s, w) => s + w.durationMinutes / 60, 0);
+    case 'minutes': return sessions.reduce((s, w) => s + (w.durationMinutes || 0) / 60, 0);
     case 'distance': return sessions.reduce((s, w) => s + (w.distance || 0), 0);
     case 'elevation': return sessions.reduce((s, w) => s + (w.elevationGain || 0), 0);
   }
 }
 
-export const metricLabels: Record<GoalMetric, string> = {
-  sessions: 'økter',
-  minutes: 'timer',
-  duration: 'timer',
-  distance: 'km',
-  elevation: 'm',
+export const getMetricLabel = (metric: GoalMetric, t: (key: string) => string): string => {
+  switch (metric) {
+    case 'sessions': return t('metric.sessions');
+    case 'minutes': return t('metric.minutes');
+    case 'distance': return t('metric.distance');
+    case 'elevation': return t('metric.elevation');
+    default: return metric;
+  }
 };
 
 export function getDaysRemainingInPeriod(period: GoalPeriod | 'custom', customEnd?: string): number {
@@ -181,7 +182,8 @@ export interface GoalHistoryPeriod {
 
 export function calculateGoalHistory(
   goal: ExtraGoal,
-  sessions: WorkoutSession[]
+  sessions: WorkoutSession[],
+  t?: (key: string, params?: any) => string
 ): GoalHistoryPeriod[] {
   if (!goal.createdAt) return [];
   
@@ -219,12 +221,11 @@ export function calculateGoalHistory(
       d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
       const week1 = new Date(d.getFullYear(), 0, 4);
       const weekNum = 1 + Math.round(((d.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
-      label = `Uke ${weekNum}`;
+      label = t ? t('goalForm.week') + ` ${weekNum}` : `Uke ${weekNum}`;
     } else if (goal.period === 'month') {
       currentEnd = new Date(currentStart.getFullYear(), currentStart.getMonth() + 1, 0);
       currentEnd.setHours(23, 59, 59, 999);
-      const months = ["Januar", "Februar", "Mars", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Desember"];
-      label = `${months[currentStart.getMonth()]} ${currentStart.getFullYear()}`;
+      label = t ? `${t(`month.${currentStart.getMonth()}`)} ${currentStart.getFullYear()}` : `${currentStart.toLocaleString('no-NO', { month: 'long' })} ${currentStart.getFullYear()}`;
     } else if (goal.period === 'year') {
       currentEnd = new Date(currentStart.getFullYear(), 11, 31);
       currentEnd.setHours(23, 59, 59, 999);

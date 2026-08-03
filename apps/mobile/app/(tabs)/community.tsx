@@ -8,10 +8,12 @@ import { VStack } from "@/components/ui/vstack";
 import { Users, Trophy, Award, Target, MessageSquare, Plus, CheckCircle2 } from "lucide-react-native";
 import useColorScheme from "@/hooks/useColorScheme";
 import { flattenStyle } from "@/utils/flatten-style";
+import { useLanguage } from "@/context/LanguageContext";
 
 export default function CommunityScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
+  const { t } = useLanguage();
 
   const [activeTab, setActiveTab] = useState<"feed" | "challenges" | "leaderboard" | "groups">("feed");
   const [feedFilter, setFeedFilter] = useState<"all" | "friends" | "mine">("all");
@@ -34,31 +36,31 @@ export default function CommunityScreen() {
   const mockChallenges = [
     {
       id: "c1",
-      name: "Mars-mila",
-      metric: "Distanse (løping)",
-      target: "100 km",
-      progress: "42 km",
+      name: t('month.2') + " " + t('metric.distance.label'),
+      metric: t('metric.distance.label') + " (" + t('activity.løping').toLowerCase() + ")",
+      target: "100 " + t('metric.distance'),
+      progress: "42 " + t('metric.distance'),
       participants: 4,
     },
     {
       id: "c2",
-      name: "Ukens økter",
-      metric: "Aktiviteter",
-      target: "5 økter",
-      progress: "3 økter",
+      name: t('goalForm.week') + "s " + t('metric.sessions'),
+      metric: t('nav.training'),
+      target: "5 " + t('metric.sessions'),
+      progress: "3 " + t('metric.sessions'),
       participants: 6,
     }
   ];
 
   const mockGroups = [
-    { id: "g1", name: "Fjellgjengen", members: 12, desc: "For oss som elsker friluftsliv og toppturer i Jotunheimen" },
-    { id: "g2", name: "Løpeklubben", members: 8, desc: "Intervaller og langkjøring i Oslo-området" },
+    { id: "g1", name: t('activity.fjelltur') + "gjengen", members: 12, desc: t('help.peakMapP1') },
+    { id: "g2", name: t('activity.løping') + "klubben", members: 8, desc: t('help.statsAndRecordsP2') },
   ];
 
   const mockFeedPosts = [
-    { id: "p1", user: "Erik", action: "fullførte løpetur", detail: "12 km på 58 min", time: "2t siden", avatar: null },
-    { id: "p2", user: "Silje", action: "ble med i utfordring", detail: "Mars-mila", time: "4t siden", avatar: null },
-    { id: "p3", user: "Magnus", action: "loggførte", detail: "Styrketrening, 45 min", time: "6t siden", avatar: null },
+    { id: "p1", user: "Erik", action: t('activity.løping'), detail: "12 km på 58 min", time: `2 ${t('workout.h')} ${t('peakFeed.ago') || 'siden'}`, avatar: null },
+    { id: "p2", user: "Silje", action: t('community.challenges'), detail: "Mars-mila", time: `4 ${t('workout.h')} ${t('peakFeed.ago') || 'siden'}`, avatar: null },
+    { id: "p3", user: "Magnus", action: t('common.done'), detail: "Styrketrening, 45 min", time: `6 ${t('workout.h')} ${t('peakFeed.ago') || 'siden'}`, avatar: null },
   ];
 
   return (
@@ -70,8 +72,8 @@ export default function CommunityScreen() {
             <Users size={20} color="#10B981" />
           </View>
           <VStack>
-            <Heading className={`text-xl font-extrabold ${themeClasses.text}`}>Fellesskap</Heading>
-            <Text className={`text-xs ${themeClasses.textMuted}`}>Tren sammen og motiver hverandre</Text>
+            <Heading className={`text-xl font-extrabold ${themeClasses.text}`}>{t('nav.community')}</Heading>
+            <Text className={`text-xs ${themeClasses.textMuted}`}>{t('communityTutorial.desc')}</Text>
           </VStack>
         </HStack>
       </View>
@@ -83,7 +85,7 @@ export default function CommunityScreen() {
           onPress={() => setActiveTab("feed")}
         >
           <Text style={flattenStyle([styles.tabButtonText, activeTab === "feed" ? styles.textWhite : { color: isDark ? "#9CA3AF" : "#4B5563" }])}>
-            Feed
+            {t('map.tab.feed')}
           </Text>
         </TouchableOpacity>
 
@@ -92,7 +94,7 @@ export default function CommunityScreen() {
           onPress={() => setActiveTab("challenges")}
         >
           <Text style={flattenStyle([styles.tabButtonText, activeTab === "challenges" ? styles.textWhite : { color: isDark ? "#9CA3AF" : "#4B5563" }])}>
-            Utfordringer
+            {t('community.challenges')}
           </Text>
         </TouchableOpacity>
 
@@ -101,7 +103,7 @@ export default function CommunityScreen() {
           onPress={() => setActiveTab("leaderboard")}
         >
           <Text style={flattenStyle([styles.tabButtonText, activeTab === "leaderboard" ? styles.textWhite : { color: isDark ? "#9CA3AF" : "#4B5563" }])}>
-            Toppliste
+            {t('community.leaderboard')}
           </Text>
         </TouchableOpacity>
 
@@ -110,7 +112,7 @@ export default function CommunityScreen() {
           onPress={() => setActiveTab("groups")}
         >
           <Text style={flattenStyle([styles.tabButtonText, activeTab === "groups" ? styles.textWhite : { color: isDark ? "#9CA3AF" : "#4B5563" }])}>
-            Grupper
+            {t('common.participants')}
           </Text>
         </TouchableOpacity>
       </HStack>
@@ -135,7 +137,7 @@ export default function CommunityScreen() {
                   ? styles.feedFilterBtnTextActive
                   : { color: isDark ? "#9CA3AF" : "#6B7280" },
               ])}>
-                Alle
+                {t('common.all')}
               </Text>
             </TouchableOpacity>
 
@@ -154,7 +156,7 @@ export default function CommunityScreen() {
                   ? styles.feedFilterBtnTextActive
                   : { color: isDark ? "#9CA3AF" : "#6B7280" },
               ])}>
-                Venner
+                {t('common.friends')}
               </Text>
             </TouchableOpacity>
 
@@ -173,7 +175,7 @@ export default function CommunityScreen() {
                   ? styles.feedFilterBtnTextActive
                   : { color: isDark ? "#9CA3AF" : "#6B7280" },
               ])}>
-                Mine
+                {t('community.mine')}
               </Text>
             </TouchableOpacity>
           </HStack>
@@ -222,13 +224,13 @@ export default function CommunityScreen() {
                   <Text className={`text-xs ${themeClasses.textMuted}`}>{challenge.metric}</Text>
                 </VStack>
                 <View style={styles.participantsBadge}>
-                  <Text className="text-emerald-500 text-xs font-bold">{challenge.participants} deltakere</Text>
+                  <Text className="text-emerald-500 text-xs font-bold">{challenge.participants} {t('common.participants')}</Text>
                 </View>
               </HStack>
 
               <HStack style={{ alignItems: "center", justifyContent: "space-between" }}>
-                <Text className={`text-sm ${themeClasses.textMuted}`}>Mål: {challenge.target}</Text>
-                <Text className="text-emerald-500 text-sm font-bold">Fremgang: {challenge.progress}</Text>
+                <Text className={`text-sm ${themeClasses.textMuted}`}>{t('common.goal')}: {challenge.target}</Text>
+                <Text className="text-emerald-500 text-sm font-bold">{t('goalCompletion.progress')}: {challenge.progress}</Text>
               </HStack>
               
               <View style={styles.progressBarBg}>
@@ -239,7 +241,7 @@ export default function CommunityScreen() {
           <TouchableOpacity style={styles.actionBtn}>
             <HStack style={{ alignItems: "center", justifyContent: "center" }}>
               <Plus size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-              <Text style={styles.actionBtnText}>Opprett ny utfordring</Text>
+              <Text style={styles.actionBtnText}>{t('community.newChallenge')}</Text>
             </HStack>
           </TouchableOpacity>
         </VStack>
@@ -258,11 +260,11 @@ export default function CommunityScreen() {
                 </View>
                 <VStack style={{ flex: 1, marginLeft: 12 }}>
                   <Text className={`font-bold ${themeClasses.text}`}>{item.name}</Text>
-                  <Text className={`text-xs ${themeClasses.textMuted}`}>{item.sessions} økter fullført</Text>
+                  <Text className={`text-xs ${themeClasses.textMuted}`}>{item.sessions} {t('metric.sessions')} {t('goals.completed').toLowerCase()}</Text>
                 </VStack>
                 <HStack style={{ alignItems: "center" }}>
                   <Trophy size={16} color="#F59E0B" style={{ marginRight: 4 }} />
-                  <Text className={`font-extrabold ${themeClasses.text}`}>{item.points} poeng</Text>
+                  <Text className={`font-extrabold ${themeClasses.text}`}>{item.points} {t('common.points')}</Text>
                 </HStack>
               </HStack>
             </Card>
@@ -276,11 +278,11 @@ export default function CommunityScreen() {
             <Card key={group.id} className={`p-4 ${themeClasses.cardBg}`} style={styles.itemCard}>
               <HStack style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                 <Heading className={`text-base font-bold ${themeClasses.text}`}>{group.name}</Heading>
-                <Text className="text-emerald-500 text-xs font-semibold">{group.members} medlemmer</Text>
+                <Text className="text-emerald-500 text-xs font-semibold">{group.members} {t('common.participants')}</Text>
               </HStack>
               <Text className={`text-xs ${themeClasses.textMuted}`} style={{ marginBottom: 12 }}>{group.desc}</Text>
               <TouchableOpacity style={styles.joinBtn}>
-                <Text style={styles.joinBtnText}>Bli med i gruppe</Text>
+                <Text style={styles.joinBtnText}>{t('community.active')}</Text>
               </TouchableOpacity>
             </Card>
           ))}

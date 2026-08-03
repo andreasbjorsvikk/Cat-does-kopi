@@ -174,6 +174,6 @@ export function computeYearPrognosisData(
     yearFraction,
     percent: yearFraction * 100,
     color,
-    label: `Du ligger an til å nå ${prognosisNow} økter i år`
+    label: "" // Handled by component with t()
   };
 }

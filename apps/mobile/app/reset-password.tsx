@@ -20,6 +20,7 @@ import { HStack } from "@/components/ui/hstack";
 import { Lock, Key, ArrowLeft } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import useColorScheme from "@/hooks/useColorScheme";
+import { useLanguage } from "@/context/LanguageContext";
 
 const { height } = Dimensions.get("window");
 
@@ -31,20 +32,21 @@ export default function ResetPasswordScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
+  const { t, language } = useLanguage();
 
   const handleResetPassword = async () => {
     if (!password || !confirmPassword) {
-      setError("Vennligst fyll ut begge felt");
+      setError(t("auth.fillAllFields"));
       return;
     }
 
     if (password !== confirmPassword) {
-      setError("Passordene samsvarer ikke");
+      setError(t("auth.passwordsDontMatch"));
       return;
     }
 
     if (password.length < 6) {
-      setError("Passordet må være minst 6 tegn");
+      setError(t("auth.passwordTooShort"));
       return;
     }
 
@@ -58,13 +60,12 @@ export default function ResetPasswordScreen() {
 
       if (error) throw error;
 
-      Alert.alert(
-        "Suksess",
-        "Passordet ditt er nå oppdatert. Du kan logge inn med ditt nye passord.",
-        [{ text: "OK", onPress: () => router.replace("/login") }]
-      );
+      Alert.alert(t("auth.success"), t("auth.passwordUpdated"), [{
+        text: t("common.ok"),
+        onPress: () => router.replace("/login")
+      }]);
     } catch (err: any) {
-      setError(err.message || "Kunne ikke oppdatere passord");
+      setError(err.message || t("auth.errorUpdatePassword"));
     } finally {
       setLoading(false);
     }
@@ -97,10 +98,10 @@ export default function ResetPasswordScreen() {
               <Key size={40} color="#FFFFFF" />
             </View>
             <Heading size="3xl" className="text-white font-extrabold text-center">
-              Nytt passord
+              {t("auth.newPassword")}
             </Heading>
             <Text className="text-white/80 text-center text-lg">
-              Oppgi ditt nye passord nedenfor
+              {t("auth.enterNewPassword")}
             </Text>
           </VStack>
         </ImageBackground>
@@ -110,14 +111,14 @@ export default function ResetPasswordScreen() {
             <VStack space="md">
               <VStack space="xs">
                 <Text className={`font-medium ${isDark ? "text-white/90" : "text-typography-700"}`}>
-                  Nytt passord
+                  {t("auth.newPassword")}
                 </Text>
                 <Input size="lg" className={isDark ? "border-outline-700" : "border-outline-200"}>
                   <InputSlot className="pl-3">
                     <InputIcon as={Lock} color={isDark ? "#FFFFFF" : "#6B7280"} />
                   </InputSlot>
                   <InputField
-                    placeholder="Velg et nytt passord"
+                    placeholder={t("auth.chooseNewPassword")}
                     placeholderTextColor={isDark ? "#9CA3AF" : "#9CA3AF"}
                     value={password}
                     onChangeText={setPassword}
@@ -129,14 +130,14 @@ export default function ResetPasswordScreen() {
 
               <VStack space="xs">
                 <Text className={`font-medium ${isDark ? "text-white/90" : "text-typography-700"}`}>
-                  Bekreft nytt passord
+                  {t("auth.confirmPassword")}
                 </Text>
                 <Input size="lg" className={isDark ? "border-outline-700" : "border-outline-200"}>
                   <InputSlot className="pl-3">
                     <InputIcon as={Lock} color={isDark ? "#FFFFFF" : "#6B7280"} />
                   </InputSlot>
                   <InputField
-                    placeholder="Gjenta nytt passord"
+                    placeholder={t("auth.repeatNewPassword")}
                     placeholderTextColor={isDark ? "#9CA3AF" : "#9CA3AF"}
                     value={confirmPassword}
                     onChangeText={setConfirmPassword}
@@ -160,7 +161,7 @@ export default function ResetPasswordScreen() {
                 className="bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 h-14 rounded-2xl"
               >
                 {loading ? <ButtonSpinner /> : (
-                  <ButtonText className="text-white font-bold text-lg">Oppdater passord</ButtonText>
+                  <ButtonText className="text-white font-bold text-lg">{t("auth.updatePassword")}</ButtonText>
                 )}
               </Button>
             </VStack>

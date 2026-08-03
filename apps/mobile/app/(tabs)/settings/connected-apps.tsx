@@ -9,6 +9,7 @@ import { Button, ButtonText, ButtonSpinner } from "@/components/ui/button";
 import { CheckCircle2, AlertCircle, RefreshCw } from "lucide-react-native";
 import useColorScheme from "@/hooks/useColorScheme";
 import { flattenStyle } from "@/utils/flatten-style";
+import { useLanguage } from "@/context/LanguageContext";
 import { stravaService } from "@/services/stravaService";
 import { appleHealthService } from "@/services/appleHealthService";
 import { useAuth } from "@/hooks/useAuth";
@@ -16,6 +17,7 @@ import { useAuth } from "@/hooks/useAuth";
 export default function ConnectedAppsPage() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
+  const { t, language } = useLanguage();
   const { user } = useAuth();
 
   const [stravaConnected, setStravaConnected] = useState<boolean | null>(null);
@@ -100,7 +102,7 @@ export default function ConnectedAppsPage() {
     >
       <VStack style={{ gap: 20 }}>
         <Text className={themeClasses.textMuted}>
-          Koble til andre apper for å automatisk synkronisere treningsøktene dine med Treningsappen.
+          {t("settings.syncDesc")}
         </Text>
 
         {/* Apple Health Card */}
@@ -121,20 +123,20 @@ export default function ConnectedAppsPage() {
                 {healthConnected ? (
                   <>
                     <CheckCircle2 size={12} color="#10B981" />
-                    <Text className="text-xs text-emerald-500 font-bold">Tilkoblet</Text>
+                    <Text className="text-xs text-emerald-500 font-bold">{t("settings.stravaConnected")}</Text>
                   </>
                 ) : (
                   <>
                     <AlertCircle size={12} color="#9CA3AF" />
-                    <Text className="text-xs text-typography-500">Ikke tilkoblet</Text>
+                    <Text className="text-xs text-typography-500">{t("settings.stravaNotConnected")}</Text>
                   </>
                 )}
               </HStack>
             </VStack>
           </HStack>
 
-          <Text className={`text-xs mb-4 ${themeClasses.textMuted}`}>
-            Henter automatisk treningsdata, skritt og puls fra {Platform.OS === "ios" ? "HealthKit" : "Google Fit"}.
+          <Text className={`text-xs mb-4 ${themeClasses.textMuted}`} numberOfLines={2}>
+            {Platform.OS === "ios" ? t("settings.healthKitDesc") : t("settings.googleFitDesc")}
           </Text>
 
           <Button 
@@ -147,7 +149,7 @@ export default function ConnectedAppsPage() {
               <ButtonSpinner color={healthConnected ? "#10B981" : "#FFFFFF"} />
             ) : (
               <ButtonText className={healthConnected ? themeClasses.text : "text-white"}>
-                {healthConnected ? "Koble fra" : "Koble til"}
+                {healthConnected ? t("settings.stravaDisconnect") : t("common.connect")}
               </ButtonText>
             )}
           </Button>
@@ -169,12 +171,12 @@ export default function ConnectedAppsPage() {
                 {stravaConnected ? (
                   <>
                     <CheckCircle2 size={12} color="#FC642D" />
-                    <Text className="text-xs text-[#FC642D] font-bold">Tilkoblet</Text>
+                    <Text className="text-xs text-[#FC642D] font-bold">{t("settings.stravaConnected")}</Text>
                   </>
                 ) : (
                   <>
                     <AlertCircle size={12} color="#9CA3AF" />
-                    <Text className="text-xs text-typography-500">Ikke tilkoblet</Text>
+                    <Text className="text-xs text-typography-500">{t("settings.stravaNotConnected")}</Text>
                   </>
                 )}
               </HStack>
@@ -182,7 +184,7 @@ export default function ConnectedAppsPage() {
           </HStack>
 
           <Text className={`text-xs mb-4 ${themeClasses.textMuted}`}>
-            Synkroniser dine GPS-spor, tider og rekorder fra Strava direkte til Treningsappen.
+            {t("settings.stravaDesc")}
           </Text>
 
           <HStack style={{ gap: 8 }}>
@@ -190,16 +192,14 @@ export default function ConnectedAppsPage() {
               variant={stravaConnected ? "outline" : "solid"}
               size="sm"
               onPress={handleStravaConnect}
-              className={flattenStyle([
-                stravaConnected ? "border-outline-300" : "bg-[#FC642D] data-[hover=true]:bg-[#E34402]",
-                { flex: 1 }
-              ])}
+              className={stravaConnected ? "border-outline-300 flex-1" : "bg-[#FC642D] data-[hover=true]:bg-[#E34402] flex-1"}
+              style={{ flex: 1 }}
             >
               {stravaLoading ? (
                 <ButtonSpinner color={stravaConnected ? "#FC642D" : "#FFFFFF"} />
               ) : (
                 <ButtonText className={stravaConnected ? themeClasses.text : "text-white"}>
-                  {stravaConnected ? "Koble fra" : "Koble til Strava"}
+                  {stravaConnected ? t("settings.stravaDisconnect") : t("settings.stravaConnect")}
                 </ButtonText>
               )}
             </Button>

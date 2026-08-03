@@ -5,6 +5,7 @@ import Animated, { useAnimatedProps, useSharedValue, withTiming, Easing } from '
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { flattenStyle } from '@/utils/flatten-style';
+import { useLanguage } from '@/context/LanguageContext';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -30,6 +31,7 @@ const ProgressWheel = memo(function ProgressWheel({
   expectedFraction, paceDiff, customColor, customPaceLabel,
   showTodayIndicator = true, isDark, onPress, size = 'normal'
 }: ProgressWheelProps) {
+  const { t } = useLanguage();
   const isSmall = size === 'small';
   const RADIUS = isSmall ? 40 : 62;
   const STROKE = isSmall ? 8 : 12;
@@ -67,10 +69,10 @@ const ProgressWheel = memo(function ProgressWheel({
 
   const mainColor = customColor || (isReached ? '#10B981' : getPaceColor(paceDiff ?? 0));
   const paceLabelText = customPaceLabel || (paceDiff != null ? (
-    paceDiff >= 0.5 ? `${Math.round(paceDiff)} økter foran skjema` : 
-    paceDiff <= -0.5 ? `${Math.round(Math.abs(paceDiff))} økter bak skjema` : 
-    'I rute'
-  ) : 'I rute');
+    paceDiff >= 0.5 ? t('wheel.ahead', { n: Math.round(paceDiff), unit: t('wheel.sessions') }) :
+    paceDiff <= -0.5 ? t('wheel.behind', { n: Math.round(Math.abs(paceDiff)), unit: t('wheel.sessions') }) :
+    t('goalCard.onTrack')
+  ) : t('goalCard.onTrack'));
 
   return (
     <TouchableOpacity 
@@ -164,7 +166,7 @@ const ProgressWheel = memo(function ProgressWheel({
               color: isDark ? '#9CA3AF' : '#6B7280',
               textAlign: 'center'
             }}>
-              Sett mål
+              {t('wheel.setGoal')}
             </Text>
           )}
         </View>

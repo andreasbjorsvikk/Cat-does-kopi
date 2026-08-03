@@ -5,15 +5,26 @@ import { getActivityColors } from '@/utils/activityColors';
 import { Text } from '@/components/ui/text';
 import { flattenStyle } from '@/utils/flatten-style';
 import { ActivityIcon } from '@/components/ActivityIcon';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface Last7DaysProps {
   sessions: WorkoutSession[];
   isDark: boolean;
 }
 
-const WEEKDAY_LABELS = ['MAN', 'TIR', 'ONS', 'TOR', 'FRE', 'LØR', 'SØN'];
-
 const Last7Days = memo(function Last7Days({ sessions, isDark }: Last7DaysProps) {
+  const { t } = useLanguage();
+
+  const WEEKDAY_LABELS = useMemo(() => [
+    t('weekday.mon'),
+    t('weekday.tue'),
+    t('weekday.wed'),
+    t('weekday.thu'),
+    t('weekday.fri'),
+    t('weekday.sat'),
+    t('weekday.sun'),
+  ], [t]);
+
   const days = useMemo(() => {
     const result: { date: string; label: string; sessions: WorkoutSession[] }[] = [];
     const now = new Date();
@@ -23,7 +34,7 @@ const Last7Days = memo(function Last7Days({ sessions, isDark }: Last7DaysProps) 
       d.setDate(now.getDate() - i);
       const dateStr = d.toISOString().split('T')[0];
       const dow = d.getDay(); // 0=sun
-      const label = WEEKDAY_LABELS[dow === 0 ? 6 : dow - 1];
+      const label = WEEKDAY_LABELS[dow === 0 ? 6 : dow - 1].toUpperCase();
       const daySessions = sessions.filter(s => s.date.slice(0, 10) === dateStr);
       result.push({ date: dateStr, label, sessions: daySessions });
     }

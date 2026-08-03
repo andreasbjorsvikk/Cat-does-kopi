@@ -26,6 +26,7 @@ import { supabase } from "@/lib/supabase";
 import useColorScheme from "@/hooks/useColorScheme";
 import { useColorScheme as useColorSchemeNative } from "nativewind";
 import { useAuth } from "@/hooks/useAuth";
+import { useLanguage } from "@/context/LanguageContext";
 import { 
   AlertDialog, 
   AlertDialogBackdrop, 
@@ -56,8 +57,8 @@ export default function SettingsScreen() {
   const isDark = colorScheme === "dark";
   const { toggleColorScheme } = useColorSchemeNative();
   const { user, profile, refreshProfile } = useAuth();
+  const { language, setLanguage, t } = useLanguage();
 
-  const [language, setLanguage] = useState("norsk");
   const [showLogoutAlertDialog, setShowLogoutAlertDialog] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminMode, setAdminMode] = useState(false);
@@ -167,7 +168,7 @@ export default function SettingsScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Heading className={`text-2xl font-extrabold ${themeClasses.text}`}>Innstillinger</Heading>
+          <Heading className={`text-2xl font-extrabold ${themeClasses.text}`}>{t("settings.title")}</Heading>
         </View>
 
         {/* Profile Section */}
@@ -194,7 +195,7 @@ export default function SettingsScreen() {
           
           <MenuRow 
             icon={User} 
-            label="Profilinnstillinger" 
+            label={t("profile.profileSettings")}
             onPress={() => router.push("/(tabs)/settings/profile")} 
           />
         </Card>
@@ -202,7 +203,7 @@ export default function SettingsScreen() {
         {/* Preferences Section */}
         <View style={styles.section}>
           <Heading className={`text-xs font-bold uppercase tracking-widest mb-3 ${themeClasses.textMuted}`}>
-            Innstillinger
+            {t("settings.title").toUpperCase()}
           </Heading>
           
           <Card className={`p-0 overflow-hidden ${themeClasses.cardBg}`} style={styles.card}>
@@ -212,7 +213,7 @@ export default function SettingsScreen() {
                   <View style={flattenStyle([styles.menuIconContainer, { backgroundColor: "#10B98115" }])}>
                     <Moon size={18} color="#10B981" />
                   </View>
-                  <Text className={`font-semibold text-sm ml-3 ${themeClasses.text}`}>Mørkt tema</Text>
+                  <Text className={`font-semibold text-sm ml-3 ${themeClasses.text}`}>{t("settings.darkMode")}</Text>
                 </HStack>
                 <Switch 
                   value={isDark} 
@@ -229,12 +230,12 @@ export default function SettingsScreen() {
                   <View style={flattenStyle([styles.menuIconContainer, { backgroundColor: "#10B98115" }])}>
                     <Globe size={18} color="#10B981" />
                   </View>
-                  <Text className={`font-semibold text-sm ml-3 ${themeClasses.text}`}>Språk</Text>
+                  <Text className={`font-semibold text-sm ml-3 ${themeClasses.text}`}>{t('settings.language')}</Text>
                 </HStack>
                 
-                <Select value={language} onValueChange={setLanguage}>
+                <Select selectedValue={language} onValueChange={(val) => setLanguage(val as any)}>
                   <SelectTrigger variant="outline" size="sm" style={{ borderWidth: 0 }}>
-                    <SelectInput placeholder="Velg språk" className={themeClasses.text} />
+                    <SelectInput placeholder={t('settings.language')} className={themeClasses.text} />
                     <SelectIcon className="mr-3" as={ChevronDownIcon} />
                   </SelectTrigger>
                   <SelectPortal>
@@ -243,8 +244,8 @@ export default function SettingsScreen() {
                       <SelectDragIndicatorWrapper>
                         <SelectDragIndicator />
                       </SelectDragIndicatorWrapper>
-                      <SelectItem label="Norsk" value="norsk" />
-                      <SelectItem label="Engelsk" value="engelsk" />
+                      <SelectItem label={t('settings.languageNo') || 'Norsk'} value="no" />
+                      <SelectItem label={t('settings.languageEn') || 'English'} value="en" />
                     </SelectContent>
                   </SelectPortal>
                 </Select>
@@ -256,13 +257,13 @@ export default function SettingsScreen() {
         {/* Connections Section */}
         <View style={styles.section}>
           <Heading className={`text-xs font-bold uppercase tracking-widest mb-3 ${themeClasses.textMuted}`}>
-            Apper & Data
+            {t("settings.gdpr").toUpperCase()}
           </Heading>
           <Card className={`p-0 overflow-hidden ${themeClasses.cardBg}`} style={styles.card}>
             <View style={styles.menuItemPadding}>
               <MenuRow 
                 icon={Link2} 
-                label="Tilkoblede apper" 
+                label={t("settings.sync")}
                 value="Strava, Health"
                 onPress={() => router.push("/(tabs)/settings/connected-apps")} 
               />
@@ -273,21 +274,21 @@ export default function SettingsScreen() {
         {/* More Section */}
         <View style={styles.section}>
           <Heading className={`text-xs font-bold uppercase tracking-widest mb-3 ${themeClasses.textMuted}`}>
-            Mer
+            {t("common.more")}
           </Heading>
           <Card className={`p-0 overflow-hidden ${themeClasses.cardBg}`} style={styles.card}>
             <View style={styles.menuItemPadding}>
-              <MenuRow icon={Palette} label="Utseende" onPress={() => router.push("/(tabs)/settings/appearance")} />
+              <MenuRow icon={Palette} label={t("settings.appearance")} onPress={() => router.push("/(tabs)/settings/appearance")} />
               <View style={flattenStyle([styles.divider, { backgroundColor: isDark ? "#1F2937" : "#E5E7EB" }])} />
-              <MenuRow icon={Sliders} label="Preferanser" onPress={() => router.push("/(tabs)/settings/preferences")} />
+              <MenuRow icon={Sliders} label={t("settings.preferences")} onPress={() => router.push("/(tabs)/settings/preferences")} />
               <View style={flattenStyle([styles.divider, { backgroundColor: isDark ? "#1F2937" : "#E5E7EB" }])} />
-              <MenuRow icon={Shield} label="Personvern" onPress={() => router.push("/(tabs)/settings/privacy")} />
+              <MenuRow icon={Shield} label={t("privacy.title")} onPress={() => router.push("/(tabs)/settings/privacy")} />
               <View style={flattenStyle([styles.divider, { backgroundColor: isDark ? "#1F2937" : "#E5E7EB" }])} />
-              <MenuRow icon={Activity} label="Trening" onPress={() => router.push("/(tabs)/settings/training")} />
+              <MenuRow icon={Activity} label={t("settings.training")} onPress={() => router.push("/(tabs)/settings/training")} />
               <View style={flattenStyle([styles.divider, { backgroundColor: isDark ? "#1F2937" : "#E5E7EB" }])} />
-              <MenuRow icon={Bell} label="Varsler" onPress={() => router.push("/(tabs)/settings/notifications")} />
+              <MenuRow icon={Bell} label={t("notif.title")} onPress={() => router.push("/(tabs)/settings/notifications")} />
               <View style={flattenStyle([styles.divider, { backgroundColor: isDark ? "#1F2937" : "#E5E7EB" }])} />
-              <MenuRow icon={HelpCircle} label="Hjelp & Support" onPress={() => router.push("/(tabs)/settings/help")} />
+              <MenuRow icon={HelpCircle} label={t("help.title")} onPress={() => router.push("/(tabs)/settings/help")} />
             </View>
           </Card>
         </View>
@@ -296,7 +297,7 @@ export default function SettingsScreen() {
         {isAdmin && (
           <View style={styles.section}>
             <Heading className={`text-xs font-bold uppercase tracking-widest mb-3 ${themeClasses.textMuted}`}>
-              Administrator
+              {t("settings.administrator")}
             </Heading>
             <Card className={`p-0 overflow-hidden ${themeClasses.cardBg}`} style={styles.card}>
               <View style={styles.menuItemPadding}>
@@ -305,7 +306,7 @@ export default function SettingsScreen() {
                     <View style={flattenStyle([styles.menuIconContainer, { backgroundColor: "#6366f115" }])}>
                       <ShieldAlert size={18} color="#6366f1" />
                     </View>
-                    <Text className={`font-semibold text-sm ml-3 ${themeClasses.text}`}>Admin modus</Text>
+                    <Text className={`font-semibold text-sm ml-3 ${themeClasses.text}`}>{t("settings.adminMode")}</Text>
                   </HStack>
                   <Switch 
                     value={adminMode} 
@@ -325,7 +326,7 @@ export default function SettingsScreen() {
             <View style={styles.menuItemPadding}>
               <MenuRow 
                 icon={LogOut} 
-                label="Logg ut" 
+                label={t("settings.signOut")}
                 iconColor="#EF4444" 
                 destructive
                 showChevron={false}
@@ -336,7 +337,7 @@ export default function SettingsScreen() {
         </View>
 
         <Text className={`text-center text-xs mt-4 mb-8 ${themeClasses.textMuted}`}>
-          Versjon 1.0.0 (Build 42)
+          {t("settings.version")} 1.0.0 ({t("settings.build")} 42)
         </Text>
       </ScrollView>
 
@@ -348,11 +349,11 @@ export default function SettingsScreen() {
         <AlertDialogBackdrop />
         <AlertDialogContent className={isDark ? "bg-background-900" : "bg-background-0"}>
           <AlertDialogHeader>
-            <Heading size="md" className={themeClasses.text}>Logg ut</Heading>
+            <Heading size="md" className={themeClasses.text}>{t("settings.signOut")}</Heading>
           </AlertDialogHeader>
           <AlertDialogBody>
             <Text className={themeClasses.textMuted}>
-              Er du sikker på at du vil logge ut? Du må logge inn på nytt for å se dine data.
+              {t("settings.signOutConfirm")}
             </Text>
           </AlertDialogBody>
           <AlertDialogFooter className="mt-4">
@@ -362,10 +363,10 @@ export default function SettingsScreen() {
               onPress={() => setShowLogoutAlertDialog(false)}
               className="mr-2"
             >
-              <ButtonText>Avbryt</ButtonText>
+              <ButtonText>{t("common.cancel")}</ButtonText>
             </Button>
             <Button action="negative" onPress={handleLogout}>
-              <ButtonText>Logg ut</ButtonText>
+              <ButtonText>{t("settings.signOut")}</ButtonText>
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

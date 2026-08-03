@@ -22,10 +22,12 @@ import {
 } from "lucide-react-native";
 import { fetchPeaks, Peak } from "@/services/peakDbService";
 import useColorScheme from "@/hooks/useColorScheme";
+import { useLanguage } from "@/context/LanguageContext";
 
 export default function MapScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
+  const { t } = useLanguage();
 
   const [loading, setLoading] = useState(true);
   const [peaks, setPeaks] = useState<Peak[]>([]);
@@ -40,7 +42,7 @@ export default function MapScreen() {
       setPeaks(data);
     } catch (err) {
       console.error("Error fetching peaks in MapScreen Web", err);
-      setError("Kunne ikke laste toppturer.");
+      setError(t('map.noPeaks'));
     } finally {
       setLoading(false);
     }
@@ -81,7 +83,7 @@ export default function MapScreen() {
               onPress={() => loadPeaks()}
               style={{ backgroundColor: '#EF4444', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 }}
             >
-              <Text className="text-white font-bold">Prøv igjen</Text>
+              <Text className="text-white font-bold">{t('syncStatus.retry')}</Text>
             </TouchableOpacity>
           </VStack>
         </Card>
@@ -92,8 +94,8 @@ export default function MapScreen() {
             <MapIcon size={22} color="#10B981" />
           </View>
           <VStack>
-            <Heading className={`text-xl font-extrabold ${themeClasses.text}`}>Toppturer & Kart</Heading>
-            <Text className={`text-xs ${themeClasses.textMuted}`}>Utforsk {peaks.length} fantastiske topper i Norge</Text>
+            <Heading className={`text-xl font-extrabold ${themeClasses.text}`}>{t('nav.map')}</Heading>
+            <Text className={`text-xs ${themeClasses.textMuted}`}>{t('mapTutorial.welcomeDesc')}</Text>
           </VStack>
         </HStack>
       </View>
@@ -101,14 +103,14 @@ export default function MapScreen() {
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.webContentContainer}>
         <View style={RNStyleSheet.flatten([styles.webMapPlaceholder, { backgroundColor: isDark ? "#1F2937" : "#F3F4F6" }])}>
           <Globe size={48} color="#10B981" style={{ marginBottom: 12 }} />
-          <Text className={`font-bold text-center text-lg ${themeClasses.text}`}>Interaktivt Kart</Text>
+          <Text className={`font-bold text-center text-lg ${themeClasses.text}`}>{t('mapTutorial.mapView')}</Text>
           <Text className={`text-center max-w-md px-6 text-sm mt-1 ${themeClasses.textMuted}`}>
-            Nativt kart er fullt integrert på iOS og Android! Her ser du listen over tilgjengelige topper i databasen:
+            {t('mapTutorial.mapViewDesc')}
           </Text>
         </View>
 
         <Heading className={`text-lg font-bold mb-3 mt-6 px-4 ${themeClasses.text}`}>
-          Topper i nærheten
+          {t('map.tab.peaks')}
         </Heading>
         <VStack style={styles.webList} className="px-4">
           {peaks.map((peak) => (
@@ -159,7 +161,7 @@ export default function MapScreen() {
           <TouchableOpacity style={styles.checkinBtn} activeOpacity={0.8}>
             <HStack style={styles.checkinBtnContent}>
               <CheckCircle size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-              <Text style={styles.checkinBtnText}>Registrer innsjekk her</Text>
+              <Text style={styles.checkinBtnText}>{t('map.checkin')}</Text>
             </HStack>
           </TouchableOpacity>
         </View>

@@ -20,6 +20,7 @@ import { HStack } from "@/components/ui/hstack";
 import { Mail, ArrowLeft, Send } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import useColorScheme from "@/hooks/useColorScheme";
+import { useLanguage } from "@/context/LanguageContext";
 
 const { height } = Dimensions.get("window");
 
@@ -30,10 +31,11 @@ export default function ForgotPasswordScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
+  const { t, language } = useLanguage();
 
   const handleResetRequest = async () => {
     if (!email) {
-      setError("Vennligst oppgi din e-postadresse");
+      setError(t("auth.provideEmail"));
       return;
     }
 
@@ -59,13 +61,12 @@ export default function ForgotPasswordScreen() {
 
       if (error) throw error;
 
-      Alert.alert(
-        "E-post sendt",
-        "En lenke for å tilbakestille passordet er sendt til din e-postadresse.",
-        [{ text: "OK", onPress: () => router.push("/login") }]
-      );
+      Alert.alert(t("auth.emailSent"), t("auth.resetLinkSent"), [{
+        text: t("common.ok"),
+        onPress: () => router.push("/login")
+      }]);
     } catch (err: any) {
-      setError(err.message || "Kunne ikke sende forespørsel");
+      setError(err.message || t("auth.errorSendRequest"));
     } finally {
       setLoading(false);
     }
@@ -98,10 +99,10 @@ export default function ForgotPasswordScreen() {
               <Mail size={40} color="#FFFFFF" />
             </View>
             <Heading size="3xl" className="text-white font-extrabold text-center">
-              Glemt passord?
+              {t("auth.forgotPassword")}
             </Heading>
             <Text className="text-white/80 text-center text-lg">
-              Vi hjelper deg med å få tilgang igjen
+              {t("auth.regainAccess")}
             </Text>
           </VStack>
         </ImageBackground>
@@ -110,19 +111,19 @@ export default function ForgotPasswordScreen() {
           <VStack space="xl">
             <VStack space="md">
               <Text className={isDark ? "text-white/70" : "text-typography-500"}>
-                Oppgi e-postadressen din, så sender vi deg en lenke for å velge et nytt passord.
+                {t("auth.enterEmailReset")}
               </Text>
               
               <VStack space="xs">
                 <Text className={`font-medium ${isDark ? "text-white/90" : "text-typography-700"}`}>
-                  E-post
+                  {t("auth.email")}
                 </Text>
                 <Input size="lg" className={isDark ? "border-outline-700" : "border-outline-200"}>
                   <InputSlot className="pl-3">
                     <InputIcon as={Mail} color={isDark ? "#FFFFFF" : "#6B7280"} />
                   </InputSlot>
                   <InputField
-                    placeholder="Din e-post"
+                    placeholder={t("auth.emailPlaceholder")}
                     placeholderTextColor={isDark ? "#9CA3AF" : "#9CA3AF"}
                     value={email}
                     onChangeText={setEmail}
@@ -149,7 +150,7 @@ export default function ForgotPasswordScreen() {
               >
                 {loading ? <ButtonSpinner /> : (
                   <>
-                    <ButtonText className="text-white font-bold text-lg">Send lenke</ButtonText>
+                    <ButtonText className="text-white font-bold text-lg">{t("auth.sendLink")}</ButtonText>
                   </>
                 )}
               </Button>
@@ -157,9 +158,9 @@ export default function ForgotPasswordScreen() {
               <TouchableOpacity onPress={() => router.push("/login")} disabled={loading}>
                 <HStack space="xs" className="justify-center items-center py-2">
                   <Text className={isDark ? "text-white/70" : "text-typography-500"}>
-                    Husker du passordet?
+                    {t("auth.rememberPassword")}
                   </Text>
-                  <Text className="text-emerald-500 font-bold">Logg inn</Text>
+                  <Text className="text-emerald-500 font-bold">{t("settings.signIn")}</Text>
                 </HStack>
               </TouchableOpacity>
             </VStack>

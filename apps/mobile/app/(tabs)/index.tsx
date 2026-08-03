@@ -15,17 +15,14 @@ import { computeMonthWheelData, computeYearWheelData, computeYearPrognosisData }
 import useColorScheme from "@/hooks/useColorScheme";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useAuth } from "@/hooks/useAuth";
+import { useLanguage } from "@/context/LanguageContext";
+import { formatNumber } from "@/utils/locale";
 import ProgressWheel from "@/components/ProgressWheel";
 import Last7Days from "@/components/Last7Days";
 import GoalGraph from "@/components/GoalGraph";
 import { WorkoutModal } from "@/components/WorkoutModal";
 import { flattenStyle } from "@/utils/flatten-style";
 import { OtherGoalCard } from "@/components/goals/OtherGoalCard";
-
-const MONTH_NAMES = [
-  "Januar", "Februar", "Mars", "April", "Mai", "Juni", 
-  "Juli", "August", "September", "Oktober", "November", "Desember"
-];
 
 /**
  * Returns a Date object for the start of the week (Monday) at 00:00:00.000
@@ -44,6 +41,7 @@ export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const { user, profile, loading: authLoading } = useAuth();
+  const { language, t } = useLanguage();
   const [isAdmin, setIsAdmin] = useState(false);
 
   const [loading, setLoading] = useState(false);
@@ -58,9 +56,9 @@ export default function HomeScreen() {
   const goToTrainingGoals = useCallback(() => {
     router.push({
       pathname: '/training',
-      params: { tab: 'mål' }
+      params: { tab: 'goals' }
     });
-  }, [router]);
+  }, [router, t]);
 
   const now = new Date();
   const currentMonth = now.getMonth();
@@ -91,7 +89,7 @@ export default function HomeScreen() {
       console.log("[HomeScreen] state updated");
     } catch (err) {
       console.error("[HomeScreen] Failed loading data", err);
-      setError("Kunne ikke hente data. Sjekk tilkoblingen din.");
+      setError(t("syncStatus.failed"));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -131,11 +129,11 @@ export default function HomeScreen() {
   );
 
   const monthData = useMemo(() => 
-    computeMonthWheelData(periods, sessions, selectedMonth, selectedYear, now, "økter"),
+    computeMonthWheelData(periods, sessions, selectedMonth, selectedYear, now, t("metric.sessions")),
   [periods, sessions, selectedMonth, selectedYear]);
 
   const yearData = useMemo(() => 
-    computeYearWheelData(periods, sessions, currentYear, now, "økter"),
+    computeYearWheelData(periods, sessions, currentYear, now, t("metric.sessions")),
   [periods, sessions, currentYear]);
 
   const yearPrognosisData = useMemo(() => 
@@ -189,8 +187,8 @@ export default function HomeScreen() {
   const formatTime = (minutes: number) => {
     const h = Math.floor(minutes / 60);
     const m = minutes % 60;
-    if (h === 0) return `${m} min`;
-    return `${h} t ${m} min`;
+    if (h === 0) return `${m} ${t("workout.min")}`;
+    return `${h} ${t("workout.h")} ${m} ${t("workout.min")}`;
   };
 
   if (loading) {
@@ -232,7 +230,7 @@ export default function HomeScreen() {
                   onPress={() => loadData(true)}
                   style={{ backgroundColor: '#EF4444', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 }}
                 >
-                  <Text className="text-white font-bold">Prøv igjen</Text>
+                  <Text className="text-white font-bold">{t("syncStatus.retry")}</Text>
                 </TouchableOpacity>
               </VStack>
             </Card>
@@ -264,26 +262,26 @@ export default function HomeScreen() {
         {isAdmin && profile?.adminMode && (
           <HStack style={styles.reportButtons}>
             <TouchableOpacity style={flattenStyle([styles.reportBtn, { backgroundColor: theme.card, borderColor: theme.border }])}>
-              <Text style={flattenStyle([styles.reportBtnText, { color: theme.text }])}>Se ukesrapport</Text>
+              <Text style={flattenStyle([styles.reportBtnText, { color: theme.text }])}>{t("reportPrompt.viewReport")}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={flattenStyle([styles.reportBtn, { backgroundColor: theme.card, borderColor: theme.border }])}>
-              <Text style={flattenStyle([styles.reportBtnText, { color: theme.text }])}>Se månedsrapport</Text>
+              <Text style={flattenStyle([styles.reportBtnText, { color: theme.text }])}>{t("reportPrompt.viewReport")}</Text>
             </TouchableOpacity>
           </HStack>
         )}
 
         {/* Training Goals Section */}
         <View style={styles.section}>
-          <Text style={flattenStyle([styles.sectionTitle, { color: theme.textMuted }])}>TRENINGSMÅL</Text>
+          <Text style={flattenStyle([styles.sectionTitle, { color: theme.textMuted }])}>{t("home.trainingGoals").toUpperCase()}</Text>
           <Card style={flattenStyle([styles.goalsCard, { backgroundColor: theme.card, borderColor: theme.border }])}>
             <HStack style={styles.goalsRow}>
               <View style={{ flex: 1 }}>
                 <ProgressWheel 
-                  title={`${MONTH_NAMES[selectedMonth]}${selectedYear !== currentYear ? ' ' + selectedYear : ''}`}
+                  title={`${t("month." + selectedMonth)}${selectedYear !== currentYear ? ' ' + selectedYear : ''}`}
                   percent={monthData.percent}
                   current={monthData.current}
                   target={monthData.target}
-                  unit="økter"
+                  unit={t("metric.sessions")}
                   hasGoal={monthData.target > 0}
                   expectedFraction={monthData.expectedFraction}
                   paceDiff={monthData.diff}
@@ -297,10 +295,10 @@ export default function HomeScreen() {
                   percent={yearPrognosisData.percent}
                   current={yearPrognosisData.current}
                   target={yearPrognosisData.prognosis}
-                  unit="økter"
+                  unit={t("metric.sessions")}
                   hasGoal={true}
                   customColor={yearPrognosisData.color}
-                  customPaceLabel={yearPrognosisData.label}
+                  customPaceLabel={t("wheel.prognosisLabel", { n: yearPrognosisData.prognosis })}
                   showTodayIndicator={false}
                   isDark={isDark}
                   onPress={goToTrainingGoals}
@@ -313,7 +311,7 @@ export default function HomeScreen() {
         {/* Extra Goals Section - Only if any are marked for home */}
         {homeExtraGoals.length > 0 && (
           <View style={styles.section}>
-            <Text style={flattenStyle([styles.sectionTitle, { color: theme.textMuted }])}>ANDRE AKTIVE MÅL</Text>
+            <Text style={flattenStyle([styles.sectionTitle, { color: theme.textMuted }])}>{t("goals.otherGoals").toUpperCase()}</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 12 }}>
               {homeExtraGoals.map((goal) => (
                 <OtherGoalCard
@@ -322,7 +320,7 @@ export default function HomeScreen() {
                   sessions={sessions}
                   onPress={() => router.push({
                     pathname: '/training',
-                    params: { tab: 'mål' }
+                    params: { tab: 'goals' }
                   })}
                   onToggleHome={handleToggleExtraHome}
                   // No archive/delete on home screen for simplicity
@@ -336,13 +334,13 @@ export default function HomeScreen() {
 
         {/* Last 7 Days Section */}
         <View style={styles.section}>
-          <Text style={flattenStyle([styles.sectionTitle, { color: theme.textMuted }])}>SISTE 7 DAGER</Text>
+          <Text style={flattenStyle([styles.sectionTitle, { color: theme.textMuted }])}>{t("home.last7days").toUpperCase()}</Text>
           <Last7Days sessions={sessions} isDark={isDark} />
         </View>
 
         {/* Statistics Section */}
         <View style={styles.section}>
-          <Text style={flattenStyle([styles.sectionTitle, { color: theme.textMuted }])}>STATISTIKK</Text>
+          <Text style={flattenStyle([styles.sectionTitle, { color: theme.textMuted }])}>{t("home.statistics").toUpperCase()}</Text>
           <View style={styles.statsTabsContainer}>
             <HStack style={styles.statsTabs}>
               <TouchableOpacity 
@@ -350,7 +348,7 @@ export default function HomeScreen() {
                 style={flattenStyle([styles.statsTabBtn, statsPeriod === 'week' && { borderBottomColor: theme.text }])}
               >
                 <Text style={flattenStyle([styles.statsTab, { color: statsPeriod === 'week' ? theme.text : theme.textMuted }])}>
-                  DENNE UKEN
+                  {t("home.thisWeek").toUpperCase()}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity 
@@ -358,7 +356,7 @@ export default function HomeScreen() {
                 style={flattenStyle([styles.statsTabBtn, statsPeriod === 'month' && { borderBottomColor: theme.text }])}
               >
                 <Text style={flattenStyle([styles.statsTab, { color: statsPeriod === 'month' ? theme.text : theme.textMuted }])}>
-                  DENNE MÅNEDEN
+                  {t("home.thisMonth").toUpperCase()}
                 </Text>
               </TouchableOpacity>
             </HStack>
@@ -368,30 +366,30 @@ export default function HomeScreen() {
             <Card style={flattenStyle([styles.statItem, { backgroundColor: theme.card, borderColor: theme.border }])}>
               <HStack style={{ alignItems: 'center', gap: 6, marginBottom: 8 }}>
                 <Activity size={14} color="#6366f1" />
-                <Text style={flattenStyle([styles.statLabel, { color: theme.textMuted, marginBottom: 0 }])}>ØKTER</Text>
+                <Text style={flattenStyle([styles.statLabel, { color: theme.textMuted, marginBottom: 0 }])}>{t("stats.sessions").toUpperCase()}</Text>
               </HStack>
               <Text style={flattenStyle([styles.statValue, { color: theme.text }])}>{stats.totalSessions}</Text>
             </Card>
             <Card style={flattenStyle([styles.statItem, { backgroundColor: theme.card, borderColor: theme.border }])}>
               <HStack style={{ alignItems: 'center', gap: 6, marginBottom: 8 }}>
                 <Clock size={14} color="#06b6d4" />
-                <Text style={flattenStyle([styles.statLabel, { color: theme.textMuted, marginBottom: 0 }])}>TID</Text>
+                <Text style={flattenStyle([styles.statLabel, { color: theme.textMuted, marginBottom: 0 }])}>{t("stats.time").toUpperCase()}</Text>
               </HStack>
               <Text style={flattenStyle([styles.statValue, { color: theme.text }])}>{formatTime(stats.totalMinutes)}</Text>
             </Card>
             <Card style={flattenStyle([styles.statItem, { backgroundColor: theme.card, borderColor: theme.border }])}>
               <HStack style={{ alignItems: 'center', gap: 6, marginBottom: 8 }}>
                 <MapPin size={14} color="#10b981" />
-                <Text style={flattenStyle([styles.statLabel, { color: theme.textMuted, marginBottom: 0 }])}>DISTANSE</Text>
+                <Text style={flattenStyle([styles.statLabel, { color: theme.textMuted, marginBottom: 0 }])}>{t("stats.distance").toUpperCase()}</Text>
               </HStack>
-              <Text style={flattenStyle([styles.statValue, { color: theme.text }])}>{stats.totalDistance.toFixed(1)} km</Text>
+              <Text style={flattenStyle([styles.statValue, { color: theme.text }])}>{formatNumber(stats.totalDistance, language, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} {t("metric.distance")}</Text>
             </Card>
             <Card style={flattenStyle([styles.statItem, { backgroundColor: theme.card, borderColor: theme.border }])}>
               <HStack style={{ alignItems: 'center', gap: 6, marginBottom: 8 }}>
                 <TrendingUp size={14} color="#f59e0b" />
-                <Text style={flattenStyle([styles.statLabel, { color: theme.textMuted, marginBottom: 0 }])}>HØYDEMETER</Text>
+                <Text style={flattenStyle([styles.statLabel, { color: theme.textMuted, marginBottom: 0 }])}>{t("stats.elevation").toUpperCase()}</Text>
               </HStack>
-              <Text style={flattenStyle([styles.statValue, { color: theme.text }])}>{Math.round(stats.totalElevation)} m</Text>
+              <Text style={flattenStyle([styles.statValue, { color: theme.text }])}>{Math.round(stats.totalElevation)} {t("metric.elevation")}</Text>
             </Card>
           </View>
         </View>

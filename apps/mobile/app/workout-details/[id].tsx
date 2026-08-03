@@ -53,6 +53,7 @@ import { decodePolyline } from '@/utils/polyline';
 import { flattenStyle } from '@/utils/flatten-style';
 import useColorScheme from '@/hooks/useColorScheme';
 import { WorkoutModal } from '@/components/WorkoutModal';
+import { useLanguage } from '@/context/LanguageContext';
 import Constants from "expo-constants";
 
 let Mapbox: any = null;
@@ -129,6 +130,7 @@ const Chart = ({
   durationMinutes?: number,
   isDrawerMinimized?: boolean;
 }) => {
+  const { t } = useLanguage();
   const chartHeight = 200;
   const chartWidth = width - 32;
   const padding = 15;
@@ -176,10 +178,10 @@ const Chart = ({
   }, [durationMinutes]);
 
   const formatTime = (minutes: number) => {
-    if (minutes < 60) return `${minutes}m`;
+    if (minutes < 60) return `${minutes}${t('workout.min').charAt(0)}`;
     const h = Math.floor(minutes / 60);
     const m = minutes % 60;
-    return m === 0 ? `${h}t` : `${h}:${m.toString().padStart(2, '0')}`;
+    return m === 0 ? `${h}${t('workout.h')}` : `${h}:${m.toString().padStart(2, '0')}`;
   };
 
   const handleInteraction = useCallback((x: number) => {
@@ -218,8 +220,8 @@ const Chart = ({
       <HStack style={{ justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 4 }}>
         <Text style={styles.chartTitle}>{label}</Text>
         <HStack space="md">
-          {avgValue && <Text style={styles.chartMeta}>Snitt: {avgValue}{unit}</Text>}
-          {maxValue && <Text style={styles.chartMeta}>Maks: {maxValue}{unit}</Text>}
+          {avgValue && <Text style={styles.chartMeta}>{t("common.average")}: {avgValue}{unit}</Text>}
+          {maxValue && <Text style={styles.chartMeta}>{t("common.max")}: {maxValue}{unit}</Text>}
         </HStack>
       </HStack>
       
@@ -335,6 +337,7 @@ export default function WorkoutDetailsPage() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const { t } = useLanguage();
   const mapRef = useRef<MapView | null>(null);
   const mapboxCameraRef = useRef<any>(null);
 
@@ -529,12 +532,12 @@ export default function WorkoutDetailsPage() {
   const handleDelete = async () => {
     if (!session) return;
     Alert.alert(
-      "Slett økt",
-      "Er du sikker på at du vil slette denne økten?",
+      t("workoutDetail.delete"),
+      t("workoutDetail.confirmDeleteDesc", { name: session.title || t("activity." + session.type.toLowerCase()) }),
       [
-        { text: "Avbryt", style: "cancel" },
+        { text: t("common.cancel"), style: "cancel" },
         { 
-          text: "Slett", 
+          text: t("common.delete"),
           style: "destructive",
           onPress: async () => {
             try {
@@ -560,29 +563,40 @@ export default function WorkoutDetailsPage() {
   if (!session) {
     return (
       <View style={flattenStyle([styles.centered, isDark ? styles.bgDark : styles.bgLight])}>
-        <Text>Kunne ikke finne økten.</Text>
+        <Text>{t("training.noSessionsFound")}</Text>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={{ color: '#10B981' }}>Gå tilbake</Text>
+          <Text style={{ color: '#10B981' }}>{t("workout.cancel")}</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-  const formattedDate = new Date(session.date).toLocaleDateString('no-NO', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric'
-  });
-  const displayDate = formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1);
+  const displayDate = useMemo(() => {
+    const dateObj = new Date(session.date);
+    const weekdayKey = `weekday.long.${["sun", "mon", "tue", "wed", "thu", "fri", "sat"][dateObj.getDay()]}`;
+    const monthKey = `month.${dateObj.getMonth()}`;
+    const formatted = `${t(weekdayKey)}, ${dateObj.getDate()}. ${t(monthKey)} ${dateObj.getFullYear()}`;
+    return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+  }, [session.date, t]);
 
-  const durationText = session.durationMinutes >= 60
-    ? `${Math.floor(session.durationMinutes / 60)} t ${session.durationMinutes % 60} min`
-    : `${session.durationMinutes} min`;
+  const durationText = useMemo(() => {
+    if (session.durationMinutes >= 60) {
+      const h = Math.floor(session.durationMinutes / 60);
+      const m = session.durationMinutes % 60;
+      return `${h} ${t("workout.h")} ${m} ${t("workout.min")}`;
+    }
+    return `${session.durationMinutes} ${t("workout.min")}`;
+  }, [session.durationMinutes, t]);
 
-  const pace = session.distance && session.durationMinutes > 0
-    ? `${Math.floor(session.durationMinutes / session.distance)}:${Math.round(((session.durationMinutes / session.distance) % 1) * 60).toString().padStart(2, '0')} /km`
-    : '--:-- /km';
+  const pace = useMemo(() => {
+    if (session.distance && session.durationMinutes > 0) {
+      const minPerKm = session.durationMinutes / session.distance;
+      const mins = Math.floor(minPerKm);
+      const secs = Math.round((minPerKm % 1) * 60);
+      return `${mins}:${secs.toString().padStart(2, '0')} /km`;
+    }
+    return `--:-- /km`;
+  }, [session.distance, session.durationMinutes]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -695,7 +709,7 @@ export default function WorkoutDetailsPage() {
             ) : (
               <View style={styles.mapPlaceholder}>
                 <MapPin size={48} color="#D1D5DB" />
-                <Text>Kart utilgjengelig på web</Text>
+                <Text>{t("workoutDetail.mapUnavailableWeb")}</Text>
               </View>
             )}
           </Animated.View>
@@ -724,9 +738,11 @@ export default function WorkoutDetailsPage() {
                     </View>
                     <HStack style={{ flex: 1, alignItems: 'stretch', justifyContent: 'space-between' }}>
                       <VStack style={{ flex: 1 }}>
-                        <Heading size="lg" numberOfLines={1}>
-                          {session.title || session.type.charAt(0).toUpperCase() + session.type.slice(1)}
-                        </Heading>
+                        <HStack space="xs" className="items-center">
+                          <Heading size="lg" numberOfLines={1}>
+                            {session.title || t("activity." + session.type.toLowerCase())}
+                          </Heading>
+                        </HStack>
                         <Text style={styles.dateText}>{displayDate}</Text>
                       </VStack>
                       <VStack style={{ alignItems: 'flex-end', justifyContent: 'space-between' }}>
@@ -741,7 +757,7 @@ export default function WorkoutDetailsPage() {
                           }])}
                         >
                           <BadgeText style={{ color: activityColors?.text, fontSize: 10, fontWeight: '700' }}>
-                            {session.type.charAt(0).toUpperCase() + session.type.slice(1)}
+                            {t("activity." + session.type.toLowerCase())}
                           </BadgeText>
                         </Badge>
                         <View style={{ flex: 1, minHeight: 8 }} />
@@ -774,30 +790,30 @@ export default function WorkoutDetailsPage() {
                 <View style={flattenStyle([styles.statCard, isDark ? styles.cardDark : styles.cardLight])}>
                   <HStack space="xs" style={styles.statHeader}>
                     <Clock size={12} color="#9CA3AF" />
-                    <Text style={styles.statLabel}>Varighet</Text>
+                    <Text style={styles.statLabel}>{t("workout.duration")}</Text>
                   </HStack>
                   <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>{durationText}</Text>
                 </View>
                 <View style={flattenStyle([styles.statCard, isDark ? styles.cardDark : styles.cardLight])}>
                   <HStack space="xs" style={styles.statHeader}>
                     <MapPin size={12} color="#9CA3AF" />
-                    <Text style={styles.statLabel}>Distanse</Text>
+                    <Text style={styles.statLabel}>{t("workout.distance")}</Text>
                   </HStack>
-                  <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>{session.distance || 0} km</Text>
+                  <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>{session.distance || 0} {t("metric.distance")}</Text>
                 </View>
                 <View style={flattenStyle([styles.statCard, isDark ? styles.cardDark : styles.cardLight])}>
                   <HStack space="xs" style={styles.statHeader}>
                     <Mountain size={12} color="#9CA3AF" />
-                    <Text style={styles.statLabel}>Høydemeter</Text>
+                    <Text style={styles.statLabel}>{t("workout.elevation")}</Text>
                   </HStack>
-                  <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>{session.elevationGain || 0} m</Text>
+                  <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>{session.elevationGain || 0} {t("metric.elevation")}</Text>
                 </View>
                 <View style={flattenStyle([styles.statCard, isDark ? styles.cardDark : styles.cardLight])}>
                   <HStack space="xs" style={styles.statHeader}>
                     <Activity size={12} color="#9CA3AF" />
-                    <Text style={styles.statLabel}>Tempo</Text>
+                    <Text style={styles.statLabel}>{t("records.fastest")}</Text>
                   </HStack>
-                  <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>{pace}</Text>
+                  <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>{pace}{t("metric.distance")}</Text>
                 </View>
                 <VStack 
                   style={flattenStyle([styles.statCard, isDark ? styles.cardDark : styles.cardLight])}
@@ -805,14 +821,14 @@ export default function WorkoutDetailsPage() {
                 >
                   <HStack space="xs" style={styles.statHeader}>
                     <Heart size={12} color="#9CA3AF" />
-                    <Text style={styles.statLabel}>Puls</Text>
+                    <Text style={styles.statLabel}>{t("health.heartRate") || "Puls"}</Text>
                   </HStack>
                   {session.averageHeartrate ? (
                     <VStack space="none" style={{ alignItems: 'center' }}>
                       <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>
                         {session.averageHeartrate} / {session.maxHeartrate || "--"}
                       </Text>
-                      <Text style={styles.statSubText}>snitt / maks</Text>
+                      <Text style={styles.statSubText}>{t("workoutDetail.avgMax")}</Text>
                     </VStack>
                   ) : (
                     <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>—</Text>
@@ -821,7 +837,7 @@ export default function WorkoutDetailsPage() {
                 <View style={flattenStyle([styles.statCard, isDark ? styles.cardDark : styles.cardLight])}>
                   <HStack space="xs" style={styles.statHeader}>
                     <Flame size={12} color="#9CA3AF" />
-                    <Text style={styles.statLabel}>Kalorier</Text>
+                    <Text style={styles.statLabel}>{t("workoutDetail.calories")}</Text>
                   </HStack>
                   <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>
                     {session.calories ? `${session.calories} kcal` : "—"}
@@ -836,7 +852,7 @@ export default function WorkoutDetailsPage() {
                     <Chart 
                       data={hrData} 
                       color="#EF4444" 
-                      label="Puls" 
+                      label={t("health.heartRate") || "Puls"}
                       unit=" bpm" 
                       isDark={isDark}
                       avgValue={session.averageHeartrate}
@@ -855,7 +871,7 @@ export default function WorkoutDetailsPage() {
                     >
                       <HStack space="sm" style={{ alignItems: 'center' }}>
                         {loadingHR ? <ActivityIndicator size="small" color="#EF4444" /> : <Heart size={16} color="#EF4444" />}
-                        <Text style={styles.loadChartText}>Vis pulsgraf</Text>
+                        <Text style={styles.loadChartText}>{t("workoutDetail.showHRChart") || "Vis pulsgraf"}</Text>
                       </HStack>
                     </TouchableOpacity>
                   )
@@ -866,8 +882,8 @@ export default function WorkoutDetailsPage() {
                     <Chart 
                       data={altitudeData} 
                       color="#10B981" 
-                      label="Høydeprofil" 
-                      unit="m" 
+                      label={t("workoutDetail.elevationProfile") || "Høydeprofil"}
+                      unit={t("metric.elevation")}
                       isDark={isDark}
                       avgValue={Math.round(altitudeData.reduce((acc, d) => acc + d.value, 0) / altitudeData.length)}
                       durationMinutes={session.durationMinutes}
@@ -884,7 +900,7 @@ export default function WorkoutDetailsPage() {
                     >
                       <HStack space="sm" style={{ alignItems: 'center' }}>
                         {loadingAlt ? <ActivityIndicator size="small" color="#10B981" /> : <Mountain size={16} color="#10B981" />}
-                        <Text style={styles.loadChartText}>Vis høydeprofil</Text>
+                        <Text style={styles.loadChartText}>{t("workoutDetail.showAltChart") || "Vis høydeprofil"}</Text>
                       </HStack>
                     </TouchableOpacity>
                   )
@@ -892,7 +908,7 @@ export default function WorkoutDetailsPage() {
 
                 {((showHRChart && hrData.length === 0) || (showAltChart && altitudeData.length === 0)) && !loadingHR && !loadingAlt && (
                   <View style={flattenStyle([styles.noDataBox, isDark ? styles.cardDark : styles.cardLight])}>
-                    <Text style={styles.noDataText}>Ingen detaljerte data tilgjengelig for denne økten</Text>
+                    <Text style={styles.noDataText}>{t("workoutDetail.noDetailedData") || "Ingen detaljerte data tilgjengelig for denne økten"}</Text>
                   </View>
                 )}
               </VStack>
@@ -901,7 +917,7 @@ export default function WorkoutDetailsPage() {
                 <VStack space="sm">
                   <HStack space="xs" style={{ alignItems: 'center' }}>
                     <Info size={16} color="#6B7280" />
-                    <Text style={styles.chartTitle}>Notater</Text>
+                    <Text style={styles.chartTitle}>{t("workout.notes")}</Text>
                   </HStack>
                   <View style={flattenStyle([styles.notesContainer, isDark ? styles.cardDark : styles.cardLight])}>
                     <Text style={styles.notesText}>{session.notes}</Text>

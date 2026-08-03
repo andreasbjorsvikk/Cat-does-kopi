@@ -1,4 +1,5 @@
 import { PrimaryGoalPeriod, GoalPeriod } from '@/types/workout';
+import type { PrimaryGoalPeriodType } from '@/utils/constants';
 import { supabase } from '@/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -119,7 +120,7 @@ function rowToPeriod(row: any): PrimaryGoalPeriod {
   return {
     id: row.id,
     userId: row.user_id || "",
-    inputPeriod: row.input_period as GoalPeriod,
+    inputPeriod: row.input_period as PrimaryGoalPeriodType,
     inputTarget: row.input_target,
     validFrom: row.valid_from,
     createdAt: row.created_at,

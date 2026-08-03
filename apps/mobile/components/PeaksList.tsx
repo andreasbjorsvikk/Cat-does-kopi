@@ -27,6 +27,7 @@ import useColorScheme from "@/hooks/useColorScheme";
 import { PeaksFilter, PeaksFilterSheet } from "./PeaksFilterSheet";
 import { getPeakColor } from "@/utils/peakIcons";
 import { flattenStyle } from "@/utils/flatten-style";
+import { useLanguage } from "@/context/LanguageContext";
 
 interface PeaksListProps {
   peaks: Peak[];
@@ -40,6 +41,7 @@ type StatusFilter = "all" | "reached" | "not_reached";
 
 export const PeaksList = ({ peaks, checkins, userLocation, onSelectPeak, loading }: PeaksListProps) => {
   const isDark = useColorScheme() === "dark";
+  const { t, locale } = useLanguage();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [showFilterSheet, setShowFiltersSheet] = useState(false);
@@ -104,9 +106,9 @@ export const PeaksList = ({ peaks, checkins, userLocation, onSelectPeak, loading
   }, [peaksWithDistance, statusFilter, searchQuery, activeFilters, checkedPeakIds]);
 
   const formatDistance = (meters: number) => {
-    if (meters < 1000) return `${Math.round(meters)} m`;
+    if (meters < 1000) return t('peaksList.awayM', { n: Math.round(meters) });
     const km = meters / 1000;
-    return `${km.toFixed(1).replace(".", ",")} km`;
+    return t('peaksList.awayKm', { n: km.toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) });
   };
 
   const hasActiveAdvancedFilters = 
@@ -154,11 +156,11 @@ export const PeaksList = ({ peaks, checkins, userLocation, onSelectPeak, loading
             {item.name}
           </Text>
           <Text size="xs" className="text-typography-500 dark:text-typography-400">
-            {item.heightMoh} moh · {item.municipality}, {item.county}
+            {item.heightMoh} {t('common.moh')} · {item.municipality}, {item.county}
           </Text>
           {item.distance !== null && (
             <Text size="xs" className="text-emerald-600 dark:text-emerald-400 font-medium">
-              {formatDistance(item.distance)} unna
+              {formatDistance(item.distance)}
             </Text>
           )}
         </VStack>
@@ -186,7 +188,7 @@ export const PeaksList = ({ peaks, checkins, userLocation, onSelectPeak, loading
               <Search size={18} color={isDark ? "#9CA3AF" : "#6B7280"} />
             </InputSlot>
             <InputField
-              placeholder="Søk etter topper..."
+              placeholder={t('peaksList.searchPlaceholder')}
               value={searchQuery}
               onChangeText={setSearchQuery}
               className={isDark ? "text-typography-50" : "text-typography-950"}
@@ -216,9 +218,9 @@ export const PeaksList = ({ peaks, checkins, userLocation, onSelectPeak, loading
         {/* Status Filter Pills */}
         <HStack style={{ gap: 8 }} className="px-4 py-3">
           {[
-            { id: "all", label: "Alle" },
-            { id: "reached", label: "Nådd" },
-            { id: "not_reached", label: "Ikke nådd" }
+            { id: "all", label: t('map.filter.all') },
+            { id: "reached", label: t('peaksList.reached') },
+            { id: "not_reached", label: t('peaksList.notReached') }
           ].map((f) => {
             const isSelected = statusFilter === f.id;
             return (
@@ -246,7 +248,7 @@ export const PeaksList = ({ peaks, checkins, userLocation, onSelectPeak, loading
           })}
           <View className="flex-1" />
           <Text size="xs" className="text-typography-400 dark:text-typography-500 self-center">
-            {filteredPeaks.length} topper
+            {filteredPeaks.length} {t('peaksList.peaks')}
           </Text>
         </HStack>
       </VStack>
@@ -255,7 +257,7 @@ export const PeaksList = ({ peaks, checkins, userLocation, onSelectPeak, loading
         {loading ? (
           <View className="flex-1 items-center justify-center">
             <ActivityIndicator size="large" color="#10B981" />
-            <Text className="mt-4 text-typography-500 dark:text-typography-400">Laster fjelltopper...</Text>
+            <Text className="mt-4 text-typography-500 dark:text-typography-400">{t('common.loading')}...</Text>
           </View>
         ) : (
           <FlatList
@@ -267,9 +269,13 @@ export const PeaksList = ({ peaks, checkins, userLocation, onSelectPeak, loading
             ListEmptyComponent={
               <VStack className="items-center justify-center py-20 px-10">
                 <Mountain size={48} color={isDark ? "#374151" : "#E5E7EB"} />
-                <Heading size="sm" className="mt-4 text-center dark:text-typography-50">Ingen topper funnet</Heading>
+                <Heading size="sm" className="mt-4 text-center dark:text-typography-50">
+                  {searchQuery
+                    ? (t('peaksList.noPeaksFoundFor', { query: searchQuery }) || `Ingen topper funnet for "${searchQuery}"`)
+                    : (t('peaksList.noPeaksFound') || "Ingen topper funnet")}
+                </Heading>
                 <Text size="sm" className="text-center text-typography-500 dark:text-typography-400 mt-2">
-                  Prøv å endre søket eller filtrene dine.
+                  {t('peaksList.changeFilter') || "Prøv å endre søket eller filtrene dine."}
                 </Text>
               </VStack>
             }

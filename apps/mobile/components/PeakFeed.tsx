@@ -20,6 +20,7 @@ import { MapPin, Calendar, Heart, Compass, Users, User, Mountain } from 'lucide-
 import useColorScheme from '@/hooks/useColorScheme';
 import { flattenStyle } from '@/utils/flatten-style';
 import { mapWmoCodeToEmoji } from '@/utils/weatherUtils';
+import { useLanguage } from '@/context/LanguageContext';
 
 export interface Participant {
   id: string;
@@ -51,6 +52,7 @@ type FeedFilter = 'alle' | 'venner' | 'mine';
 
 export function PeakFeed() {
   const isDark = useColorScheme() === 'dark';
+  const { t, locale } = useLanguage();
   const [feed, setFeed] = useState<GroupedFeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -155,7 +157,7 @@ export function PeakFeed() {
         const profile = profileMap.get(checkin.user_id);
         const child = childMap.get(checkin.user_id);
         
-        const name = profile?.username || child?.name || 'Fjellvandrer';
+        const name = profile?.username || child?.name || t('common.unknown');
         const avatar_url = profile?.avatar_url || child?.avatar_url || null;
         const is_child = !!child;
         const emoji = child?.emoji || null;
@@ -190,7 +192,7 @@ export function PeakFeed() {
           }
         } else {
           const peak = peakMap.get(String(checkin.peak_id));
-          const peakName = peak?.name_no || 'Ukjent Topp';
+          const peakName = peak?.name_no || t('common.unknown');
           const peakElevation = peak?.elevation_moh || 0;
           const peakMunicipality = peak?.municipality || '';
           const peakCounty = peak?.county || '';
@@ -198,7 +200,7 @@ export function PeakFeed() {
           const peakLongitude = peak?.longitude || 0;
 
           const parentProfile = profileMap.get(parentUserId);
-          const parentName = parentProfile?.username || 'Fjellvandrer';
+          const parentName = parentProfile?.username || t('common.unknown');
           const parentAvatarUrl = parentProfile?.avatar_url || null;
 
           const newGroup: GroupedFeedItem = {
@@ -259,19 +261,19 @@ export function PeakFeed() {
     yesterday.setDate(now.getDate() - 1);
     const isYesterday = date.toDateString() === yesterday.toDateString();
 
-    const timeStr = date.toLocaleTimeString('no-NO', {
+    const timeStr = date.toLocaleTimeString(locale, {
       hour: '2-digit',
       minute: '2-digit',
     });
 
     if (diffMins < 60) {
-      return `${diffMins} minutter siden`;
+      return t('notifications.minutesAgo', { n: diffMins }) || `${diffMins} minutter siden`;
     } else if (isToday) {
-      return `${diffHours} timer siden`;
+      return t('notifications.hoursAgo', { n: diffHours }) || `${diffHours} timer siden`;
     } else if (isYesterday) {
-      return `i går, kl. ${timeStr}`;
+      return `${t('peakFeed.yesterday')}, kl. ${timeStr}`;
     } else {
-      const dateStr = date.toLocaleDateString('no-NO', {
+      const dateStr = date.toLocaleDateString(locale, {
         day: '2-digit',
         month: 'short',
       });
@@ -339,7 +341,9 @@ export function PeakFeed() {
     const avatarUrl = item.parentAvatarUrl;
     const peakName = item.peakName;
     const elevation = item.peakElevation;
-    const location = `${item.peakMunicipality}${item.peakMunicipality && item.peakCounty ? ', ' : ''}${item.peakCounty}`;
+    const location = item.peakMunicipality === "Ukjent" || item.peakMunicipality === "Ukjent Topp"
+      ? t('common.unknown')
+      : `${item.peakMunicipality}${item.peakMunicipality && item.peakCounty ? ', ' : ''}${item.peakCounty}`;
     const weather = weatherData[item.peak_id];
 
     return (
@@ -377,7 +381,7 @@ export function PeakFeed() {
                     )}
                   </View>
                   <Text size="xs" className="text-typography-500 font-medium">
-                    {participant.name} var med
+                    {participant.name} {t('peakFeed.wasAlong')}
                   </Text>
                 </HStack>
               ))}
@@ -387,7 +391,7 @@ export function PeakFeed() {
           <HStack style={{ justifyContent: 'space-between', alignItems: 'flex-end' }}>
             <VStack style={{ gap: 1 }}>
               <Text style={{ fontSize: 11, color: isDark ? '#9CA3AF' : '#6B7280', fontWeight: '500' }}>
-                Sjekket inn på
+                {t('peakDetail.checkedInAt') || "Sjekket inn på"}
               </Text>
               <HStack style={{ alignItems: 'center', gap: 6 }}>
                 <Mountain size={18} color="#10B981" />
@@ -396,7 +400,7 @@ export function PeakFeed() {
                 </Text>
               </HStack>
               <Text style={{ fontSize: 11, color: isDark ? '#9CA3AF' : '#6B7280' }}>
-                {elevation} moh • {location}
+                {elevation} {t('common.moh') || 'moh'} • {location}
               </Text>
             </VStack>
 
@@ -422,7 +426,7 @@ export function PeakFeed() {
         <HStack style={styles.cardFooter}>
           <TouchableOpacity style={styles.footerAction} activeOpacity={0.7}>
             <Heart size={16} color={isDark ? '#9CA3AF' : '#4B5563'} />
-            <Text size="xs" className="text-typography-500 ml-1">Lik</Text>
+            <Text size="xs" className="text-typography-500 ml-1">{t('common.like')}</Text>
           </TouchableOpacity>
         </HStack>
       </Card>
@@ -438,9 +442,9 @@ export function PeakFeed() {
   }
 
   const filters: { key: FeedFilter; label: string }[] = [
-    { key: 'alle', label: 'Alle' },
-    { key: 'venner', label: 'Venner' },
-    { key: 'mine', label: 'Mine' }
+    { key: 'alle', label: t('common.all') },
+    { key: 'venner', label: t('common.friends') },
+    { key: 'mine', label: t('common.mine') }
   ];
 
   return (
@@ -492,10 +496,10 @@ export function PeakFeed() {
           <View style={styles.emptyContainer}>
             <Compass size={48} color={isDark ? '#4B5563' : '#9CA3AF'} />
             <Text className="text-typography-500 font-semibold mt-4 text-center">
-              Ingen innsjekkinger i feeden ennå
+              {t('peakFeed.noCheckins')}
             </Text>
             <Text size="xs" className="text-typography-400 mt-1 text-center max-w-[250px]">
-              Vær den første til å sjekke inn på en topp i nærheten og del turen din med andre!
+              {t('peakFeed.emptyState') || "Vær den første til å sjekke inn på en topp i nærheten og del turen din med andre!"}
             </Text>
           </View>
         }

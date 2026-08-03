@@ -20,6 +20,7 @@ import { HStack } from "@/components/ui/hstack";
 import { Mail, Lock, User, UserPlus, ArrowLeft } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import useColorScheme from "@/hooks/useColorScheme";
+import { useLanguage } from "@/context/LanguageContext";
 
 const { height } = Dimensions.get("window");
 
@@ -33,20 +34,21 @@ export default function SignupScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
+  const { t, language } = useLanguage();
 
   const handleSignUp = async () => {
     if (!email || !password || !username || !confirmPassword) {
-      setError("Vennligst fyll ut alle felt");
+      setError(t("auth.fillAllFields"));
       return;
     }
 
     if (password !== confirmPassword) {
-      setError("Passordene samsvarer ikke");
+      setError(t("auth.passwordsDontMatch"));
       return;
     }
 
     if (password.length < 6) {
-      setError("Passordet må være minst 6 tegn");
+      setError(t("auth.passwordTooShort"));
       return;
     }
 
@@ -87,13 +89,12 @@ export default function SignupScreen() {
         console.log("- User Confirmation Sent:", !!data.user.confirmation_sent_at);
       }
 
-      Alert.alert(
-        "Suksess",
-        "En bekreftelsesmail er sendt til din e-postadresse. Vennligst sjekk innboksen din.",
-        [{ text: "OK", onPress: () => router.push("/login") }]
-      );
+      Alert.alert(t("auth.success"), t("auth.confirmationSent"), [{
+        text: t("common.ok"),
+        onPress: () => router.push("/login")
+      }]);
     } catch (err: any) {
-      setError(err.message || "Kunne ikke registrere bruker");
+      setError(err.message || t("auth.errorSignUp"));
     } finally {
       setLoading(false);
     }
@@ -126,10 +127,10 @@ export default function SignupScreen() {
               <UserPlus size={40} color="#FFFFFF" />
             </View>
             <Heading size="3xl" className="text-white font-extrabold text-center">
-              Opprett konto
+              {t("auth.createAccount")}
             </Heading>
             <Text className="text-white/80 text-center text-lg">
-              Bli med på treningsreisen i dag
+              {t("auth.joinJourney")}
             </Text>
           </VStack>
         </ImageBackground>
@@ -139,14 +140,14 @@ export default function SignupScreen() {
             <VStack space="md">
               <VStack space="xs">
                 <Text className={`font-medium ${isDark ? "text-white/90" : "text-typography-700"}`}>
-                  Brukernavn
+                  {t("settings.username")}
                 </Text>
                 <Input size="lg" className={isDark ? "border-outline-700" : "border-outline-200"}>
                   <InputSlot className="pl-3">
                     <InputIcon as={User} color={isDark ? "#FFFFFF" : "#6B7280"} />
                   </InputSlot>
                   <InputField
-                    placeholder="Ditt brukernavn"
+                    placeholder={t("settings.usernamePlaceholder")}
                     placeholderTextColor={isDark ? "#9CA3AF" : "#9CA3AF"}
                     value={username}
                     onChangeText={setUsername}
@@ -157,14 +158,14 @@ export default function SignupScreen() {
 
               <VStack space="xs">
                 <Text className={`font-medium ${isDark ? "text-white/90" : "text-typography-700"}`}>
-                  E-post
+                  {t("auth.email")}
                 </Text>
                 <Input size="lg" className={isDark ? "border-outline-700" : "border-outline-200"}>
                   <InputSlot className="pl-3">
                     <InputIcon as={Mail} color={isDark ? "#FFFFFF" : "#6B7280"} />
                   </InputSlot>
                   <InputField
-                    placeholder="Din e-post"
+                    placeholder={t("auth.emailPlaceholder")}
                     placeholderTextColor={isDark ? "#9CA3AF" : "#9CA3AF"}
                     value={email}
                     onChangeText={setEmail}
@@ -178,14 +179,14 @@ export default function SignupScreen() {
 
               <VStack space="xs">
                 <Text className={`font-medium ${isDark ? "text-white/90" : "text-typography-700"}`}>
-                  Passord
+                  {t("auth.password")}
                 </Text>
                 <Input size="lg" className={isDark ? "border-outline-700" : "border-outline-200"}>
                   <InputSlot className="pl-3">
                     <InputIcon as={Lock} color={isDark ? "#FFFFFF" : "#6B7280"} />
                   </InputSlot>
                   <InputField
-                    placeholder="Velg et passord"
+                    placeholder={t("auth.choosePassword")}
                     placeholderTextColor={isDark ? "#9CA3AF" : "#9CA3AF"}
                     value={password}
                     onChangeText={setPassword}
@@ -197,14 +198,14 @@ export default function SignupScreen() {
 
               <VStack space="xs">
                 <Text className={`font-medium ${isDark ? "text-white/90" : "text-typography-700"}`}>
-                  Bekreft passord
+                  {t("auth.confirmPassword")}
                 </Text>
                 <Input size="lg" className={isDark ? "border-outline-700" : "border-outline-200"}>
                   <InputSlot className="pl-3">
                     <InputIcon as={Lock} color={isDark ? "#FFFFFF" : "#6B7280"} />
                   </InputSlot>
                   <InputField
-                    placeholder="Gjenta passord"
+                    placeholder={t("auth.repeatPassword")}
                     placeholderTextColor={isDark ? "#9CA3AF" : "#9CA3AF"}
                     value={confirmPassword}
                     onChangeText={setConfirmPassword}
@@ -228,16 +229,16 @@ export default function SignupScreen() {
                 className="bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 h-14 rounded-2xl"
               >
                 {loading ? <ButtonSpinner /> : (
-                  <ButtonText className="text-white font-bold text-lg">Registrer deg</ButtonText>
+                  <ButtonText className="text-white font-bold text-lg">{t("auth.signup")}</ButtonText>
                 )}
               </Button>
 
               <TouchableOpacity onPress={() => router.push("/login")} disabled={loading}>
                 <HStack space="xs" className="justify-center items-center py-2">
                   <Text className={isDark ? "text-white/70" : "text-typography-500"}>
-                    Har du allerede konto?
+                    {t("auth.hasAccount")}
                   </Text>
-                  <Text className="text-emerald-500 font-bold">Logg inn</Text>
+                  <Text className="text-emerald-500 font-bold">{t("settings.signIn")}</Text>
                 </HStack>
               </TouchableOpacity>
             </VStack>

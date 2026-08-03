@@ -21,6 +21,7 @@ import { flattenStyle } from "@/utils/flatten-style";
 import { GoalMetric, GoalPeriod } from "@/types/workout";
 import { getActivityColors } from "@/utils/activityColors";
 import { SessionType } from "@/types/workout";
+import { useLanguage } from "@/context/LanguageContext";
 
 export interface AddGoalModalProps {
   isOpen: boolean;
@@ -44,23 +45,6 @@ export interface AddGoalModalProps {
   setRepeatGoal?: (val: boolean) => void;
 }
 
-const WORKOUT_TYPES = [
-  { id: "styrke", label: "Styrke" },
-  { id: "løping", label: "Løping" },
-  { id: "fjelltur", label: "Fjelltur" },
-  { id: "svømming", label: "Svømming" },
-  { id: "sykling", label: "Sykling" },
-  { id: "gå", label: "Gå" },
-  { id: "tennis", label: "Tennis" },
-  { id: "yoga", label: "Yoga" },
-  { id: "fotball", label: "Fotball" },
-  { id: "trappemaskin", label: "Trappemaskin" },
-  { id: "roing", label: "Roing" },
-  { id: "kajakk", label: "Kajakk" },
-  { id: "tredemølle", label: "Tredemølle" },
-  { id: "annet", label: "Annet" },
-] as const;
-
 export const AddGoalModal = ({
   isOpen,
   onClose,
@@ -82,6 +66,7 @@ export const AddGoalModal = ({
   repeatGoal = false,
   setRepeatGoal,
 }: AddGoalModalProps) => {
+  const { t } = useLanguage();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const inputAccessoryViewID = "targetInputDone";
@@ -97,32 +82,49 @@ export const AddGoalModal = ({
   const textActive = "#FFFFFF";
   const borderCol = isDark ? "#374151" : "#E5E7EB";
 
+  const WORKOUT_TYPES = [
+    { id: "styrke", label: t('activity.styrke') },
+    { id: "løping", label: t('activity.løping') },
+    { id: "fjelltur", label: t('activity.fjelltur') },
+    { id: "svømming", label: t('activity.svømming') },
+    { id: "sykling", label: t('activity.sykling') },
+    { id: "gå", label: t('activity.gå') },
+    { id: "tennis", label: t('activity.tennis') },
+    { id: "yoga", label: t('activity.yoga') },
+    { id: "fotball", label: t('activity.fotball') },
+    { id: "trappemaskin", label: t('activity.trappemaskin') },
+    { id: "roing", label: t('activity.roing') },
+    { id: "kajakk", label: t('activity.kajakk') },
+    { id: "tredemølle", label: t('activity.tredemølle') },
+    { id: "annet", label: t('activity.annet') },
+  ] as const;
+
   // Metric Options Config
   const METRIC_OPTIONS = [
-    { id: "sessions" as GoalMetric, label: "Økter", icon: Hash },
-    { id: "minutes" as GoalMetric, label: "Tid", icon: Clock },
-    { id: "distance" as GoalMetric, label: "Distanse", icon: MapPin },
-    { id: "elevation" as GoalMetric, label: "Høydemeter", icon: Mountain },
+    { id: "sessions" as GoalMetric, label: t('metric.sessions.label'), icon: Hash },
+    { id: "minutes" as GoalMetric, label: t('metric.minutes.label'), icon: Clock },
+    { id: "distance" as GoalMetric, label: t('metric.distance.label'), icon: MapPin },
+    { id: "elevation" as GoalMetric, label: t('metric.elevation.label'), icon: Mountain },
   ];
 
   // Period Options Config
   const PERIOD_OPTIONS = [
-    { id: "week" as GoalPeriod | "custom", label: "Uke" },
-    { id: "month" as GoalPeriod | "custom", label: "Måned" },
-    { id: "year" as GoalPeriod | "custom", label: "År" },
-    { id: "custom" as GoalPeriod | "custom", label: "Velg" },
+    { id: "week" as GoalPeriod | "custom", label: t('goalForm.week') },
+    { id: "month" as GoalPeriod | "custom", label: t('goalForm.month') },
+    { id: "year" as GoalPeriod | "custom", label: t('goalForm.year') },
+    { id: "custom" as GoalPeriod | "custom", label: t('goalForm.custom') },
   ];
 
   // Map metric to visual unit
   const METRIC_UNITS: Record<string, string> = {
-    sessions: "Økter",
-    minutes: "timer",
-    duration: "timer",
-    distance: "km",
-    elevation: "m",
+    sessions: t('metric.sessions'),
+    minutes: t('metric.minutes'),
+    duration: t('metric.minutes'),
+    distance: t('metric.distance'),
+    elevation: t('metric.elevation'),
   };
 
-  const currentUnit = METRIC_UNITS[metric] || "Økter";
+  const currentUnit = METRIC_UNITS[metric] || t('metric.sessions');
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} useRNModal={false} size="lg">
@@ -130,7 +132,7 @@ export const AddGoalModal = ({
       <ModalContent style={flattenStyle([styles.modalContent, { backgroundColor: bgMain, borderColor: borderCol }])}>
         <ModalHeader style={styles.header}>
           <Heading className="text-2xl font-bold" style={{ color: textPrimary, textAlign: 'center', width: '100%' }}>
-            {editingGoalId ? "Endre mål" : "Nytt mål"}
+            {editingGoalId ? t('goalForm.editGoal') : t('goalForm.newGoal')}
           </Heading>
           <TouchableOpacity onPress={onClose} style={styles.closeBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <X size={20} color={textMuted} />
@@ -142,7 +144,7 @@ export const AddGoalModal = ({
             {/* 1. GOAL TYPE SELECTION */}
             <VStack style={{ gap: 6 }}>
               <Text className="text-xs font-semibold uppercase tracking-wider" style={{ color: textMuted }}>
-                Måletype
+                {t('goalForm.metricType')}
               </Text>
               <HStack style={{ gap: 8, justifyContent: "space-between" }}>
                 {METRIC_OPTIONS.map((opt) => {
@@ -180,7 +182,7 @@ export const AddGoalModal = ({
             {/* 2. GOAL VALUE INPUT (CENTERED & NARROW) - MOVED UP */}
             <VStack style={{ gap: 6, alignItems: "center", marginTop: 8 }}>
               <Text className="text-xs font-semibold uppercase tracking-wider" style={{ color: textMuted }}>
-                Målantall (Tallverdi)
+                {t('goalForm.target')}
               </Text>
               <View style={flattenStyle([styles.targetInputContainer, { backgroundColor: bgCard, borderColor: borderCol }])}>
                 <TextInput
@@ -206,7 +208,7 @@ export const AddGoalModal = ({
               <InputAccessoryView nativeID={inputAccessoryViewID}>
                 <View style={flattenStyle([styles.accessoryBar, { backgroundColor: isDark ? "#1F2937" : "#F3F4F6", borderTopColor: borderCol }])}>
                   <TouchableOpacity onPress={Keyboard.dismiss} style={styles.accessoryBtn}>
-                    <Text style={styles.accessoryBtnText}>Ferdig</Text>
+                    <Text style={styles.accessoryBtnText}>{t('common.done')}</Text>
                   </TouchableOpacity>
                 </View>
               </InputAccessoryView>
@@ -215,7 +217,7 @@ export const AddGoalModal = ({
             {/* 3. PERIOD SELECTION */}
             <VStack style={{ gap: 6 }}>
               <Text className="text-xs font-semibold uppercase tracking-wider" style={{ color: textMuted }}>
-                Tidsperiode
+                {t('goalForm.period')}
               </Text>
               <HStack style={{ gap: 8, justifyContent: "space-between" }}>
                 {PERIOD_OPTIONS.map((opt) => {
@@ -253,7 +255,7 @@ export const AddGoalModal = ({
                 <HStack style={{ gap: 12 }}>
                   <VStack style={{ flex: 1, gap: 4 }}>
                     <Text className="text-xs font-semibold" style={{ color: textMuted }}>
-                      Fra
+                      {t('goalForm.from')}
                     </Text>
                     <TouchableOpacity
                       activeOpacity={0.7}
@@ -262,7 +264,7 @@ export const AddGoalModal = ({
                     >
                       <HStack style={{ justifyContent: "space-between", alignItems: "center" }}>
                         <Text style={{ color: customStart ? textPrimary : textMuted, fontSize: 13 }}>
-                          {customStart ? formatDisplayDate(customStart) : "Velg dato"}
+                          {customStart ? formatDisplayDate(customStart) : t('workout.date')}
                         </Text>
                         <Calendar size={14} color="#10B981" />
                       </HStack>
@@ -271,7 +273,7 @@ export const AddGoalModal = ({
 
                   <VStack style={{ flex: 1, gap: 4 }}>
                     <Text className="text-xs font-semibold" style={{ color: textMuted }}>
-                      Til
+                      {t('goalForm.to')}
                     </Text>
                     <TouchableOpacity
                       activeOpacity={0.7}
@@ -280,7 +282,7 @@ export const AddGoalModal = ({
                     >
                       <HStack style={{ justifyContent: "space-between", alignItems: "center" }}>
                         <Text style={{ color: customEnd ? textPrimary : textMuted, fontSize: 13 }}>
-                          {customEnd ? formatDisplayDate(customEnd) : "Velg dato"}
+                          {customEnd ? formatDisplayDate(customEnd) : t('workout.date')}
                         </Text>
                         <Calendar size={14} color="#10B981" />
                       </HStack>
@@ -310,7 +312,7 @@ export const AddGoalModal = ({
                     {repeatGoal && <Check size={14} color="#FFFFFF" strokeWidth={4} />}
                   </View>
                   <Text style={{ color: textPrimary, fontSize: 14, fontWeight: '600' }}>
-                    {period === 'week' ? 'Gjenta hver uke' : period === 'month' ? 'Gjenta hver måned' : 'Gjenta hver år'}
+                    {period === 'week' ? t('goalForm.repeatWeekly') : period === 'month' ? t('goalForm.repeatMonthly') : t('goalForm.repeatMonthly')}
                   </Text>
                   <TouchableOpacity 
                     onPress={() => {
@@ -330,7 +332,7 @@ export const AddGoalModal = ({
             {/* 5. ACTIVITY TYPE SELECTION (GRID OF CHIPS) */}
             <VStack style={{ gap: 6 }}>
               <Text className="text-xs font-semibold uppercase tracking-wider" style={{ color: textMuted }}>
-                Aktivitetstype
+                {t('goalForm.activityType')}
               </Text>
               <View style={styles.chipsContainer}>
                 <TouchableOpacity
@@ -349,7 +351,7 @@ export const AddGoalModal = ({
                       { color: activityTypes.includes("all") ? textActive : textPrimary },
                     ])}
                   >
-                    All trening
+                    {t('goalForm.all')}
                   </Text>
                 </TouchableOpacity>
 
@@ -393,7 +395,7 @@ export const AddGoalModal = ({
             style={flattenStyle([styles.actionBtn, { backgroundColor: isDark ? "#374151" : "#4B5563", marginRight: 8 }])}
             onPress={onClose}
           >
-            <Text style={styles.actionBtnText}>Avbryt</Text>
+            <Text style={styles.actionBtnText}>{t('common.cancel')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             activeOpacity={0.7}
@@ -402,7 +404,7 @@ export const AddGoalModal = ({
             disabled={submitting}
           >
             <Text style={styles.actionBtnText}>
-              {submitting ? "Lagrer..." : editingGoalId ? "Lagre" : "Opprett"}
+              {submitting ? t('common.save') : editingGoalId ? t('common.save') : t('goalForm.create')}
             </Text>
           </TouchableOpacity>
         </ModalFooter>
