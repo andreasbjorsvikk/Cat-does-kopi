@@ -173,6 +173,13 @@ export default function MapScreen() {
   const [originalPosition, setOriginalPosition] = useState<{ latitude: number; longitude: number } | null>(null);
   const [movedWaypointPos, setMovedWaypointPos] = useState<{ latitude: number; longitude: number } | null>(null);
 
+  // Clear selection when route is cleared
+  useEffect(() => {
+    if (!activeRoute) {
+      setActiveWaypointIndex(null);
+    }
+  }, [activeRoute]);
+
   // Top Tabs State
   const [activeTab, setActiveTab] = useState<"kart" | "topper" | "feed" | "lederliste" | "ar">("kart");
   
@@ -232,6 +239,7 @@ export default function MapScreen() {
       const newWaypoints = [...activeRoute.waypoints, coord];
       await updateRoute({ waypoints: newWaypoints });
       setIsPickingWaypoint(false);
+      setActiveWaypointIndex(newWaypoints.length - 1);
     } catch (err) {
       Alert.alert("Feil", "Kunne ikke legge til veipunkt.");
     }
@@ -1265,7 +1273,7 @@ export default function MapScreen() {
                 key="start-point"
                 id="start-point"
                 coordinate={[activeRoute.startPoint.longitude, activeRoute.startPoint.latitude]}
-                draggable={true}
+                draggable={activeWaypointIndex === -1}
                 onSelected={() => {
                   setActiveWaypointIndex(-1);
                   setOriginalPosition(activeRoute.startPoint);
@@ -1330,7 +1338,7 @@ export default function MapScreen() {
                   key={`wp-${idx}`}
                   id={`wp-${idx}`}
                   coordinate={[wp.longitude, wp.latitude]}
-                  draggable={true}
+                  draggable={activeWaypointIndex === idx}
                   onSelected={() => {
                     setActiveWaypointIndex(idx);
                     setOriginalPosition({ latitude: wp.latitude, longitude: wp.longitude });
@@ -1464,7 +1472,7 @@ export default function MapScreen() {
                 key="start-point"
                 coordinate={activeRoute.startPoint}
                 anchor={{ x: 0.5, y: 0.5 }}
-                draggable={true}
+                draggable={activeWaypointIndex === -1}
                 onPress={() => {
                   setActiveWaypointIndex(-1);
                   setOriginalPosition(activeRoute.startPoint);
@@ -1519,7 +1527,7 @@ export default function MapScreen() {
                   key={`wp-${idx}`}
                   coordinate={wp}
                   anchor={{ x: 0.5, y: 0.5 }}
-                  draggable={true}
+                  draggable={activeWaypointIndex === idx}
                   onPress={() => {
                     setActiveWaypointIndex(idx);
                     setOriginalPosition({ latitude: wp.latitude, longitude: wp.longitude });
@@ -2351,26 +2359,26 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   waypointHitArea: {
-    width: 44,
-    height: 44,
+    width: 64,
+    height: 64,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'visible',
   },
   waypointGlow: {
     position: 'absolute',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     backgroundColor: 'rgba(245, 158, 11, 0.3)',
     borderWidth: 2,
     borderColor: 'rgba(245, 158, 11, 0.6)',
     zIndex: -1,
   },
   waypointMarker: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: "#10B981",
     borderWidth: 2,
     borderColor: "#FFFFFF",
@@ -2384,18 +2392,18 @@ const styles = StyleSheet.create({
   },
   waypointMarkerSelected: {
     backgroundColor: "#F59E0B",
-    borderWidth: 3,
+    borderWidth: 4,
     borderColor: "#FFFFFF",
-    transform: [{ scale: 1.1 }],
+    transform: [{ scale: 1.2 }],
   },
   waypointText: {
     color: "#FFFFFF",
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: "bold",
   },
   waypointActions: {
     position: 'absolute',
-    bottom: 40,
+    bottom: 58,
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 20,
     padding: 4,
@@ -2408,6 +2416,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.1)',
     alignItems: 'center',
+    flexDirection: 'row',
   },
   waypointActionBtn: {
     width: 24,
