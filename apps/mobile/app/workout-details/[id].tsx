@@ -505,14 +505,14 @@ export default function WorkoutDetailsPage() {
   }, [session?.durationMinutes, t]);
 
   const pace = useMemo(() => {
-    if (!session) return "--:-- /km";
+    if (!session) return "--:--";
     if (session.distance && session.durationMinutes > 0) {
       const minPerKm = session.durationMinutes / session.distance;
       const mins = Math.floor(minPerKm);
       const secs = Math.round((minPerKm % 1) * 60);
-      return `${mins}:${secs.toString().padStart(2, '0')} /km`;
+      return `${mins}:${secs.toString().padStart(2, '0')}`;
     }
-    return `--:-- /km`;
+    return "--:--";
   }, [session?.distance, session?.durationMinutes]);
 
   useEffect(() => {
@@ -816,7 +816,7 @@ export default function WorkoutDetailsPage() {
                     <Activity size={12} color="#9CA3AF" />
                     <Text style={styles.statLabel}>{t("records.fastest")}</Text>
                   </HStack>
-                  <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>{pace}{t("metric.distance")}</Text>
+                  <Text style={flattenStyle([styles.statValue, isDark ? styles.textWhite : null])}>{pace} /{t("metric.distance")}</Text>
                 </View>
                 <VStack 
                   style={flattenStyle([styles.statCard, isDark ? styles.cardDark : styles.cardLight])}
@@ -824,7 +824,7 @@ export default function WorkoutDetailsPage() {
                 >
                   <HStack space="xs" style={styles.statHeader}>
                     <Heart size={12} color="#9CA3AF" />
-                    <Text style={styles.statLabel}>{t("health.heartRate") || "Puls"}</Text>
+                    <Text style={styles.statLabel}>{t("health.heartRate")}</Text>
                   </HStack>
                   {session.averageHeartrate ? (
                     <VStack space="none" style={{ alignItems: 'center' }}>
@@ -855,7 +855,7 @@ export default function WorkoutDetailsPage() {
                     <Chart 
                       data={hrData} 
                       color="#EF4444" 
-                      label={t("health.heartRate") || "Puls"}
+                      label={t("health.heartRate")}
                       unit=" bpm" 
                       isDark={isDark}
                       avgValue={session.averageHeartrate}
@@ -874,7 +874,7 @@ export default function WorkoutDetailsPage() {
                     >
                       <HStack space="sm" style={{ alignItems: 'center' }}>
                         {loadingHR ? <ActivityIndicator size="small" color="#EF4444" /> : <Heart size={16} color="#EF4444" />}
-                        <Text style={styles.loadChartText}>{t("workoutDetail.showHRChart") || "Vis pulsgraf"}</Text>
+                        <Text style={styles.loadChartText}>{t("workoutDetail.showHRChart")}</Text>
                       </HStack>
                     </TouchableOpacity>
                   )
@@ -885,7 +885,7 @@ export default function WorkoutDetailsPage() {
                     <Chart 
                       data={altitudeData} 
                       color="#10B981" 
-                      label={t("workoutDetail.elevationProfile") || "Høydeprofil"}
+                      label={t("workoutDetail.elevationProfile")}
                       unit={t("metric.elevation")}
                       isDark={isDark}
                       avgValue={Math.round(altitudeData.reduce((acc, d) => acc + d.value, 0) / altitudeData.length)}
@@ -903,7 +903,7 @@ export default function WorkoutDetailsPage() {
                     >
                       <HStack space="sm" style={{ alignItems: 'center' }}>
                         {loadingAlt ? <ActivityIndicator size="small" color="#10B981" /> : <Mountain size={16} color="#10B981" />}
-                        <Text style={styles.loadChartText}>{t("workoutDetail.showAltChart") || "Vis høydeprofil"}</Text>
+                        <Text style={styles.loadChartText}>{t("workoutDetail.showAltChart")}</Text>
                       </HStack>
                     </TouchableOpacity>
                   )
@@ -911,7 +911,7 @@ export default function WorkoutDetailsPage() {
 
                 {((showHRChart && hrData.length === 0) || (showAltChart && altitudeData.length === 0)) && !loadingHR && !loadingAlt && (
                   <View style={flattenStyle([styles.noDataBox, isDark ? styles.cardDark : styles.cardLight])}>
-                    <Text style={styles.noDataText}>{t("workoutDetail.noDetailedData") || "Ingen detaljerte data tilgjengelig for denne økten"}</Text>
+                    <Text style={styles.noDataText}>{t("workoutDetail.noDetailedData")}</Text>
                   </View>
                 )}
               </VStack>

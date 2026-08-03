@@ -149,8 +149,8 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
   });
 
   const pace = session.distance && session.durationMinutes > 0
-    ? `${Math.floor(session.durationMinutes / session.distance)}:${Math.round(((session.durationMinutes / session.distance) % 1) * 60).toString().padStart(2, '0')} /km`
-    : '--:-- /km';
+    ? `${Math.floor(session.durationMinutes / session.distance)}:${Math.round(((session.durationMinutes / session.distance) % 1) * 60).toString().padStart(2, '0')}`
+    : '--:--';
 
   const durationText = session.durationMinutes >= 60
     ? `${Math.floor(session.durationMinutes / 60)} ${t("workout.h")} ${session.durationMinutes % 60} ${t("workout.min")}`
@@ -237,43 +237,43 @@ export const WorkoutDetailDrawer: React.FC<WorkoutDetailDrawerProps> = ({
 
             <View style={styles.statsGrid}>
               <StatsBox 
-                label={t("workoutDetail.duration")}
-                value={durationText} 
+                label={t("workout.duration")}
+                value={durationText}
                 icon={Clock} 
                 isDark={isDark} 
               />
               <StatsBox 
-                label={t("workoutDetail.distance")}
-                value={`${session.distance || 0} km`} 
+                label={t("workout.distance")}
+                value={`${session.distance || 0} ${t("metric.distance")}`}
                 icon={MapPin} 
                 isDark={isDark} 
               />
               <StatsBox 
-                label={t("workoutDetail.elevation")}
-                value={`${session.elevationGain || 0} m`} 
+                label={t("workout.elevation")}
+                value={`${session.elevationGain || 0} ${t("metric.elevation")}`}
                 icon={Mountain} 
                 isDark={isDark} 
               />
               <StatsBox 
                 label={t("workoutDetail.pace")}
-                value={pace} 
+                value={`${pace} /${t("metric.distance")}`}
                 icon={Activity} 
                 isDark={isDark} 
               />
               <StatsBox 
-                label={t("workoutDetail.heartrate")}
+                label={t("health.heartRate")}
                 value={
                   session.averageHeartrate
                     ? `${session.averageHeartrate} / ${session.maxHeartrate || "--"}`
                     : "-- / --"
                 }
-                subtitle={session.averageHeartrate ? "snitt / maks" : undefined}
+                subtitle={session.averageHeartrate ? t("workoutDetail.avgMax").toLowerCase() : undefined}
                 icon={Heart} 
                 isDark={isDark} 
               />
               <StatsBox 
                 label={t("workoutDetail.calories")}
-                value={`${session.calories || 640} kcal`} 
+                value={`${session.calories || 640} kcal`}
                 icon={Flame} 
                 isDark={isDark} 
               />

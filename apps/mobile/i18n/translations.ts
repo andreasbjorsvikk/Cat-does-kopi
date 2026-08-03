@@ -67,6 +67,7 @@ const no = {
   'common.connect': 'Koble til',
   'common.average': 'Snitt',
   'common.max': 'Maks',
+  'common.addSession': 'Legg til økt',
 
   // Home
   'home.trainingGoals': 'Treningsmål',
@@ -160,6 +161,17 @@ const no = {
   'workoutDetail.deleteError': 'Kunne ikke slette økten.',
   'workoutDetail.avgMax': 'Gjennomsnitt / Maks',
   'workoutDetail.calories': 'Kalorier',
+  'workoutDetail.duration': 'Varighet',
+  'workoutDetail.distance': 'Distanse',
+  'workoutDetail.elevation': 'Høydemeter',
+  'workoutDetail.pace': 'Tempo',
+  'workoutDetail.heartrate': 'Puls',
+  'workoutDetail.moreDetails': 'Flere detaljer',
+  'workoutDetail.notes': 'Notater',
+  'workoutDetail.showHRChart': 'Vis pulsgraf',
+  'workoutDetail.showAltChart': 'Vis høydeprofil',
+  'workoutDetail.elevationProfile': 'Høydeprofil',
+  'workoutDetail.noDetailedData': 'Ingen detaljerte data tilgjengelig',
   'workoutDetail.mapUnavailableWeb': 'Kartet er kun tilgjengelig i appen',
 
   // Workout
@@ -167,6 +179,11 @@ const no = {
   'workout.min': 'min',
   'workout.sec': 'sek',
   'workout.add': 'Loggfør økt',
+  'workout.duration': 'Varighet',
+  'workout.distance': 'Distanse',
+  'workout.elevation': 'Høydemeter',
+  'workout.notes': 'Notater',
+  'workout.cancel': 'Avbryt',
   'workout.date': 'Dato',
 
   // Training
@@ -249,6 +266,13 @@ const no = {
 
   // Primary Goal
   'primaryGoal.sessionsPerPeriod': 'Økter per periode',
+
+  // Health
+  'health.heartRate': 'Puls',
+  'health.newEvent': 'Ny hendelse',
+  'health.newSicknessInjury': 'Sykdom / Skade',
+  'health.sickness': 'Sykdom',
+  'health.injury': 'Skade',
 
   // Activity types
   'activity.styrke': 'Styrke', 'activity.løping': 'Løping', 'activity.fjelltur': 'Fjelltur',
@@ -390,6 +414,7 @@ const en = {
   'common.connect': 'Connect',
   'common.average': 'Avg',
   'common.max': 'Max',
+  'common.addSession': 'Add session',
 
   // Home
   'home.trainingGoals': 'Training goals',
@@ -483,6 +508,17 @@ const en = {
   'workoutDetail.deleteError': 'Could not delete session.',
   'workoutDetail.avgMax': 'Average / Max',
   'workoutDetail.calories': 'Calories',
+  'workoutDetail.duration': 'Duration',
+  'workoutDetail.distance': 'Distance',
+  'workoutDetail.elevation': 'Elevation',
+  'workoutDetail.pace': 'Pace',
+  'workoutDetail.heartrate': 'Heart rate',
+  'workoutDetail.moreDetails': 'More details',
+  'workoutDetail.notes': 'Notes',
+  'workoutDetail.showHRChart': 'Show heart rate chart',
+  'workoutDetail.showAltChart': 'Show elevation profile',
+  'workoutDetail.elevationProfile': 'Elevation profile',
+  'workoutDetail.noDetailedData': 'No detailed data available',
   'workoutDetail.mapUnavailableWeb': 'The map is only available in the app',
 
   // Workout
@@ -490,6 +526,11 @@ const en = {
   'workout.min': 'min',
   'workout.sec': 'sec',
   'workout.add': 'Log workout',
+  'workout.duration': 'Duration',
+  'workout.distance': 'Distance',
+  'workout.elevation': 'Elevation',
+  'workout.notes': 'Notes',
+  'workout.cancel': 'Cancel',
   'workout.date': 'Date',
 
   // Training
@@ -572,6 +613,13 @@ const en = {
 
   // Primary Goal
   'primaryGoal.sessionsPerPeriod': 'Workouts per period',
+
+  // Health
+  'health.heartRate': 'Heart Rate',
+  'health.newEvent': 'New event',
+  'health.newSicknessInjury': 'Sickness / Injury',
+  'health.sickness': 'Sickness',
+  'health.injury': 'Injury',
 
   // Activity types
   'activity.styrke': 'Strength', 'activity.løping': 'Running', 'activity.fjelltur': 'Hiking',
